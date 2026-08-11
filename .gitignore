@@ -1,0 +1,16 @@
+# build
+dist/
+.astro/
+
+# deps
+node_modules/
+
+# env — ne jamais commiter les clés
+.env
+.env.production
+.env.local
+.env.*.local
+
+# divers
+.DS_Store
+*.log

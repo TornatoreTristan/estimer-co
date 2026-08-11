@@ -1,0 +1,15 @@
+---
+interface Props {
+  /** Code JavaScript classique (non-module), inséré tel quel. */
+  code: string;
+}
+
+/**
+ * Rend un script classique non traité par le bundler. Nécessaire ici car le
+ * code d'origine s'appuie sur des fonctions globales (callbacks Google Maps,
+ * handlers `onclick`) que la portée module d'Astro rendrait inaccessibles.
+ */
+const { code } = Astro.props;
+---
+
+<script is:inline set:html={code} />

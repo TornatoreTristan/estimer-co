@@ -1,0 +1,204 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ClientConfig from '../components/ClientConfig.astro';
+import RawScript from '../components/RawScript.astro';
+import contactScript from '../scripts/contact.js?raw';
+---
+
+<BaseLayout
+  title="Contact - Estimer mon bien"
+  description="Contactez l'équipe Estimer mon bien pour toute question sur l'estimation de votre bien immobilier."
+>
+  <Fragment slot="head">
+    <ClientConfig />
+    <script
+      is:inline
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  </Fragment>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <h1>Contactez-nous</h1>
+      <p>Notre équipe est à votre écoute pour répondre à toutes vos questions</p>
+    </div>
+  </section>
+
+  <!-- Contact Section -->
+  <section class="contact-section">
+    <div class="container">
+      <div class="contact-container">
+        <div class="contact-form">
+          <h2>Envoyez-nous un message</h2>
+          <form id="contactForm">
+            <div class="form-group">
+              <label for="name">Nom et Prénom *</label>
+              <input type="text" id="name" placeholder="Jean Dupont" required />
+            </div>
+
+            <div class="form-group">
+              <label for="email">Email *</label>
+              <input type="email" id="email" placeholder="jean.dupont@example.com" required />
+            </div>
+
+            <div class="form-group">
+              <label for="phone">Téléphone</label>
+              <input type="tel" id="phone" placeholder="06 12 34 56 78" />
+            </div>
+
+            <div class="form-group">
+              <label for="subject">Sujet *</label>
+              <select id="subject" required>
+                <option value="">Sélectionnez un sujet</option>
+                <option value="estimation">Demande d'estimation</option>
+                <option value="partenariat">Devenir partenaire</option>
+                <option value="information">Demande d'information</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="message">Message *</label>
+              <textarea id="message" placeholder="Votre message..." required></textarea>
+            </div>
+
+            <button type="submit">Envoyer le message</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <RawScript slot="body-end" code={contactScript} />
+</BaseLayout>
+
+<style is:global>
+  /* Hero Section */
+  .hero {
+    background:
+      linear-gradient(135deg, rgba(37, 99, 235, 0.65) 0%, rgba(30, 64, 175, 0.65) 100%),
+      url("https://images.unsplash.com/photo-1423666639041-f56000c27a9a?w=1600&h=900&fit=crop")
+        center/cover;
+    color: white;
+    padding: 80px 0;
+    text-align: center;
+    position: relative;
+  }
+
+  .hero h1 {
+    font-size: 48px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    line-height: 1.2;
+  }
+
+  .hero p {
+    font-size: 20px;
+    margin-bottom: 40px;
+    opacity: 0.95;
+  }
+
+  /* Contact Section */
+  .contact-section {
+    background-color: #ffffff;
+    padding: 60px 0;
+  }
+
+  .contact-container {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  /* Contact Form */
+  .contact-form {
+    background: #ffffff;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  }
+
+  .contact-form h2 {
+    font-size: 28px;
+    margin-bottom: 30px;
+    color: #2c3e50;
+    text-align: center;
+  }
+
+  .form-group {
+    margin-bottom: 25px;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #2c3e50;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  textarea,
+  select {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+    font-family: inherit;
+  }
+
+  textarea {
+    min-height: 150px;
+    resize: vertical;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: #2563eb;
+  }
+
+  button[type="submit"] {
+    width: 100%;
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    color: white;
+    padding: 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      transform 0.2s,
+      box-shadow 0.2s;
+    margin-top: 10px;
+  }
+
+  button[type="submit"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+  }
+
+  button[type="submit"]:active {
+    transform: translateY(0);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero h1 {
+      font-size: 36px;
+    }
+
+    .hero p {
+      font-size: 18px;
+    }
+
+    .contact-form {
+      padding: 30px 20px;
+    }
+  }
+</style>

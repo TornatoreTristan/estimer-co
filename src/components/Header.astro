@@ -1,0 +1,55 @@
+---
+const NAV = [
+  { href: '/', label: 'Accueil' },
+  { href: '/estimation', label: 'Estimation' },
+  { href: '/carte', label: "Prix de l'immobilier" },
+  { href: '/partenaires', label: 'Partenaires' },
+  { href: '/contact', label: 'Contact' },
+] as const;
+
+const { pathname } = Astro.url;
+const current = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+---
+
+<header>
+  <div class="container">
+    <div class="header-content">
+      <a href="/" class="logo">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color: #2563eb; stop-opacity: 1" />
+              <stop offset="100%" style="stop-color: #1e40af; stop-opacity: 1" />
+            </linearGradient>
+          </defs>
+          <!-- Maison -->
+          <path
+            d="M50 15 L85 45 L85 85 L65 85 L65 60 L35 60 L35 85 L15 85 L15 45 Z"
+            fill="url(#logoGradient)"
+          />
+          <!-- Toit -->
+          <path d="M50 10 L90 45 L85 45 L50 15 L15 45 L10 45 Z" fill="url(#logoGradient)" />
+          <!-- Porte -->
+          <rect x="42" y="65" width="16" height="20" fill="#ffffff" rx="1" />
+          <!-- Fenêtre -->
+          <rect x="22" y="50" width="10" height="8" fill="#ffffff" rx="1" />
+          <rect x="68" y="50" width="10" height="8" fill="#ffffff" rx="1" />
+        </svg>
+        <span>Estimer mon bien</span>
+      </a>
+      <nav>
+        <ul>
+          {
+            NAV.map(({ href, label }) => (
+              <li>
+                <a href={href} class={current === href ? 'active' : undefined}>
+                  {label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+    </div>
+  </div>
+</header>

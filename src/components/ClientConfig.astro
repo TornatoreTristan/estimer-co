@@ -1,0 +1,11 @@
+---
+import { CONFIG } from '../lib/config';
+
+/**
+ * Remplace l'ancien `<script src="config.js">` : déclare le global `CONFIG`
+ * attendu par les scripts de page, à partir des variables d'environnement.
+ * À placer dans le <head>, avant les scripts qui l'utilisent.
+ */
+---
+
+<script is:inline set:html={`var CONFIG = ${JSON.stringify(CONFIG)};`} />

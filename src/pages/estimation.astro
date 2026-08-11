@@ -1,0 +1,984 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ClientConfig from '../components/ClientConfig.astro';
+import RawScript from '../components/RawScript.astro';
+import estimationScript from '../scripts/estimation.js?raw';
+
+const benefices = [
+  { icon: '✓', texte: 'Estimation 100% gratuite et sans engagement' },
+  { icon: '⏱', texte: 'Rapport complet sous 24 heures' },
+  { icon: '📊', texte: 'Analyse basee sur les transactions reelles' },
+  { icon: '🔒', texte: 'Vos donnees restent confidentielles' },
+];
+
+const etapes = [
+  { titre: 'Remplissez le formulaire', texte: 'Decrivez votre bien en quelques clics' },
+  { titre: 'Analyse du marche', texte: 'Nos experts etudient les donnees locales' },
+  { titre: 'Rapport detaille', texte: 'Recevez votre estimation complete' },
+  { titre: 'Accompagnement', texte: 'Nos partenaires vous guident' },
+];
+
+const reassurance = [
+  { icon: '🏠', number: '50 000+', label: 'Biens estimés' },
+  { icon: '⭐', number: '98%', label: 'Clients satisfaits' },
+  { icon: '🤝', number: '31', label: 'Partenaires experts' },
+  { icon: '⏱️', number: '24h', label: 'Delai de reponse' },
+];
+
+const temoignages = [
+  {
+    quote:
+      "\"Grace a Estimer mon bien, j'ai pu vendre mon appartement au bon prix. L'estimation etait precise et le rapport tres complet. Je recommande vivement !\"",
+    initiales: 'ML',
+    nom: 'Marie L.',
+    detail: 'Appartement vendu a Lyon',
+  },
+  {
+    quote:
+      "\"Service rapide et professionnel. J'ai recu mon estimation en moins de 24h et elle correspondait parfaitement au prix auquel j'ai finalement vendu ma maison.\"",
+    initiales: 'PD',
+    nom: 'Philippe D.',
+    detail: 'Maison vendue a Bordeaux',
+  },
+  {
+    quote:
+      "\"J'hesitais sur le prix de vente de mon studio. L'estimation m'a permis de fixer un prix juste et de vendre en seulement 3 semaines. Merci !\"",
+    initiales: 'SC',
+    nom: 'Sophie C.',
+    detail: 'Studio vendu a Paris',
+  },
+];
+
+const atouts = [
+  { icon: '⏱️', titre: 'Rapide', texte: 'Recevez votre estimation en moins de 24 heures' },
+  {
+    icon: '🔍',
+    titre: 'Precis',
+    texte: 'Analyse basee sur les donnees du marche immobilier actuel',
+  },
+  { icon: '💶', titre: 'Gratuit', texte: 'Aucun frais, aucun engagement de votre part' },
+  {
+    icon: '🔒',
+    titre: 'Confidentiel',
+    texte: 'Vos donnees sont securisees et ne seront jamais partagees',
+  },
+];
+---
+
+<BaseLayout
+  title="Estimation Gratuite de Votre Bien Immobilier"
+  description="Estimez votre bien immobilier gratuitement et recevez un rapport détaillé sous 24 heures."
+>
+  <Fragment slot="head">
+    <ClientConfig />
+    <script
+      is:inline
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  </Fragment>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <h1>Estimez votre bien immobilier gratuitement</h1>
+      <p>Obtenez votre rapport d'estimation précis et instantané de votre propriété</p>
+    </div>
+  </section>
+
+  <!-- Form Section -->
+  <section class="form-section">
+    <div class="container">
+      <div class="form-wrapper">
+        <!-- Left side - Info -->
+        <div class="form-info">
+          <h2>Obtenez votre estimation en quelques minutes</h2>
+          <p>
+            Remplissez ce formulaire et recevez gratuitement une estimation detaillee de votre bien
+            immobilier basee sur les donnees du marche actuel.
+          </p>
+          <ul class="form-benefits">
+            {
+              benefices.map((benefice) => (
+                <li>
+                  <span class="benefit-icon">{benefice.icon}</span>
+                  <span>{benefice.texte}</span>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+
+        <!-- Right side - Form -->
+        <div class="form-container">
+          <h2>Estimez votre bien</h2>
+          <p class="form-subtitle">Completez les informations ci-dessous</p>
+
+          <div class="form-progress">
+            <div class="progress-step active"></div>
+            <div class="progress-step active"></div>
+            <div class="progress-step active"></div>
+            <div class="progress-step"></div>
+          </div>
+
+          <form id="estimationForm">
+            <div class="form-section-title">Votre bien</div>
+
+            <div class="form-group">
+              <label for="propertyType">Type de bien <span class="required">*</span></label>
+              <select id="propertyType" required>
+                <option value="">Selectionnez un type</option>
+                <option value="appartement">Appartement</option>
+                <option value="maison">Maison</option>
+                <option value="terrain">Terrain</option>
+                <option value="local-commercial">Local commercial</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="hasTerrainGroup" style="display: none">
+              <label for="hasTerrain">Avez-vous du terrain ? <span class="required">*</span></label>
+              <select id="hasTerrain">
+                <option value="">Selectionnez une option</option>
+                <option value="yes">Oui</option>
+                <option value="no">Non</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="terrainSizeGroup" style="display: none">
+              <label for="terrainSize">
+                Surface du terrain (m2) <span class="required">*</span>
+              </label>
+              <input type="number" id="terrainSize" placeholder="500" min="1" />
+            </div>
+
+            <div class="form-group">
+              <label for="address">Adresse du bien <span class="required">*</span></label>
+              <input type="text" id="address" placeholder="123 Rue de la Paix" required />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="postalCode">Code postal <span class="required">*</span></label>
+                <input type="text" id="postalCode" placeholder="75001" required pattern="[0-9]{5}" />
+              </div>
+
+              <div class="form-group">
+                <label for="city">Ville <span class="required">*</span></label>
+                <input type="text" id="city" placeholder="Paris" required />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="surface">Surface (m2) <span class="required">*</span></label>
+                <input type="number" id="surface" placeholder="85" required min="1" />
+              </div>
+
+              <div class="form-group">
+                <label for="rooms">Nombre de pieces <span class="required">*</span></label>
+                <input type="number" id="rooms" placeholder="3" required min="1" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="dpe">
+                Diagnostic energetique (DPE) <span class="required">*</span>
+              </label>
+              <select id="dpe" required>
+                <option value="">Selectionnez une option</option>
+                <option value="A">A - Excellent</option>
+                <option value="B">B - Tres bon</option>
+                <option value="C">C - Bon</option>
+                <option value="D">D - Moyen</option>
+                <option value="E">E - Insuffisant</option>
+                <option value="F">F - Mauvais</option>
+                <option value="G">G - Tres mauvais</option>
+                <option value="unknown">Je ne connais pas mon DPE</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="dpeRequestGroup" style="display: none">
+              <label for="dpeRequest">Souhaitez-vous realiser un DPE ?</label>
+              <select id="dpeRequest">
+                <option value="">Selectionnez une option</option>
+                <option value="yes">Oui, je souhaite un devis</option>
+                <option value="no">Non merci</option>
+              </select>
+            </div>
+
+            <div
+              id="ritmodiagLink"
+              style="display: none; text-align: center; margin-top: 20px; margin-bottom: 20px;"
+            >
+              <a
+                href="https://www.ritmodiag.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px; transition: transform 0.3s, box-shadow 0.3s;"
+              >
+                Obtenir un devis DPE gratuit →
+              </a>
+            </div>
+
+            <div class="form-section-title" style="margin-top: 30px">Votre situation</div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="isOwner">Etes-vous proprietaire ? <span class="required">*</span></label>
+                <select id="isOwner" required>
+                  <option value="">Selectionnez une option</option>
+                  <option value="yes">Oui</option>
+                  <option value="no">Non</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="wantToSell">
+                  Souhaitez-vous vendre ? <span class="required">*</span>
+                </label>
+                <select id="wantToSell" required>
+                  <option value="">Selectionnez une option</option>
+                  <option value="yes">Oui</option>
+                  <option value="no">Non, juste une estimation</option>
+                  <option value="maybe">Peut-etre, je reflechis</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-section-title" style="margin-top: 30px">Vos coordonnees</div>
+
+            <div class="form-group">
+              <label for="name">Nom et Prenom <span class="required">*</span></label>
+              <input type="text" id="name" placeholder="Jean Dupont" required />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="email">Email <span class="required">*</span></label>
+                <input type="email" id="email" placeholder="jean.dupont@email.com" required />
+              </div>
+
+              <div class="form-group">
+                <label for="phone">Telephone <span class="required">*</span></label>
+                <input type="tel" id="phone" placeholder="06 12 34 56 78" required />
+              </div>
+            </div>
+
+            <button type="submit">
+              <span>Recevoir mon estimation gratuite</span>
+              <span>→</span>
+            </button>
+          </form>
+
+          <div class="form-footer">
+            <p>
+              <span class="secure-badge">🔒 Connexion securisee</span> - Vos informations sont
+              protegees
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reassurance Section -->
+  <section class="reassurance">
+    <div class="container">
+      <div class="reassurance-grid">
+        {
+          reassurance.map((item) => (
+            <div class="reassurance-item">
+              <span class="icon">{item.icon}</span>
+              <span class="number">{item.number}</span>
+              <span class="label">{item.label}</span>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Process Section -->
+  <section class="process">
+    <div class="container">
+      <h2>Comment ca marche ?</h2>
+      <div class="process-steps">
+        {
+          etapes.map((etape, i) => (
+            <div class="process-step">
+              <div class="step-number">{i + 1}</div>
+              <h3>{etape.titre}</h3>
+              <p>{etape.texte}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Why Estimate Section -->
+  <section class="why-estimate">
+    <div class="container">
+      <h2>Pourquoi une estimation precise est essentielle ?</h2>
+      <p class="subtitle">
+        Une estimation juste de votre bien immobilier peut faire toute la difference dans la reussite
+        de votre projet
+      </p>
+      <div class="why-grid">
+        <div class="why-card">
+          <h3><span class="icon">💰</span> Evitez de sous-evaluer votre bien</h3>
+          <p>
+            Un prix trop bas vous fait perdre de l'argent. Avec une estimation precise, vous vendez
+            au juste prix et maximisez votre plus-value. En moyenne, une mauvaise estimation peut
+            vous couter jusqu'a 15% de la valeur de votre bien.
+          </p>
+        </div>
+        <div class="why-card">
+          <h3><span class="icon">⏰</span> Vendez plus rapidement</h3>
+          <p>
+            Un bien correctement estime se vend en moyenne 2 fois plus vite. Les acheteurs sont mieux
+            informes qu'avant et reconnaissent immediatement un prix coherent avec le marche.
+          </p>
+        </div>
+        <div class="why-card">
+          <h3><span class="icon">🎯</span> Negociez en position de force</h3>
+          <p>
+            Avec un rapport d'estimation detaille, vous disposez d'arguments solides pour justifier
+            votre prix. Fini les negociations a l'aveugle, vous savez exactement ce que vaut votre
+            bien.
+          </p>
+        </div>
+        <div class="why-card">
+          <h3><span class="icon">📊</span> Anticipez l'impact du DPE</h3>
+          <p>
+            Le diagnostic de performance energetique peut impacter le prix de votre bien jusqu'a 25%.
+            Notre estimation prend en compte ce critere devenu incontournable pour les acheteurs.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials Section -->
+  <section class="testimonials">
+    <div class="container">
+      <h2>Ce que nos clients disent de nous</h2>
+      <div class="testimonials-grid">
+        {
+          temoignages.map((temoignage) => (
+            <div class="testimonial-card">
+              <div class="stars">★★★★★</div>
+              <p class="quote">{temoignage.quote}</p>
+              <div class="author">
+                <div class="avatar">{temoignage.initiales}</div>
+                <div class="author-info">
+                  <h4>{temoignage.nom}</h4>
+                  <span>{temoignage.detail}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features">
+    <div class="container">
+      <h2>Pourquoi nous choisir ?</h2>
+      <div class="features-grid">
+        {
+          atouts.map((atout) => (
+            <div class="feature-item">
+              <div class="feature-icon">{atout.icon}</div>
+              <h3>{atout.titre}</h3>
+              <p>{atout.texte}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <RawScript slot="body-end" code={estimationScript} />
+</BaseLayout>
+
+<style is:global>
+  /* Hero Section */
+  .hero {
+    background:
+      linear-gradient(135deg, rgba(37, 99, 235, 0.65) 0%, rgba(30, 64, 175, 0.65) 100%),
+      url("https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1600&h=900&fit=crop")
+        center/cover;
+    color: white;
+    padding: 80px 0;
+    text-align: center;
+    position: relative;
+  }
+
+  .hero h1 {
+    font-size: 48px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    line-height: 1.2;
+  }
+
+  .hero p {
+    font-size: 20px;
+    margin-bottom: 40px;
+    opacity: 0.95;
+  }
+
+  /* Form Section */
+  .form-section {
+    background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+    padding: 80px 0;
+  }
+
+  .form-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 60px;
+    max-width: 1100px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  .form-info {
+    padding: 40px 0;
+  }
+
+  .form-info h2 {
+    font-size: 36px;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    line-height: 1.3;
+  }
+
+  .form-info p {
+    font-size: 18px;
+    color: #6c757d;
+    margin-bottom: 30px;
+    line-height: 1.7;
+  }
+
+  .form-benefits {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .form-benefits li {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px 0;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 16px;
+    color: #2c3e50;
+  }
+
+  .form-benefits li:last-child {
+    border-bottom: none;
+  }
+
+  .form-benefits .benefit-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .form-container {
+    background: #ffffff;
+    padding: 45px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    border: 1px solid #e8e8e8;
+  }
+
+  .form-container h2 {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #2c3e50;
+    text-align: center;
+  }
+
+  .form-subtitle {
+    text-align: center;
+    color: #6c757d;
+    font-size: 15px;
+    margin-bottom: 30px;
+  }
+
+  .form-progress {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 30px;
+  }
+
+  .progress-step {
+    width: 40px;
+    height: 4px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    transition: background 0.3s;
+  }
+
+  .progress-step.active {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  }
+
+  .form-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2563eb;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f0f0;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 14px;
+  }
+
+  label .required {
+    color: #e74c3c;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  select {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #e8e8e8;
+    border-radius: 10px;
+    font-size: 16px;
+    transition: all 0.3s;
+    font-family: inherit;
+    background-color: #fafafa;
+  }
+
+  input[type="text"]:hover,
+  input[type="email"]:hover,
+  input[type="tel"]:hover,
+  input[type="number"]:hover,
+  select:hover {
+    border-color: #c0c0c0;
+    background-color: #ffffff;
+  }
+
+  input:focus,
+  select:focus {
+    outline: none;
+    border-color: #2563eb;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+
+  button[type="submit"] {
+    width: 100%;
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    color: white;
+    padding: 18px;
+    border: none;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  button[type="submit"]:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+  }
+
+  button[type="submit"]:active {
+    transform: translateY(0);
+  }
+
+  .form-footer {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+  }
+
+  .form-footer p {
+    font-size: 13px;
+    color: #6c757d;
+  }
+
+  .form-footer .secure-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #27ae60;
+    font-weight: 500;
+  }
+
+  /* Ritmodiag Button Hover Effect */
+  #ritmodiagLink a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+  }
+
+  #ritmodiagLink a:active {
+    transform: translateY(0);
+  }
+
+  /* Features Section */
+  .features {
+    padding: 60px 0;
+    background-color: #f8f9fa;
+  }
+
+  .features h2 {
+    text-align: center;
+    font-size: 32px;
+    margin-bottom: 50px;
+    color: #2c3e50;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 40px;
+  }
+
+  .feature-item {
+    text-align: center;
+    padding: 20px;
+  }
+
+  .feature-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 28px;
+    color: white;
+  }
+
+  .feature-item h3 {
+    font-size: 20px;
+    margin-bottom: 12px;
+    color: #2c3e50;
+  }
+
+  .feature-item p {
+    color: #6c757d;
+    line-height: 1.6;
+  }
+
+  /* Reassurance Section */
+  .reassurance {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    padding: 40px 0;
+    color: white;
+  }
+
+  .reassurance-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 30px;
+    text-align: center;
+  }
+
+  .reassurance-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .reassurance-item .icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+  }
+
+  .reassurance-item .number {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+
+  .reassurance-item .label {
+    font-size: 14px;
+    opacity: 0.9;
+  }
+
+  /* Why Estimate Section */
+  .why-estimate {
+    background-color: #ffffff;
+    padding: 80px 0;
+  }
+
+  .why-estimate h2 {
+    text-align: center;
+    font-size: 32px;
+    margin-bottom: 20px;
+    color: #2c3e50;
+  }
+
+  .why-estimate .subtitle {
+    text-align: center;
+    font-size: 18px;
+    color: #6c757d;
+    margin-bottom: 50px;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 40px;
+  }
+
+  .why-card {
+    background: #f8f9fa;
+    padding: 30px;
+    border-radius: 12px;
+    border-left: 4px solid #2563eb;
+  }
+
+  .why-card h3 {
+    font-size: 20px;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .why-card h3 .icon {
+    font-size: 24px;
+  }
+
+  .why-card p {
+    color: #6c757d;
+    line-height: 1.7;
+  }
+
+  /* Testimonials Section */
+  .testimonials {
+    background-color: #f8f9fa;
+    padding: 80px 0;
+  }
+
+  .testimonials h2 {
+    text-align: center;
+    font-size: 32px;
+    margin-bottom: 50px;
+    color: #2c3e50;
+  }
+
+  .testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+  }
+
+  .testimonial-card {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  }
+
+  .testimonial-card .stars {
+    color: #f59e0b;
+    font-size: 20px;
+    margin-bottom: 15px;
+  }
+
+  .testimonial-card .quote {
+    font-style: italic;
+    color: #6c757d;
+    line-height: 1.7;
+    margin-bottom: 20px;
+  }
+
+  .testimonial-card .author {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+  .testimonial-card .avatar {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 18px;
+  }
+
+  .testimonial-card .author-info h4 {
+    font-size: 16px;
+    color: #2c3e50;
+    margin-bottom: 3px;
+  }
+
+  .testimonial-card .author-info span {
+    font-size: 14px;
+    color: #6c757d;
+  }
+
+  /* Process Section */
+  .process {
+    background-color: #ffffff;
+    padding: 80px 0;
+  }
+
+  .process h2 {
+    text-align: center;
+    font-size: 32px;
+    margin-bottom: 50px;
+    color: #2c3e50;
+  }
+
+  .process-steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 30px;
+  }
+
+  .process-step {
+    text-align: center;
+    position: relative;
+  }
+
+  .process-step::after {
+    content: "→";
+    position: absolute;
+    right: -20px;
+    top: 30px;
+    font-size: 24px;
+    color: #2563eb;
+  }
+
+  .process-step:last-child::after {
+    display: none;
+  }
+
+  .step-number {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 auto 20px;
+  }
+
+  .process-step h3 {
+    font-size: 18px;
+    color: #2c3e50;
+    margin-bottom: 10px;
+  }
+
+  .process-step p {
+    font-size: 14px;
+    color: #6c757d;
+  }
+
+  /* Responsive */
+  @media (max-width: 992px) {
+    .form-wrapper {
+      grid-template-columns: 1fr;
+      gap: 40px;
+    }
+
+    .form-info {
+      text-align: center;
+      padding: 0;
+    }
+
+    .form-benefits li {
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hero h1 {
+      font-size: 36px;
+    }
+
+    .hero p {
+      font-size: 18px;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+
+    .form-container {
+      padding: 30px 20px;
+    }
+
+    .reassurance-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .why-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .testimonials-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .process-steps {
+      grid-template-columns: 1fr;
+    }
+
+    .process-step::after {
+      display: none;
+    }
+  }
+</style>
