@@ -1,0 +1,87 @@
+# Build Astro + déploiement GitHub Pages sur push `main`.
+# Repo cible : TornatoreTristan/estimer-co (cf. specs/cms-seo-tracking.md §7 Lot 0, A2).
+#
+# Prérequis côté réglages du repo (Settings > Pages) :
+#   - "Build and deployment" > Source = "GitHub Actions" (pas "Deploy from a branch").
+#
+# Variables/secrets à configurer dans Settings > Secrets and variables > Actions
+# (aucune valeur réelle n'est écrite dans ce fichier) :
+#   - PUBLIC_EMAILJS_PUBLIC_KEY
+#   - PUBLIC_EMAILJS_SERVICE_ID
+#   - PUBLIC_EMAILJS_TEMPLATE_ID
+#   - PUBLIC_GOOGLE_MAPS_API_KEY   (restreindre par référent HTTP, cf. README)
+#   - PUBLIC_CONTACT_EMAIL
+#   - PUBLIC_GA4_MEASUREMENT_ID
+# Toutes préfixées PUBLIC_ (donc déjà visibles côté navigateur une fois
+# buildées) : "Repository variables" convient aussi bien que "Secrets" pour
+# ces valeurs, mais "Secrets" évite qu'elles apparaissent en clair dans les
+# logs de configuration du repo. Les deux sont lus de la même façon ici via
+# `${{ secrets.X }}` — à adapter en `${{ vars.X }}` si elles sont configurées
+# comme variables plutôt que comme secrets.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois ; annule les déploiements en attente au profit
+# du plus récent (jamais un déploiement de build en cours).
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Garde-fou : bloque le déploiement si une entrée "publie" viole une
+      # gate de publication — s'exécute AVANT le build, jamais après.
+      - name: Validate content (CI gate)
+        run: node scripts/validate-content.mjs
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build
+        run: npm run build
+        env:
+          PUBLIC_EMAILJS_PUBLIC_KEY: ${{ secrets.PUBLIC_EMAILJS_PUBLIC_KEY }}
+          PUBLIC_EMAILJS_SERVICE_ID: ${{ secrets.PUBLIC_EMAILJS_SERVICE_ID }}
+          PUBLIC_EMAILJS_TEMPLATE_ID: ${{ secrets.PUBLIC_EMAILJS_TEMPLATE_ID }}
+          PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.PUBLIC_GOOGLE_MAPS_API_KEY }}
+          PUBLIC_CONTACT_EMAIL: ${{ secrets.PUBLIC_CONTACT_EMAIL }}
+          PUBLIC_GA4_MEASUREMENT_ID: ${{ secrets.PUBLIC_GA4_MEASUREMENT_ID }}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

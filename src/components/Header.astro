@@ -11,45 +11,72 @@ const { pathname } = Astro.url;
 const current = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
 ---
 
-<header>
+<div class="announce">
+  Estimation gratuite, rapport complet sous 24 h. <a href="/estimation">Commencer &rarr;</a>
+</div>
+
+<header class="site-header" id="siteHeader">
   <div class="container">
-    <div class="header-content">
-      <a href="/" class="logo">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color: #2563eb; stop-opacity: 1" />
-              <stop offset="100%" style="stop-color: #1e40af; stop-opacity: 1" />
-            </linearGradient>
-          </defs>
-          <!-- Maison -->
+    <div class="site-header__inner">
+      <a href="/" class="brand" aria-label="Estimer mon bien — accueil">
+        <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect width="32" height="32" fill="#1d0c1b"></rect>
+          <path d="M9 15.5 16 9.5l7 6" stroke="#ff6e34" stroke-width="2.2" stroke-linecap="square"
+            stroke-linejoin="miter" fill="none"></path>
           <path
-            d="M50 15 L85 45 L85 85 L65 85 L65 60 L35 60 L35 85 L15 85 L15 45 Z"
-            fill="url(#logoGradient)"
-          />
-          <!-- Toit -->
-          <path d="M50 10 L90 45 L85 45 L50 15 L15 45 L10 45 Z" fill="url(#logoGradient)" />
-          <!-- Porte -->
-          <rect x="42" y="65" width="16" height="20" fill="#ffffff" rx="1" />
-          <!-- Fenêtre -->
-          <rect x="22" y="50" width="10" height="8" fill="#ffffff" rx="1" />
-          <rect x="68" y="50" width="10" height="8" fill="#ffffff" rx="1" />
+            d="M10.75 15v7.5h10.5V15"
+            stroke="#ffffff"
+            stroke-width="2.2"
+            stroke-linecap="square"
+            stroke-linejoin="miter"
+            fill="none"></path>
         </svg>
         <span>Estimer mon bien</span>
       </a>
-      <nav>
-        <ul>
-          {
-            NAV.map(({ href, label }) => (
-              <li>
-                <a href={href} class={current === href ? 'active' : undefined}>
-                  {label}
-                </a>
-              </li>
-            ))
-          }
-        </ul>
+
+      <nav class="site-nav" id="siteNav" aria-label="Navigation principale">
+        {
+          NAV.map(({ href, label }) => (
+            <a href={href} aria-current={current === href ? 'page' : undefined}>
+              {label}
+            </a>
+          ))
+        }
+        <a href="/estimation" class="btn btn--primary">Estimer mon bien</a>
       </nav>
+
+      <div class="site-header__actions">
+        <a href="/estimation" class="btn btn--primary">Estimer mon bien</a>
+        <button
+          type="button"
+          class="nav-toggle"
+          id="navToggle"
+          aria-expanded="false"
+          aria-controls="siteNav"
+          aria-label="Ouvrir le menu"
+        >
+          <svg class="icon-open" viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="4" y1="8" x2="20" y2="8"></line>
+            <line x1="4" y1="16" x2="20" y2="16"></line>
+          </svg>
+          <svg class="icon-close" viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 </header>
+
+<script>
+  const header = document.getElementById('siteHeader');
+  const toggle = document.getElementById('navToggle');
+
+  toggle?.addEventListener('click', () => {
+    const open = header?.dataset.open === 'true';
+    if (header) header.dataset.open = open ? 'false' : 'true';
+    toggle.setAttribute('aria-expanded', String(!open));
+    toggle.setAttribute('aria-label', open ? 'Ouvrir le menu' : 'Fermer le menu');
+  });
+</script>

@@ -35,7 +35,7 @@ src/
     prix.ts                    13 régions + 101 départements (prix au m²)
     partenaires.ts             30 partenaires
   scripts/                     JS client repris tel quel du site d'origine
-  styles/global.css            reset, container, header, footer
+  styles/global.css            design system : tokens, reset, composants, header, footer
   lib/config.ts                lit les variables PUBLIC_* d'environnement
 ```
 
@@ -68,11 +68,61 @@ La seule protection possible pour la clé Google est une **restriction par
 référent HTTP** dans la console Google Cloud. La clé actuellement en ligne a été
 exposée publiquement — la faire tourner est recommandé.
 
+## Contenu CMS (Pages CMS) — Lot 0
+
+Voir `specs/cms-seo-tracking.md` pour le cadrage complet. Fondations posées au
+Lot 0 :
+
+- `src/content.config.ts` — 4 collections (`regions`, `departements`,
+  `partenaires`, `pages`), schémas Zod. Les fichiers Markdown vivent dans
+  `src/content/<collection>/<slug>.md` (frontmatter YAML + corps Markdown).
+  Les schémas ne valident que la *forme* des champs ; les règles "obligatoire
+  si publié" sont documentées en tête de fichier et vivent dans
+  `scripts/validate-content.mjs`, pas dans Zod (voir ce fichier pour le détail
+  de la décision).
+- `.pages.yml` — configuration de l'app hébergée [Pages CMS](https://pagescms.org),
+  connectée en écriture directe sur ce repo GitHub (accès restreint aux
+  collaborateurs ayant les droits d'écriture). Chaque sauvegarde y crée un
+  commit sur `main`, ce qui déclenche `.github/workflows/deploy.yml`.
+- `scripts/migrate-legacy-data.mjs` — migration one-off, déjà exécutée, qui a
+  généré les 144 fichiers (13 régions + 101 départements + 30 partenaires)
+  depuis `src/data/prix.ts` / `src/data/partenaires.ts`, toutes en
+  `statut: brouillon`. Rejouable sans écraser un contenu déjà édité (voir
+  `--force`/`--dry-run` en tête du script). `src/data/prix.ts` et
+  `src/data/partenaires.ts` restent en place tant que `carte.astro` et
+  `partenaires.astro` ne consomment pas encore les collections (migration de
+  ces pages prévue aux lots suivants).
+- `scripts/validate-content.mjs` — garde-fou exécuté en CI avant `astro build`
+  (gates de publication, unicité de slug, slugs réservés, intégrité de
+  `regionParente`). Un brouillon incomplet ne bloque jamais le build ; seule
+  une entrée `statut: publie` incomplète le fait.
+
+## Déploiement
+
+`.github/workflows/deploy.yml` construit le site (`astro build`, précédé de
+`node scripts/validate-content.mjs`) et le déploie sur GitHub Pages à chaque
+push sur `main`. Prérequis : dans les réglages du repo, **Settings > Pages >
+Build and deployment > Source = "GitHub Actions"**, et les variables
+`PUBLIC_*` (voir `.env.example`) renseignées dans **Settings > Secrets and
+variables > Actions** (aucune valeur réelle n'est commitée).
+
 ## Choix de portage
 
-- **CSS** — les règles communes aux six pages (reset, `.container`, header,
-  footer) sont dans `src/styles/global.css`. Le reste est repris page par page
-  dans un bloc `<style is:global>`, à l'identique de l'original.
+- **CSS** — `src/styles/global.css` porte le design system complet : tokens
+  (couleurs, typographie, rayons, rythme des sections), reset, et les classes
+  partagées (`.btn`, `.card`, `.section`, `.grid`, `.eyebrow`, `.input`,
+  header, footer). Chaque page n'ajoute que ses styles propres, dans un bloc
+  `<style>` **scopé**. Deux exceptions en `<style is:global>` : `/carte` et
+  `/rapport`, dont une partie du contenu est injectée à l'exécution par les
+  scripts client — les styles scopés ne s'appliqueraient pas à ce HTML.
+- **Charte** — inspirée de Fygr/Okimia : fond beige, texte aubergine
+  (`#1d0c1b`), orange (`#ff6e34`) comme unique accent, typographie Geist et
+  Geist Mono (Google Fonts). **Aucun rayon ni ombre portée** : tout est à angle
+  droit, la profondeur ne vient que des aplats et des filets de 1 px. Il n'y a
+  donc volontairement pas de tokens `--radius-*` / `--shadow-*` dans
+  `global.css`, et le focus des champs passe par un `outline`, pas par un
+  `box-shadow`. Le PDF généré (`src/scripts/rapport-report.js`) suit la même
+  règle : aplats, rectangles droits, ni ombre ni dégradé.
 - **Scripts client** — le code d'origine s'appuie sur des fonctions globales
   (callback `initAutocomplete` de Google Maps, `initMap`, `onclick="downloadPDF()"`).
   Il est donc conservé en script classique non bundlé (`RawScript`) plutôt que

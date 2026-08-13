@@ -19,6 +19,13 @@ const { title, description } = Astro.props;
     <meta name="generator" content={Astro.generator} />
     {description && <meta name="description" content={description} />}
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    <meta name="theme-color" content="#fcfbfa" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap"
+    />
     <title>{title}</title>
     <slot name="head" />
   </head>

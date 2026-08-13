@@ -1,5 +1,78 @@
-<footer>
+---
+const annee = new Date().getFullYear();
+
+const COLONNES = [
+  {
+    titre: 'Services',
+    liens: [
+      { href: '/estimation', label: 'Estimation gratuite' },
+      { href: '/carte', label: "Prix de l'immobilier" },
+      { href: '/estimation', label: 'Rapport détaillé' },
+      { href: '/contact', label: 'Diagnostic DPE' },
+    ],
+  },
+  {
+    titre: 'Ressources',
+    liens: [
+      { href: '/carte', label: 'Prix par région' },
+      { href: '/carte', label: 'Prix par département' },
+      { href: '/partenaires', label: 'Réseau de partenaires' },
+    ],
+  },
+  {
+    titre: 'Entreprise',
+    liens: [
+      { href: '/partenaires', label: 'Devenir partenaire' },
+      { href: '/contact', label: 'Nous contacter' },
+    ],
+  },
+] as const;
+---
+
+<footer class="site-footer">
   <div class="container">
-    <p>&copy; 2025 Estimer mon bien. Tous droits réservés.</p>
+    <div class="site-footer__top">
+      <div>
+        <a href="/" class="brand">
+          <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect width="32" height="32" fill="#ffffff"></rect>
+            <path d="M9 15.5 16 9.5l7 6" stroke="#ff6e34" stroke-width="2.2" stroke-linecap="square"
+              stroke-linejoin="miter" fill="none"></path>
+            <path
+              d="M10.75 15v7.5h10.5V15"
+              stroke="#1d0c1b"
+              stroke-width="2.2"
+              stroke-linecap="square"
+              stroke-linejoin="miter"
+              fill="none"></path>
+          </svg>
+          <span>Estimer mon bien</span>
+        </a>
+        <p class="site-footer__pitch">
+          L'estimation immobilière fiable, gratuite et documentée. Un rapport complet sur la valeur
+          de votre bien, sous 24 heures.
+        </p>
+      </div>
+
+      {
+        COLONNES.map((colonne) => (
+          <div>
+            <h4>{colonne.titre}</h4>
+            <ul>
+              {colonne.liens.map((lien) => (
+                <li>
+                  <a href={lien.href}>{lien.label}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="site-footer__bottom">
+      <p>&copy; {annee} Estimer mon bien. Tous droits réservés.</p>
+      <p>Estimation indicative, sans valeur d'expertise réglementaire.</p>
+    </div>
   </div>
 </footer>

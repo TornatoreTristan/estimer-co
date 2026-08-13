@@ -48,7 +48,7 @@
               icon: {
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 12,
-                fillColor: "#2563eb",
+                fillColor: "#ff6e34",
                 fillOpacity: 1,
                 strokeColor: "#ffffff",
                 strokeWeight: 3,
@@ -59,13 +59,13 @@
             const infoWindow = new google.maps.InfoWindow({
               content: `
                             <div style="padding: 10px; max-width: 250px;">
-                                <strong style="color: #2563eb; font-size: 14px;">${capitalizeFirst(
+                                <strong style="color: #ff6e34; font-size: 14px;">${capitalizeFirst(
                                   lastEstimation.propertyType
                                 )}</strong>
-                                <p style="margin: 5px 0 0; color: #2c3e50; font-size: 13px;">${
+                                <p style="margin: 5px 0 0; color: #1d0c1b; font-size: 13px;">${
                                   lastEstimation.address
                                 }</p>
-                                <p style="margin: 3px 0 0; color: #6c757d; font-size: 12px;">${
+                                <p style="margin: 3px 0 0; color: rgba(29,12,27,0.6); font-size: 12px;">${
                                   lastEstimation.postalCode
                                 } ${capitalizeFirst(lastEstimation.city)}</p>
                             </div>
@@ -81,8 +81,8 @@
           } else {
             // En cas d'erreur de géocodage, afficher un message
             document.getElementById("propertyMap").innerHTML = `
-                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f8f9fa; border-radius: 8px;">
-                            <p style="color: #6c757d; text-align: center;">
+                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f7f5f2;">
+                            <p style="color: rgba(29,12,27,0.6); text-align: center;">
                                 Impossible de localiser l'adresse sur la carte.<br>
                                 <small>Vérifiez que l'adresse est correcte.</small>
                             </p>

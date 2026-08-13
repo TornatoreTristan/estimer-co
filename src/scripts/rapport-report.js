@@ -193,7 +193,7 @@
                     </div>
                     <div class="stat-item">
                         <div class="stat-value" style="color: ${
-                          evolutionAnnuelle >= 0 ? "#27ae60" : "#e74c3c"
+                          evolutionAnnuelle >= 0 ? "#446f28" : "#c33228"
                         };">${
           evolutionAnnuelle >= 0 ? "+" : ""
         }${evolutionAnnuelle}%</div>
@@ -211,7 +211,7 @@
         )}/m²</p>
                 </div>
 
-                <h4 style="margin-top: 25px; margin-bottom: 15px; color: #2c3e50;">Analyse de votre bien</h4>
+                <h4 style="margin-top: 32px; margin-bottom: 12px; color: #1d0c1b;">Analyse de votre bien</h4>
                 <p>Les biens de type <strong>${
                   lastEstimation.propertyType
                 }</strong> sont ${
@@ -232,7 +232,7 @@
 
                 <p style="margin-top: 15px;">${pointsForts}</p>
 
-                <h4 style="margin-top: 25px; margin-bottom: 15px; color: #2c3e50;">Profil des acquéreurs potentiels</h4>
+                <h4 style="margin-top: 32px; margin-bottom: 12px; color: #1d0c1b;">Profil des acquéreurs potentiels</h4>
                 <p>À ${cityName}, les biens similaires au vôtre attirent principalement les <strong>${profilAcquereur}</strong>. Le délai de vente moyen de ${delaiVenteMoyen} jours indique ${
           delaiVenteMoyen <= 60
             ? "un marché très réactif où les biens de qualité se vendent rapidement"
@@ -241,7 +241,7 @@
             : "un marché où il est important de bien positionner son prix pour attirer les acquéreurs"
         }.</p>
 
-                <div class="info-box" style="background: #fff3cd; border-left-color: #ffc107;">
+                <div class="info-box info-box--tip">
                     <p><strong>Conseil :</strong> ${
                       prixM2 >= 5000
                         ? "Dans un marché tendu, une mise en valeur soignée de votre bien (photos professionnelles, home staging) peut accélérer significativement la vente."
@@ -261,7 +261,7 @@
 
       // Fonction pour télécharger le rapport en PDF
       function downloadPDF() {
-        const downloadButton = document.querySelector(".cta-button");
+        const downloadButton = document.getElementById("downloadPdfBtn");
         const originalText = downloadButton.innerHTML;
         downloadButton.innerHTML = "⏳ Génération du PDF...";
         downloadButton.disabled = true;
@@ -276,37 +276,23 @@
           let y = 0;
 
           // Palette de couleurs raffinée
-          const primaryBlue = [37, 99, 235];
-          const darkBlue = [30, 64, 175];
-          const darkText = [33, 37, 41];
-          const grayText = [108, 117, 125];
-          const lightGray = [248, 249, 250];
-          const mediumGray = [233, 236, 239];
-          const greenColor = [16, 185, 129];
-          const redColor = [239, 68, 68];
-          const orangeColor = [245, 158, 11];
-          const accentGold = [217, 175, 93];
-
-          // Fonction helper pour dessiner une ombre subtile
-          function drawShadowRect(x, y, w, h, r) {
-            doc.setFillColor(0, 0, 0);
-            doc.setGState(new doc.GState({ opacity: 0.08 }));
-            doc.roundedRect(x + 1, y + 1, w, h, r, r, "F");
-            doc.setGState(new doc.GState({ opacity: 1 }));
-          }
+          const brandOrange = [255, 110, 52];
+          const brandDark = [29, 12, 27];
+          const darkText = [29, 12, 27];
+          const grayText = [110, 72, 105];
+          const lightGray = [247, 245, 242];
+          const mediumGray = [235, 230, 235];
+          const greenColor = [68, 111, 40];
+          const redColor = [195, 50, 40];
+          const orangeColor = [255, 124, 72];
+          const brandAccent = [255, 186, 158];
 
           // ========== PAGE 1 ==========
 
-          // Header élégant avec dégradé diagonal
+          // Bandeau d'en-tête, en aplat
           const headerHeight = 65;
-          for (let i = 0; i < headerHeight; i++) {
-            const ratio = i / headerHeight;
-            const r = 37 + (20 - 37) * ratio;
-            const g = 99 + (50 - 99) * ratio;
-            const b = 235 + (200 - 235) * ratio;
-            doc.setFillColor(r, g, b);
-            doc.rect(0, i, pageWidth, 1.2, "F");
-          }
+          doc.setFillColor(...brandDark);
+          doc.rect(0, 0, pageWidth, headerHeight, "F");
 
           // Motif décoratif (cercles subtils)
           doc.setDrawColor(255, 255, 255);
@@ -334,7 +320,7 @@
           // Corps de la maison
           doc.rect(logoX - 9, logoY + 8, 18, 14, "F");
           // Porte
-          doc.setFillColor(...primaryBlue);
+          doc.setFillColor(...brandOrange);
           doc.rect(logoX - 3, logoY + 13, 6, 9, "F");
           // Fenêtres
           doc.rect(logoX - 7, logoY + 11, 3, 3, "F");
@@ -352,7 +338,7 @@
           });
 
           // Séparateur doré
-          doc.setDrawColor(...accentGold);
+          doc.setDrawColor(...brandAccent);
           doc.setLineWidth(1);
           doc.line(pageWidth / 2 - 35, 49, pageWidth / 2 + 35, 49);
 
@@ -382,12 +368,11 @@
           y = headerHeight + 8;
 
           // === BANDEAU ADRESSE DU BIEN ===
-          drawShadowRect(margin, y, contentWidth, 20, 3);
           doc.setFillColor(255, 255, 255);
-          doc.roundedRect(margin, y, contentWidth, 20, 3, 3, "F");
+          doc.rect(margin, y, contentWidth, 20, "F");
 
           // Icône localisation
-          doc.setFillColor(...primaryBlue);
+          doc.setFillColor(...brandOrange);
           doc.circle(margin + 12, y + 10, 5, "F");
           doc.setFillColor(255, 255, 255);
           doc.circle(margin + 12, y + 9, 1.5, "F");
@@ -410,36 +395,15 @@
           y += 28;
 
           // === ENCADRÉ ESTIMATION PRINCIPALE ===
-          drawShadowRect(margin, y, contentWidth, 60, 4);
 
-          // Fond avec dégradé
-          for (let i = 0; i < 60; i++) {
-            const ratio = i / 60;
-            const r = 37 + (25 - 37) * ratio;
-            const g = 99 + (70 - 99) * ratio;
-            const b = 235 + (210 - 235) * ratio;
-            doc.setFillColor(r, g, b);
-            if (i === 0) {
-              doc.roundedRect(margin, y, contentWidth, 4, 4, 4, "F");
-            } else if (i >= 56) {
-              doc.roundedRect(margin, y + i, contentWidth, 4, 4, 4, "F");
-            } else {
-              doc.rect(margin, y + i, contentWidth, 1.1, "F");
-            }
-          }
+          // Fond en aplat
+          doc.setFillColor(...brandDark);
+          doc.rect(margin, y, contentWidth, 60, "F");
 
           // Badge "Estimation"
           doc.setFillColor(255, 255, 255);
           doc.setGState(new doc.GState({ opacity: 0.2 }));
-          doc.roundedRect(
-            margin + contentWidth / 2 - 35,
-            y + 5,
-            70,
-            8,
-            2,
-            2,
-            "F"
-          );
+          doc.rect(margin + contentWidth / 2 - 35, y + 5, 70, 8, "F");
           doc.setGState(new doc.GState({ opacity: 1 }));
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(8);
@@ -483,13 +447,13 @@
 
           // === Prix au m² ===
           doc.setFillColor(...lightGray);
-          doc.roundedRect(margin, y, contentWidth, 14, 2, 2, "F");
+          doc.rect(margin, y, contentWidth, 14, "F");
           doc.setTextColor(...darkText);
           doc.setFontSize(10);
           doc.setFont("helvetica", "normal");
           doc.text("Prix au m² estimé : ", margin + 10, y + 9);
           doc.setFont("helvetica", "bold");
-          doc.setTextColor(...primaryBlue);
+          doc.setTextColor(...brandOrange);
           doc.text(
             formatPrice(lastEstimation.estimation.prixM2) + " /m²",
             margin + 52,
@@ -505,9 +469,9 @@
           doc.text("Caractéristiques du bien", margin, y);
 
           // Ligne de soulignement stylisée
-          doc.setFillColor(...primaryBlue);
+          doc.setFillColor(...brandOrange);
           doc.rect(margin, y + 3, 45, 1.5, "F");
-          doc.setFillColor(...accentGold);
+          doc.setFillColor(...brandAccent);
           doc.rect(margin + 45, y + 3, 8, 1.5, "F");
 
           y += 12;
@@ -519,7 +483,7 @@
             {
               label: "Type de bien",
               value: capitalizeFirst(lastEstimation.propertyType),
-              color: primaryBlue,
+              color: brandOrange,
             },
             {
               label: "Surface habitable",
@@ -553,24 +517,16 @@
             // Ombre de la card
             doc.setFillColor(0, 0, 0);
             doc.setGState(new doc.GState({ opacity: 0.06 }));
-            doc.roundedRect(
-              cardX + 0.5,
-              cardY + 0.5,
-              cardWidth,
-              cardHeight,
-              3,
-              3,
-              "F"
-            );
+            doc.rect(cardX + 0.5, cardY + 0.5, cardWidth, cardHeight, "F");
             doc.setGState(new doc.GState({ opacity: 1 }));
 
             // Fond de la card
             doc.setFillColor(255, 255, 255);
-            doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 3, 3, "F");
+            doc.rect(cardX, cardY, cardWidth, cardHeight, "F");
 
             // Bordure gauche colorée (plus épaisse)
             doc.setFillColor(...card.color);
-            doc.roundedRect(cardX, cardY, 3, cardHeight, 3, 3, "F");
+            doc.rect(cardX, cardY, 3, cardHeight, "F");
             doc.rect(cardX + 1.5, cardY, 1.5, cardHeight, "F");
 
             // Label
@@ -620,10 +576,10 @@
           }
 
           if (extraInfo.length > 0) {
-            doc.setFillColor(255, 251, 235);
+            doc.setFillColor(255, 248, 245);
             doc.setDrawColor(...orangeColor);
             doc.setLineWidth(0.5);
-            doc.roundedRect(margin, y, contentWidth, 14, 2, 2, "FD");
+            doc.rect(margin, y, contentWidth, 14, "FD");
 
             // Icône info
             doc.setFillColor(...orangeColor);
@@ -655,9 +611,9 @@
             y
           );
 
-          doc.setFillColor(...primaryBlue);
+          doc.setFillColor(...brandOrange);
           doc.rect(margin, y + 3, 55, 1.5, "F");
-          doc.setFillColor(...accentGold);
+          doc.setFillColor(...brandAccent);
           doc.rect(margin + 55, y + 3, 8, 1.5, "F");
 
           y += 12;
@@ -707,7 +663,7 @@
               value: delaiVente + " j",
               label: "Délai de",
               sublabel: "vente moyen",
-              color: primaryBlue,
+              color: brandOrange,
             },
             {
               value: negociation + "%",
@@ -723,23 +679,15 @@
             // Fond avec ombre
             doc.setFillColor(0, 0, 0);
             doc.setGState(new doc.GState({ opacity: 0.05 }));
-            doc.roundedRect(
-              statX + 0.5,
-              y + 0.5,
-              statColWidth,
-              statHeight,
-              3,
-              3,
-              "F"
-            );
+            doc.rect(statX + 0.5, y + 0.5, statColWidth, statHeight, "F");
             doc.setGState(new doc.GState({ opacity: 1 }));
 
             doc.setFillColor(255, 255, 255);
-            doc.roundedRect(statX, y, statColWidth, statHeight, 3, 3, "F");
+            doc.rect(statX, y, statColWidth, statHeight, "F");
 
             // Barre de couleur en haut
             doc.setFillColor(...stat.color);
-            doc.roundedRect(statX, y, statColWidth, 3, 3, 3, "F");
+            doc.rect(statX, y, statColWidth, 3, "F");
             doc.rect(statX, y + 1.5, statColWidth, 1.5, "F");
 
             // Valeur
@@ -766,7 +714,7 @@
 
           // Prix par type avec icônes
           doc.setFillColor(...lightGray);
-          doc.roundedRect(margin, y, contentWidth, 16, 2, 2, "F");
+          doc.rect(margin, y, contentWidth, 16, "F");
 
           // Maison
           doc.setFillColor(...grayText);
@@ -817,11 +765,11 @@
               ? "Couples et jeunes actifs"
               : "Investisseurs et primo-accédants";
 
-          doc.setFillColor(240, 249, 255);
-          doc.roundedRect(margin, y, contentWidth, 22, 3, 3, "F");
+          doc.setFillColor(247, 245, 242);
+          doc.rect(margin, y, contentWidth, 22, "F");
 
           // Icône utilisateur
-          doc.setFillColor(...primaryBlue);
+          doc.setFillColor(...brandOrange);
           doc.circle(margin + 14, y + 11, 7, "F");
           doc.setFillColor(255, 255, 255);
           doc.circle(margin + 14, y + 9, 2.5, "F");
@@ -858,10 +806,10 @@
               "Appartement — Excellente liquidité sur le marché immobilier";
           }
 
-          doc.setFillColor(236, 253, 245);
+          doc.setFillColor(234, 250, 223);
           doc.setDrawColor(...greenColor);
           doc.setLineWidth(0.5);
-          doc.roundedRect(margin, y, contentWidth, 14, 2, 2, "FD");
+          doc.rect(margin, y, contentWidth, 14, "FD");
 
           // Check icon
           doc.setFillColor(...greenColor);
@@ -881,14 +829,8 @@
 
           // En-tête page 2 avec dégradé
           const header2Height = 28;
-          for (let i = 0; i < header2Height; i++) {
-            const ratio = i / header2Height;
-            const r = 37 + (25 - 37) * ratio;
-            const g = 99 + (70 - 99) * ratio;
-            const b = 235 + (210 - 235) * ratio;
-            doc.setFillColor(r, g, b);
-            doc.rect(0, i, pageWidth, 1.2, "F");
-          }
+          doc.setFillColor(...brandDark);
+          doc.rect(0, 0, pageWidth, header2Height, "F");
 
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(14);
@@ -909,9 +851,9 @@
           doc.setFont("helvetica", "bold");
           doc.text("Le marché immobilier français en 2025", margin, y);
 
-          doc.setFillColor(...primaryBlue);
+          doc.setFillColor(...brandOrange);
           doc.rect(margin, y + 3, 65, 1.5, "F");
-          doc.setFillColor(...accentGold);
+          doc.setFillColor(...brandAccent);
           doc.rect(margin + 65, y + 3, 8, 1.5, "F");
 
           y += 14;
@@ -926,23 +868,10 @@
           y += splitInfo.length * 4.5 + 6;
 
           // Stats nationales avec nouveau design
-          drawShadowRect(margin, y, contentWidth, 38, 4);
 
-          // Fond avec dégradé
-          for (let i = 0; i < 38; i++) {
-            const ratio = i / 38;
-            const r = 37 + (25 - 37) * ratio;
-            const g = 99 + (70 - 99) * ratio;
-            const b = 235 + (210 - 235) * ratio;
-            doc.setFillColor(r, g, b);
-            if (i < 4) {
-              doc.roundedRect(margin, y + i, contentWidth, 1.5, 4, 4, "F");
-            } else if (i >= 34) {
-              doc.roundedRect(margin, y + i, contentWidth, 4, 4, 4, "F");
-            } else {
-              doc.rect(margin, y + i, contentWidth, 1.2, "F");
-            }
-          }
+          // Fond en aplat
+          doc.setFillColor(...brandDark);
+          doc.rect(margin, y, contentWidth, 38, "F");
 
           const natStatWidth = contentWidth / 3;
           doc.setTextColor(255, 255, 255);
@@ -1037,9 +966,9 @@
           doc.setFont("helvetica", "bold");
           doc.text("Impact du DPE sur la valeur", margin, y);
 
-          doc.setFillColor(...primaryBlue);
+          doc.setFillColor(...brandOrange);
           doc.rect(margin, y + 3, 50, 1.5, "F");
-          doc.setFillColor(...accentGold);
+          doc.setFillColor(...brandAccent);
           doc.rect(margin + 50, y + 3, 8, 1.5, "F");
 
           y += 14;
@@ -1069,25 +998,19 @@
 
           // Fond de l'échelle
           doc.setFillColor(...lightGray);
-          doc.roundedRect(margin - 2, y - 2, contentWidth + 4, 22, 3, 3, "F");
+          doc.rect(margin - 2, y - 2, contentWidth + 4, 22, "F");
 
           dpeLabels.forEach((label, index) => {
             const x = margin + index * dpeWidth;
 
-            // Case DPE avec effet 3D subtil
+            // Case DPE, en aplat
             doc.setFillColor(...dpeColors[label]);
-            doc.roundedRect(x + 1, y, dpeWidth - 2, 16, 2, 2, "F");
-
-            // Effet de brillance
-            doc.setFillColor(255, 255, 255);
-            doc.setGState(new doc.GState({ opacity: 0.25 }));
-            doc.roundedRect(x + 2, y + 1, dpeWidth - 4, 5, 1, 1, "F");
-            doc.setGState(new doc.GState({ opacity: 1 }));
+            doc.rect(x + 1, y, dpeWidth - 2, 16, "F");
 
             // Lettre
             doc.setTextColor(255, 255, 255);
             if (label === "C" || label === "D") {
-              doc.setTextColor(50, 50, 50);
+              doc.setTextColor(29, 12, 27);
             }
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
@@ -1169,7 +1092,7 @@
           doc.setFillColor(...impactBgColor);
           doc.setDrawColor(...dpeImpactColor);
           doc.setLineWidth(0.5);
-          doc.roundedRect(margin, y, contentWidth, 16, 2, 2, "FD");
+          doc.rect(margin, y, contentWidth, 16, "FD");
 
           // Icône
           doc.setFillColor(...dpeImpactColor);
@@ -1187,20 +1110,20 @@
           y += 24;
 
           // === BON À SAVOIR ===
-          doc.setFillColor(240, 249, 255);
-          doc.setDrawColor(...primaryBlue);
+          doc.setFillColor(247, 245, 242);
+          doc.setDrawColor(...brandOrange);
           doc.setLineWidth(0.5);
-          doc.roundedRect(margin, y, contentWidth, 22, 3, 3, "FD");
+          doc.rect(margin, y, contentWidth, 22, "FD");
 
           // Icône ampoule
-          doc.setFillColor(...primaryBlue);
+          doc.setFillColor(...brandOrange);
           doc.circle(margin + 12, y + 11, 6, "F");
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
           doc.text("i", margin + 12, y + 14, { align: "center" });
 
-          doc.setTextColor(...primaryBlue);
+          doc.setTextColor(...brandOrange);
           doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
           doc.text("Bon à savoir", margin + 24, y + 9);
@@ -1221,9 +1144,9 @@
           doc.setFont("helvetica", "bold");
           doc.text("Notre méthodologie", margin, y);
 
-          doc.setFillColor(...primaryBlue);
+          doc.setFillColor(...brandOrange);
           doc.rect(margin, y + 3, 40, 1.5, "F");
-          doc.setFillColor(...accentGold);
+          doc.setFillColor(...brandAccent);
           doc.rect(margin + 40, y + 3, 8, 1.5, "F");
 
           y += 14;
@@ -1238,10 +1161,10 @@
           y += splitMethodo.length * 4.5 + 8;
 
           // === CONSEIL PERSONNALISÉ ===
-          doc.setFillColor(255, 251, 235);
+          doc.setFillColor(255, 248, 245);
           doc.setDrawColor(...orangeColor);
           doc.setLineWidth(0.5);
-          doc.roundedRect(margin, y, contentWidth, 26, 3, 3, "FD");
+          doc.rect(margin, y, contentWidth, 26, "FD");
 
           // Icône ampoule
           doc.setFillColor(...orangeColor);
@@ -1270,23 +1193,10 @@
           y += 34;
 
           // === CONTACT CTA ===
-          drawShadowRect(margin, y, contentWidth, 28, 4);
 
-          // Fond avec dégradé
-          for (let i = 0; i < 28; i++) {
-            const ratio = i / 28;
-            const r = 37 + (25 - 37) * ratio;
-            const g = 99 + (70 - 99) * ratio;
-            const b = 235 + (210 - 235) * ratio;
-            doc.setFillColor(r, g, b);
-            if (i < 4) {
-              doc.roundedRect(margin, y + i, contentWidth, 2, 4, 4, "F");
-            } else if (i >= 24) {
-              doc.roundedRect(margin, y + i, contentWidth, 4, 4, 4, "F");
-            } else {
-              doc.rect(margin, y + i, contentWidth, 1.2, "F");
-            }
-          }
+          // Fond en aplat
+          doc.setFillColor(...brandDark);
+          doc.rect(margin, y, contentWidth, 28, "F");
 
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(11);

@@ -4,242 +4,114 @@ import { partenaires } from '../data/partenaires';
 ---
 
 <BaseLayout
-  title="Nos Partenaires - Estimer mon bien"
-  description="Nos partenaires de confiance : réseaux d'agences immobilières, banques, notaires et diagnostiqueurs."
+  title="Nos partenaires — Estimer mon bien"
+  description="Nos partenaires de confiance : réseaux d'agences immobilières, banques, notaires et diagnostiqueurs partout en France."
 >
-  <!-- Hero Section -->
-  <section class="hero">
+  <!-- --------------------------------------------------------- En-tête -->
+  <section class="page-head">
     <div class="container">
-      <h1>Nos partenaires de confiance</h1>
-      <p>Collaborer avec les meilleurs professionnels de l'immobilier et du diagnostic</p>
+      <span class="eyebrow">Notre réseau</span>
+      <h1>{partenaires.length} partenaires de confiance</h1>
+      <p class="lead">
+        Réseaux d'agences, banques, notaires et diagnostiqueurs. Nous ne vous mettons en relation
+        avec eux que si vous le demandez — vos coordonnées ne leur sont jamais transmises
+        automatiquement.
+      </p>
     </div>
   </section>
 
-  <!-- Partners Section -->
-  <section class="partners-section">
+  <!-- ------------------------------------------------------ Partenaires -->
+  <section class="section section--white">
     <div class="container">
-      <h2>Ils nous font confiance</h2>
-      <p class="intro">
-        Nous travaillons avec des partenaires de qualité pour vous offrir les meilleurs services dans
-        le domaine de l'immobilier et du diagnostic énergétique.
-      </p>
-
-      <div class="partners-grid">
+      <div class="grid grid--3">
         {
           partenaires.map((partenaire) => (
-            <div class="partner-card">
-              <div class="partner-logo">{partenaire.logo}</div>
+            <article class="partner card card--hover">
+              <div class="partner__logo">{partenaire.logo}</div>
               <h3>{partenaire.name}</h3>
               <p>{partenaire.description}</p>
               <a
                 href={partenaire.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="partner-link"
+                class="link-arrow"
               >
-                Visiter le site →
+                Visiter le site
               </a>
-            </div>
+            </article>
           ))
         }
       </div>
     </div>
   </section>
 
-  <!-- CTA Section -->
-  <section class="cta-section">
+  <!-- -------------------------------------------------------- CTA final -->
+  <section class="section section--dark">
     <div class="container">
-      <h2>Devenir partenaire</h2>
-      <p>
-        Vous êtes un professionnel de l'immobilier ? Rejoignez notre réseau de partenaires et
-        développez votre activité avec Estimer mon bien.
-      </p>
-      <a href="/contact" class="cta-button">Nous contacter</a>
+      <div class="section-head section-head--center">
+        <span class="eyebrow">Professionnels</span>
+        <h2>Devenir partenaire</h2>
+        <p>
+          Vous êtes agence, banque, notaire ou diagnostiqueur ? Rejoignez notre réseau et recevez des
+          propriétaires qualifiés, sur votre secteur, au moment où ils préparent leur projet.
+        </p>
+      </div>
+      <div class="btn-row btn-row--center">
+        <a href="/contact" class="btn btn--light btn--lg">Nous contacter</a>
+        <a href="/estimation" class="btn btn--ghost-light btn--lg">Voir le parcours client</a>
+      </div>
     </div>
   </section>
 </BaseLayout>
 
-<style is:global>
-  /* Hero Section */
-  .hero {
+<style>
+  .page-head {
+    padding: clamp(3rem, 2rem + 4vw, 5rem) 0;
     background:
-      linear-gradient(135deg, rgba(37, 99, 235, 0.65) 0%, rgba(30, 64, 175, 0.65) 100%),
-      url("https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=1600&h=900&fit=crop")
-        center/cover;
-    color: white;
-    padding: 80px 0;
-    text-align: center;
-    position: relative;
+      radial-gradient(55rem 30rem at 80% -20%, var(--orange-10) 0%, transparent 60%),
+      linear-gradient(180deg, var(--beige-25) 0%, var(--beige-10) 100%);
+    border-bottom: 1px solid var(--border);
   }
 
-  .hero h1 {
-    font-size: 48px;
-    font-weight: 700;
-    margin-bottom: 20px;
-    line-height: 1.2;
+  .page-head h1 {
+    margin-bottom: 1rem;
+    max-width: 20ch;
   }
 
-  .hero p {
-    font-size: 20px;
-    margin-bottom: 40px;
-    opacity: 0.95;
+  .page-head .lead {
+    max-width: 40rem;
   }
 
-  /* Partners Section */
-  .partners-section {
-    background-color: #ffffff;
-    padding: 60px 0;
+  .partner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .partners-section h2 {
-    text-align: center;
-    font-size: 32px;
-    margin-bottom: 20px;
-    color: #2c3e50;
-  }
-
-  .partners-section .intro {
-    text-align: center;
-    font-size: 18px;
-    color: #6c757d;
-    margin-bottom: 50px;
-    max-width: 800px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .partners-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 40px;
-    margin-bottom: 60px;
-  }
-
-  .partner-card {
-    background: #ffffff;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-    text-align: center;
-    transition:
-      transform 0.3s,
-      box-shadow 0.3s;
-  }
-
-  .partner-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-  }
-
-  .partner-logo {
-    width: 200px;
-    height: 100px;
-    border-radius: 12px;
+  .partner__logo {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 20px;
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    color: white;
-    font-size: 20px;
+    width: 100%;
+    height: 5.5rem;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    background: var(--beige-25);
+    font-size: var(--text-md);
     font-weight: 600;
-    padding: 10px;
-  }
-
-  .partner-logo.has-image {
-    background-color: #ffffff;
-    border: 1px solid #e0e0e0;
-  }
-
-  .partner-logo img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-  }
-
-  .partner-card h3 {
-    font-size: 22px;
-    margin-bottom: 15px;
-    color: #2c3e50;
-  }
-
-  .partner-card p {
-    color: #6c757d;
-    margin-bottom: 20px;
-    line-height: 1.6;
-  }
-
-  .partner-link {
-    display: inline-block;
-    padding: 10px 25px;
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    color: white;
-    text-decoration: none;
-    border-radius: 6px;
-    font-weight: 600;
-    transition:
-      transform 0.3s,
-      box-shadow 0.3s;
-  }
-
-  .partner-link:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
-  }
-
-  /* CTA Section */
-  .cta-section {
-    background-color: #f8f9fa;
-    padding: 60px 0;
+    letter-spacing: -0.02em;
+    color: var(--aubergine-1);
     text-align: center;
   }
 
-  .cta-section h2 {
-    font-size: 32px;
-    margin-bottom: 20px;
-    color: #2c3e50;
+  .partner h3 {
+    font-size: var(--text-md);
+    margin-bottom: 0.5rem;
   }
 
-  .cta-section p {
-    font-size: 18px;
-    color: #6c757d;
-    margin-bottom: 30px;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .cta-button {
-    display: inline-block;
-    padding: 15px 40px;
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    color: white;
-    text-decoration: none;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 18px;
-    transition:
-      transform 0.3s,
-      box-shadow 0.3s;
-  }
-
-  .cta-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
-  }
-
-  /* Responsive */
-  @media (max-width: 768px) {
-    .hero h1 {
-      font-size: 36px;
-    }
-
-    .hero p {
-      font-size: 18px;
-    }
-
-    .partners-grid {
-      grid-template-columns: 1fr;
-    }
+  .partner p {
+    flex: 1;
+    margin-bottom: 1.25rem;
   }
 </style>

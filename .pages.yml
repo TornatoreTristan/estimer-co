@@ -1,0 +1,197 @@
+# Configuration Pages CMS (https://pagescms.org) — app hébergée, authentification
+# GitHub restreinte aux collaborateurs du repo (gérée côté GitHub, pas ici).
+#
+# Voir specs/cms-seo-tracking.md §4.5. Les champs listés ici reflètent la FORME
+# des schémas Zod de `src/content.config.ts` — ils ne réimplémentent PAS les
+# règles "obligatoire si publié" (gérées par scripts/validate-content.mjs).
+#
+# ATTENTION — points non vérifiés (pas de compte Pages CMS disponible pour
+# tester en conditions réelles), à valider avant mise en prod, voir le rapport
+# de livraison Lot 0 :
+#   - Noms exacts des types de champs (`text` vs `rich-text` vs `markdown` pour
+#     un corps long, `select` vs `choice` pour les enums, `reference` pour les
+#     relations, `object`/`list` pour les champs composés).
+#   - Binding du corps Markdown (`intro`, `presentation`, `contenu`) : supposé
+#     ici via un champ `body` de type `rich-text` avec `format: yaml-frontmatter`
+#     sur la collection — à confirmer dans la doc pagescms.org/docs.
+#   - Syntaxe exacte d'une référence vers plusieurs collections possibles
+#     (`zoneCouverture` : régions OU départements) — cf. specs §8 "Questions
+#     ouvertes". Repli choisi ici : deux champs `reference` distincts
+#     (`zoneCouvertureRegions` / `zoneCouvertureDepartements`) SI Pages CMS ne
+#     supporte pas une relation multi-collection sur un seul champ. Comme le
+#     schéma Zod actuel n'a qu'un seul champ `zoneCouverture` (union), ce point
+#     est à trancher avant le Lot 1/2 : soit adapter le schéma Zod pour matcher
+#     deux champs CMS, soit confirmer que Pages CMS supporte un seul champ
+#     multi-collection et corriger ce fichier en conséquence.
+#
+# Dossier média : `public/uploads/` (repli simple, cf. specs §8 risque 4 — pas
+# d'optimisation `astro:assets`, mais garantit que Pages CMS écrit dans un
+# dossier fixe compatible avec un déploiement 100% statique). Les schémas Zod
+# actuels traitent `image`/`logo` comme de simples chemins/URL (pas le helper
+# `image()`), cohérent avec ce choix.
+media:
+  input: "public/uploads"
+  output: "/uploads"
+
+content:
+  - name: regions
+    label: "Régions"
+    type: collection
+    path: "src/content/regions"
+    format: yaml-frontmatter
+    filename: "{fields.slug}.md"
+    view:
+      fields: [nom, statut, prixM2, dateMiseAJour]
+      primary: nom
+    fields:
+      - { name: slug, label: "Slug", type: string, required: true, pattern: "^[a-z0-9-]+$" }
+      - { name: nom, label: "Nom", type: string, required: true }
+      - { name: title, label: "Titre (H1 / <title>)", type: string, required: true }
+      - { name: metaTitle, label: "Meta title (≤ 60 car. recommandé)", type: string }
+      - { name: metaDescription, label: "Meta description (50-160 car.)", type: text }
+      - name: body
+        label: "Introduction (corps de page, ≥ 400 car. pour publier)"
+        type: rich-text
+      - { name: analyseLocale, label: "Analyse locale", type: rich-text }
+      - { name: prixM2, label: "Prix moyen €/m²", type: number, required: true }
+      - { name: prixMaisons, label: "Prix maisons €/m²", type: number, required: true }
+      - { name: prixAppartements, label: "Prix appartements €/m²", type: number, required: true }
+      - { name: evolution12Mois, label: "Évolution 12 mois (%)", type: number, required: true }
+      - { name: evolution5Ans, label: "Évolution 5 ans (%)", type: number, required: true }
+      - name: faq
+        label: "FAQ (0-10, ≥ 2 requis pour publier)"
+        type: list
+        fields:
+          - { name: question, label: "Question", type: string, required: true }
+          - { name: reponse, label: "Réponse", type: text, required: true }
+      - name: partenairesMisEnAvant
+        label: "Partenaires mis en avant (0-6)"
+        type: reference
+        collection: partenaires
+        list: true
+      - { name: image, label: "Image", type: image }
+      - { name: imageAlt, label: "Texte alternatif (requis si image)", type: string }
+      - { name: statut, label: "Statut", type: select, required: true, default: brouillon, options: { values: [brouillon, publie] } }
+      - { name: datePublication, label: "Date de publication", type: date }
+      - { name: dateMiseAJour, label: "Date de mise à jour (requis si publié)", type: date }
+      - { name: ordreAffichage, label: "Ordre d'affichage", type: number }
+
+  - name: departements
+    label: "Départements"
+    type: collection
+    path: "src/content/departements"
+    format: yaml-frontmatter
+    filename: "{fields.slug}.md"
+    view:
+      fields: [nom, codeInsee, regionParente, statut]
+      primary: nom
+    fields:
+      - { name: slug, label: "Slug", type: string, required: true, pattern: "^[a-z0-9-]+$" }
+      - { name: nom, label: "Nom", type: string, required: true }
+      - { name: title, label: "Titre (H1 / <title>)", type: string, required: true }
+      - { name: metaTitle, label: "Meta title (≤ 60 car. recommandé)", type: string }
+      - { name: metaDescription, label: "Meta description (50-160 car.)", type: text }
+      - name: body
+        label: "Introduction (corps de page, ≥ 400 car. pour publier)"
+        type: rich-text
+      - { name: analyseLocale, label: "Analyse locale", type: rich-text }
+      - { name: codeInsee, label: "Code INSEE", type: string, required: true, pattern: "^(\\d{2,3}|2A|2B)$" }
+      - name: regionParente
+        label: "Région parente"
+        type: reference
+        collection: regions
+        required: true
+      - { name: prixM2, label: "Prix moyen €/m²", type: number, required: true }
+      - { name: prixMaisons, label: "Prix maisons €/m²", type: number, required: true }
+      - { name: prixAppartements, label: "Prix appartements €/m²", type: number, required: true }
+      - { name: evolution12Mois, label: "Évolution 12 mois (%)", type: number, required: true }
+      - { name: evolution5Ans, label: "Évolution 5 ans (%)", type: number, required: true }
+      - name: villesPrincipales
+        label: "Villes principales (0-8)"
+        type: list
+        fields:
+          - { name: nom, label: "Nom", type: string, required: true }
+          - { name: prixM2, label: "Prix €/m²", type: number }
+      - name: faq
+        label: "FAQ (0-10, ≥ 2 requis pour publier)"
+        type: list
+        fields:
+          - { name: question, label: "Question", type: string, required: true }
+          - { name: reponse, label: "Réponse", type: text, required: true }
+      - name: partenairesMisEnAvant
+        label: "Partenaires mis en avant (0-6)"
+        type: reference
+        collection: partenaires
+        list: true
+      - { name: image, label: "Image", type: image }
+      - { name: imageAlt, label: "Texte alternatif (requis si image)", type: string }
+      - { name: statut, label: "Statut", type: select, required: true, default: brouillon, options: { values: [brouillon, publie] } }
+      - { name: datePublication, label: "Date de publication", type: date }
+      - { name: dateMiseAJour, label: "Date de mise à jour (requis si publié)", type: date }
+      - { name: ordreAffichage, label: "Ordre d'affichage", type: number }
+
+  - name: partenaires
+    label: "Partenaires"
+    type: collection
+    path: "src/content/partenaires"
+    format: yaml-frontmatter
+    filename: "{fields.slug}.md"
+    view:
+      fields: [nom, categorie, statut, ordreAffichage]
+      primary: nom
+    fields:
+      - { name: slug, label: "Slug", type: string, required: true, pattern: "^[a-z0-9-]+$" }
+      - { name: nom, label: "Nom", type: string, required: true }
+      - { name: logo, label: "Logo (image, sinon pastille texte)", type: image }
+      - { name: logoTexte, label: "Texte du logo / alt", type: string }
+      - { name: description, label: "Description courte (50-200 car., teaser carte)", type: text, required: true }
+      - name: body
+        label: "Présentation longue (corps de page, ≥ 300 mots recommandé)"
+        type: rich-text
+      - name: categorie
+        label: "Catégorie"
+        type: select
+        required: true
+        options:
+          values: [agence-immobiliere, banque, notaire, diagnostiqueur, courtier, autre]
+      - name: avantages
+        label: "Avantages (0-6)"
+        type: list
+        fields:
+          - { name: value, label: "Avantage", type: string, required: true }
+      - name: zoneCouverture
+        label: "Zone de couverture (régions et/ou départements)"
+        type: reference
+        collection: [regions, departements]
+        list: true
+      - { name: url, label: "URL (https://)", type: string, required: true, pattern: "^https://" }
+      - { name: ctaLabel, label: "Libellé du bouton", type: string, default: "Visiter le site" }
+      - { name: statut, label: "Statut", type: select, required: true, default: brouillon, options: { values: [brouillon, publie] } }
+      - { name: datePublication, label: "Date de publication", type: date }
+      - { name: dateMiseAJour, label: "Date de mise à jour (requis si publié)", type: date }
+      - { name: ordreAffichage, label: "Ordre d'affichage", type: number }
+
+  - name: pages
+    label: "Pages libres"
+    type: collection
+    path: "src/content/pages"
+    format: yaml-frontmatter
+    filename: "{fields.slug}.md"
+    view:
+      fields: [title, gabarit, statut]
+      primary: title
+    fields:
+      - { name: slug, label: "Slug", type: string, required: true, pattern: "^[a-z0-9-]+$" }
+      - { name: title, label: "Titre", type: string, required: true }
+      - { name: metaTitle, label: "Meta title", type: string }
+      - { name: metaDescription, label: "Meta description (50-160 car.)", type: text }
+      - { name: gabarit, label: "Gabarit", type: select, required: true, default: page-simple, options: { values: [page-simple, article] } }
+      - name: body
+        label: "Contenu"
+        type: rich-text
+      - { name: image, label: "Image", type: image }
+      - { name: imageAlt, label: "Texte alternatif (requis si image)", type: string }
+      - { name: auteur, label: "Auteur", type: string, default: "Équipe Estimer mon bien" }
+      - { name: statut, label: "Statut", type: select, required: true, default: brouillon, options: { values: [brouillon, publie] } }
+      - { name: datePublication, label: "Date de publication (requis si gabarit = article)", type: date }
+      - { name: dateMiseAJour, label: "Date de mise à jour (requis si gabarit = article)", type: date }

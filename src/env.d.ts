@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly PUBLIC_EMAILJS_TEMPLATE_ID: string;
   readonly PUBLIC_GOOGLE_MAPS_API_KEY: string;
   readonly PUBLIC_CONTACT_EMAIL: string;
+  readonly PUBLIC_GA4_MEASUREMENT_ID: string;
 }
 
 interface ImportMeta {

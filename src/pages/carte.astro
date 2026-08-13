@@ -5,34 +5,10 @@ import { regionsData, departementsData } from '../data/prix';
 const fmt = (n: number) => n.toLocaleString('fr-FR');
 
 const statsNationales = [
-  {
-    icon: '📊',
-    value: '3 566 €',
-    label: 'Prix moyen au m² en France',
-    change: '-0.3% sur 12 mois',
-    positive: false,
-  },
-  {
-    icon: '🏠',
-    value: '3 011 €',
-    label: 'Prix moyen maisons',
-    change: '-0.7% sur 12 mois',
-    positive: false,
-  },
-  {
-    icon: '🏢',
-    value: '4 235 €',
-    label: 'Prix moyen appartements',
-    change: '+0.2% sur 12 mois',
-    positive: true,
-  },
-  {
-    icon: '💰',
-    value: '331 155 €',
-    label: "Prix median d'une maison",
-    change: '+27.5% sur 11 ans',
-    positive: true,
-  },
+  { value: '3 566 €', label: 'Prix moyen au m² en France', change: '−0,3 % sur 12 mois', positive: false },
+  { value: '3 011 €', label: 'Prix moyen des maisons', change: '−0,7 % sur 12 mois', positive: false },
+  { value: '4 235 €', label: 'Prix moyen des appartements', change: '+0,2 % sur 12 mois', positive: true },
+  { value: '331 155 €', label: "Prix médian d'une maison", change: '+27,5 % sur 11 ans', positive: true },
 ];
 
 const villesCheres = [
@@ -44,39 +20,65 @@ const villesCheres = [
 ];
 
 const villesAbordables = [
-  { name: 'Saint-Etienne', price: '1 180' },
+  { name: 'Saint-Étienne', price: '1 180' },
   { name: 'Mulhouse', price: '1 320' },
-  { name: 'Le Havre', price: '1 850' },
   { name: 'Limoges', price: '1 420' },
   { name: 'Perpignan', price: '1 680' },
+  { name: 'Le Havre', price: '1 850' },
+];
+
+const zones = [
+  {
+    id: 'region',
+    eyebrow: 'Par région',
+    titre: 'Les prix au m² dans les 13 régions',
+    infoId: 'regionInfo',
+    searchId: 'regionSearch',
+    listId: 'regionList',
+    placeholder: 'Rechercher une région...',
+    attribut: 'data-region',
+    entries: Object.entries(regionsData),
+  },
+  {
+    id: 'departement',
+    eyebrow: 'Par département',
+    titre: 'Les prix au m² département par département',
+    infoId: 'departementInfo',
+    searchId: 'departementSearch',
+    listId: 'departementList',
+    placeholder: 'Rechercher un département...',
+    attribut: 'data-dept',
+    entries: Object.entries(departementsData),
+  },
 ];
 ---
 
 <BaseLayout
-  title="Prix immobilier au m² en France - Estimer mon bien"
-  description="Consultez les prix de l'immobilier au m² par région, département et ville en France."
+  title="Prix de l'immobilier au m² en France — Estimer mon bien"
+  description="Consultez les prix de l'immobilier au m² par région et par département en France, avec l'évolution sur 12 mois et 5 ans."
 >
-  <!-- Hero Section -->
-  <section class="hero">
+  <!-- --------------------------------------------------------- En-tête -->
+  <section class="page-head">
     <div class="container">
+      <span class="eyebrow">Données de marché</span>
       <h1>Prix de l'immobilier en France</h1>
-      <p>Consultez les prix au m² par region, departement et ville</p>
+      <p class="lead">
+        Le prix au m² région par région et département par département, avec l'évolution sur 12 mois
+        et sur 5 ans. Le point de départ de toute estimation sérieuse.
+      </p>
     </div>
   </section>
 
-  <!-- Stats Bar -->
-  <section class="stats-bar">
+  <!-- ------------------------------------------------- Chiffres France -->
+  <section class="section--sm section--white stats-strip">
     <div class="container">
-      <div class="stats-grid">
+      <div class="stat-band">
         {
           statsNationales.map((stat) => (
-            <div class="stat-item">
-              <span class="stat-icon">{stat.icon}</span>
-              <div class="stat-value">{stat.value}</div>
-              <div class="stat-label">{stat.label}</div>
-              <div class={`stat-change ${stat.positive ? 'positive' : 'negative'}`}>
-                {stat.change}
-              </div>
+            <div class="stat">
+              <div class="stat__value">{stat.value}</div>
+              <div class="stat__label">{stat.label}</div>
+              <div class={`stat__change ${stat.positive ? 'is-up' : 'is-down'}`}>{stat.change}</div>
             </div>
           ))
         }
@@ -84,199 +86,101 @@ const villesAbordables = [
     </div>
   </section>
 
-  <!-- Main Content -->
-  <section class="main-content">
-    <div class="container">
-      <div class="content-grid">
-        <!-- Region Info Card -->
-        <div class="sidebar-card">
-          <h3>Information region</h3>
-          <div class="region-info" id="regionInfo">
-            <div class="region-name">France</div>
-            <div class="region-price">3 566 € <span>/m²</span></div>
-            <div class="region-details">
-              <div class="detail-row">
-                <span class="detail-label">Prix maisons</span>
-                <span class="detail-value">3 011 €/m²</span>
+  <!-- ------------------------------------------------ Explorateurs -->
+  {
+    zones.map((zone, index) => (
+      <section class={`section ${index % 2 === 0 ? 'section--beige' : 'section--white'}`}>
+        <div class="container">
+          <div class="section-head">
+            <span class="eyebrow">{zone.eyebrow}</span>
+            <h2>{zone.titre}</h2>
+          </div>
+
+          <div class="explorer">
+            <div class="explorer__info card">
+              <div class="zone-info" id={zone.infoId}>
+                <div class="zone-name">France</div>
+                <div class="zone-price">
+                  3 566 € <span>/m²</span>
+                </div>
+                <div class="zone-details">
+                  <div class="detail-row">
+                    <span class="detail-label">Prix maisons</span>
+                    <span class="detail-value">3 011 €/m²</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Prix appartements</span>
+                    <span class="detail-value">4 235 €/m²</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Évolution 12 mois</span>
+                    <span class="detail-value is-down">−0,3 %</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Évolution 5 ans</span>
+                    <span class="detail-value is-up">+15,2 %</span>
+                  </div>
+                </div>
               </div>
-              <div class="detail-row">
-                <span class="detail-label">Prix appartements</span>
-                <span class="detail-value">4 235 €/m²</span>
+              <p class="zone-hint">
+                Sélectionnez une zone dans la liste pour afficher ses chiffres.
+              </p>
+            </div>
+
+            <div class="explorer__list card">
+              <div class="search">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" id={zone.searchId} class="input" placeholder={zone.placeholder} />
               </div>
-              <div class="detail-row">
-                <span class="detail-label">Evolution 12 mois</span>
-                <span class="detail-value" style="color: #e74c3c">-0.3%</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Evolution 5 ans</span>
-                <span class="detail-value" style="color: #27ae60">+15.2%</span>
+              <div class="zone-list" id={zone.listId}>
+                {zone.entries.map(([id, data]) => (
+                  <button type="button" class="zone-item" {...{ [zone.attribut]: id }}>
+                    <span class="name">{data.name}</span>
+                    <span class="price">{fmt(data.price)} €/m²</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </div>
+      </section>
+    ))
+  }
 
-        <!-- Search & List Card -->
-        <div class="sidebar-card">
-          <h3>Rechercher une region</h3>
-          <div class="search-box">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" id="regionSearch" placeholder="Rechercher..." />
-          </div>
-          <div class="region-list" id="regionList">
-            {
-              Object.entries(regionsData).map(([id, region]) => (
-                <div class="region-list-item" data-region={id}>
-                  <span class="name">{region.name}</span>
-                  <span class="price">{fmt(region.price)} €/m²</span>
-                </div>
-              ))
-            }
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Department Info Section -->
-  <section class="main-content">
+  <!-- ------------------------------------------------------ Classements -->
+  <section class="section section--sand">
     <div class="container">
-      <h2 style="text-align: center; font-size: 32px; margin-bottom: 40px; color: #2c3e50;">
-        Rechercher un département
-      </h2>
-      <div class="content-grid">
-        <!-- Department Info Card -->
-        <div class="sidebar-card">
-          <h3>Information département</h3>
-          <div class="region-info" id="departementInfo">
-            <div class="region-name">France</div>
-            <div class="region-price">3 566 € <span>/m²</span></div>
-            <div class="region-details">
-              <div class="detail-row">
-                <span class="detail-label">Prix maisons</span>
-                <span class="detail-value">3 011 €/m²</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Prix appartements</span>
-                <span class="detail-value">4 235 €/m²</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Evolution 12 mois</span>
-                <span class="detail-value" style="color: #e74c3c">-0.3%</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Evolution 5 ans</span>
-                <span class="detail-value" style="color: #27ae60">+15.2%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Search & List Card -->
-        <div class="sidebar-card">
-          <h3>Rechercher un département</h3>
-          <div class="search-box">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" id="departementSearch" placeholder="Rechercher un département..." />
-          </div>
-          <div class="region-list" id="departementList" style="max-height: 400px">
-            {
-              Object.entries(departementsData).map(([id, dept]) => (
-                <div class="region-list-item" data-dept={id}>
-                  <span class="name">{dept.name}</span>
-                  <span class="price">{fmt(dept.price)} €/m²</span>
-                </div>
-              ))
-            }
-          </div>
-        </div>
+      <div class="section-head">
+        <span class="eyebrow">Classements</span>
+        <h2>Les villes les plus chères et les plus abordables</h2>
+        <p>Prix moyen au m², tous types de biens confondus.</p>
       </div>
-    </div>
-  </section>
 
-  <!-- Cities Section -->
-  <section class="cities-section">
-    <div class="container">
-      <h2>Top des villes les plus cheres et les moins cheres</h2>
-      <p class="subtitle">Classement des villes francaises par prix au metre carre</p>
-      <div class="cities-grid">
-        <div class="cities-card">
-          <h3>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#e74c3c"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-              <polyline points="17 6 23 6 23 12"></polyline>
-            </svg>
-            Villes les plus cheres
-          </h3>
+      <div class="grid grid--2">
+        <div class="card">
+          <h3 class="rank-title">Les plus chères</h3>
           {
             villesCheres.map((ville, i) => (
-              <div class="city-row">
-                <div class="city-rank">{i + 1}</div>
-                <span class="city-name">{ville.name}</span>
-                <span class="city-price">{ville.price} €/m²</span>
+              <div class="city">
+                <span class="city__rank mono">{String(i + 1).padStart(2, '0')}</span>
+                <span class="city__name">{ville.name}</span>
+                <span class="city__price">{ville.price} €/m²</span>
               </div>
             ))
           }
         </div>
-        <div class="cities-card">
-          <h3>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#27ae60"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
-              <polyline points="17 18 23 18 23 12"></polyline>
-            </svg>
-            Villes les plus abordables
-          </h3>
+
+        <div class="card">
+          <h3 class="rank-title">Les plus abordables</h3>
           {
             villesAbordables.map((ville, i) => (
-              <div class="city-row">
-                <div class="city-rank">{i + 1}</div>
-                <span class="city-name">{ville.name}</span>
-                <span class="city-price">{ville.price} €/m²</span>
+              <div class="city">
+                <span class="city__rank mono">{String(i + 1).padStart(2, '0')}</span>
+                <span class="city__name">{ville.name}</span>
+                <span class="city__price">{ville.price} €/m²</span>
               </div>
             ))
           }
@@ -285,12 +189,19 @@ const villesAbordables = [
     </div>
   </section>
 
-  <!-- CTA Section -->
-  <section class="cta-section">
+  <!-- -------------------------------------------------------- CTA final -->
+  <section class="section section--dark">
     <div class="container">
-      <h2>Estimez votre bien gratuitement</h2>
-      <p>Obtenez une estimation precise basee sur les donnees du marche de votre secteur</p>
-      <a href="/estimation" class="cta-button">Estimer mon bien maintenant</a>
+      <div class="section-head section-head--center">
+        <h2>Un prix moyen ne fait pas une estimation</h2>
+        <p>
+          Ces chiffres situent votre marché. Pour connaître la valeur de votre bien, il faut y
+          ajouter sa surface, son état, son exposition et son DPE.
+        </p>
+      </div>
+      <div class="btn-row btn-row--center">
+        <a href="/estimation" class="btn btn--light btn--lg">Estimer mon bien</a>
+      </div>
     </div>
   </section>
 </BaseLayout>
@@ -300,13 +211,14 @@ const villesAbordables = [
 
   /** Réécrit la carte d'information avec les chiffres de la zone choisie. */
   function renderInfo(container: HTMLElement, data: ZonePrix) {
-    const color = (v: number) => (v >= 0 ? '#27ae60' : '#e74c3c');
-    const sign = (v: number) => (v >= 0 ? '+' : '');
+    const trend = (v: number) => (v >= 0 ? 'is-up' : 'is-down');
+    const sign = (v: number) => (v >= 0 ? '+' : '−');
+    const abs = (v: number) => Math.abs(v).toString().replace('.', ',');
 
     container.innerHTML = `
-      <div class="region-name">${data.name}</div>
-      <div class="region-price">${data.price.toLocaleString('fr-FR')} € <span>/m²</span></div>
-      <div class="region-details">
+      <div class="zone-name">${data.name}</div>
+      <div class="zone-price">${data.price.toLocaleString('fr-FR')} € <span>/m²</span></div>
+      <div class="zone-details">
         <div class="detail-row">
           <span class="detail-label">Prix maisons</span>
           <span class="detail-value">${data.maisons.toLocaleString('fr-FR')} €/m²</span>
@@ -316,12 +228,12 @@ const villesAbordables = [
           <span class="detail-value">${data.apparts.toLocaleString('fr-FR')} €/m²</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">Evolution 12 mois</span>
-          <span class="detail-value" style="color: ${color(data.evol12)};">${sign(data.evol12)}${data.evol12}%</span>
+          <span class="detail-label">Évolution 12 mois</span>
+          <span class="detail-value ${trend(data.evol12)}">${sign(data.evol12)}${abs(data.evol12)} %</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">Evolution 5 ans</span>
-          <span class="detail-value" style="color: ${color(data.evol5)};">${sign(data.evol5)}${data.evol5}%</span>
+          <span class="detail-label">Évolution 5 ans</span>
+          <span class="detail-value ${trend(data.evol5)}">${sign(data.evol5)}${abs(data.evol5)} %</span>
         </div>
       </div>
     `;
@@ -343,7 +255,7 @@ const villesAbordables = [
     const search = document.getElementById(options.searchId);
     if (!list || !info || !search) return;
 
-    const items = Array.from(list.querySelectorAll<HTMLElement>('.region-list-item'));
+    const items = Array.from(list.querySelectorAll<HTMLElement>('.zone-item'));
 
     for (const item of items) {
       item.addEventListener('click', () => {
@@ -382,429 +294,232 @@ const villesAbordables = [
   });
 </script>
 
+<!--
+  Les cartes d'information sont réécrites par le script ci-dessus : leurs styles
+  doivent rester globaux pour s'appliquer au HTML injecté à l'exécution.
+-->
 <style is:global>
-  /* Hero Section */
-  .hero {
-    background:
-      linear-gradient(135deg, rgba(37, 99, 235, 0.65) 0%, rgba(30, 64, 175, 0.65) 100%),
-      url("https://images.unsplash.com/photo-1524813686514-a57563d77965?w=1600&h=900&fit=crop")
-        center/cover;
-    color: white;
-    padding: 80px 0;
+  .zone-info {
     text-align: center;
+    padding: 0.5rem 0 1.5rem;
   }
 
-  .hero h1 {
-    font-size: 48px;
-    font-weight: 700;
-    margin-bottom: 20px;
-    line-height: 1.2;
-  }
-
-  .hero p {
-    font-size: 20px;
-    margin-bottom: 0;
-    opacity: 0.95;
-  }
-
-  /* Stats Bar - Style unifié */
-  .stats-bar {
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    padding: 40px 0;
-    color: white;
-  }
-
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 30px;
-    text-align: center;
-  }
-
-  .stat-item {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .stat-icon {
-    font-size: 32px;
-    margin-bottom: 10px;
-  }
-
-  .stat-value {
-    font-size: 32px;
-    font-weight: 700;
-    color: white;
-    margin-bottom: 5px;
-  }
-
-  .stat-label {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  .stat-change {
-    font-size: 13px;
-    margin-top: 5px;
-  }
-
-  .stat-change.positive {
-    color: #90ee90;
-  }
-
-  .stat-change.negative {
-    color: #ffb6c1;
-  }
-
-  /* Main Content */
-  .main-content {
-    padding: 60px 0;
-  }
-
-  .content-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 40px;
-  }
-
-  /* Sidebar */
-  .sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-  }
-
-  .sidebar-card {
-    background: white;
-    border-radius: 12px;
-    padding: 25px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-  }
-
-  .sidebar-card h3 {
-    font-size: 18px;
-    margin-bottom: 20px;
-    color: #2c3e50;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #f0f0f0;
-  }
-
-  /* Region Info */
-  .region-info {
-    text-align: center;
-    padding: 20px 0;
-  }
-
-  .region-info .region-name {
-    font-size: 24px;
-    font-weight: 700;
-    color: #2c3e50;
-    margin-bottom: 10px;
-  }
-
-  .region-info .region-price {
-    font-size: 36px;
-    font-weight: 700;
-    color: #2563eb;
-  }
-
-  .region-info .region-price span {
-    font-size: 16px;
-    color: #6c757d;
-    font-weight: 400;
-  }
-
-  .region-details {
-    margin-top: 20px;
-  }
-
-  .detail-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 12px 0;
-    border-bottom: 1px solid #f0f0f0;
-  }
-
-  .detail-row:last-child {
-    border-bottom: none;
-  }
-
-  .detail-label {
-    color: #6c757d;
-    font-size: 14px;
-  }
-
-  .detail-value {
+  .zone-info .zone-name {
+    font-size: var(--h4);
     font-weight: 600;
-    color: #2c3e50;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.25rem;
   }
 
-  /* Search Box */
-  .search-box {
+  .zone-info .zone-price {
+    font-size: clamp(2rem, 1.4rem + 2vw, 2.75rem);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+    color: var(--orange);
+  }
+
+  .zone-info .zone-price span {
+    font-size: var(--text-base);
+    font-weight: 400;
+    color: var(--text-faint);
+  }
+
+  .zone-details {
+    margin-top: 1.75rem;
+    text-align: left;
+  }
+
+  .zone-details .detail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--border);
+    font-size: var(--text-sm);
+  }
+
+  .zone-details .detail-label {
+    color: var(--text-soft);
+  }
+
+  .zone-details .detail-value {
+    font-weight: 600;
+    color: var(--black);
+  }
+
+  .detail-value.is-up {
+    color: var(--success);
+  }
+
+  .detail-value.is-down {
+    color: var(--error);
+  }
+</style>
+
+<style>
+  .page-head {
+    padding: clamp(3rem, 2rem + 4vw, 5rem) 0;
+    background:
+      radial-gradient(55rem 30rem at 20% -20%, var(--orange-10) 0%, transparent 60%),
+      linear-gradient(180deg, var(--beige-25) 0%, var(--beige-10) 100%);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .page-head h1 {
+    margin-bottom: 1rem;
+  }
+
+  .page-head .lead {
+    max-width: 40rem;
+  }
+
+  .stats-strip .stat__change {
+    margin-top: 0.375rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+  }
+
+  .stats-strip .is-up {
+    color: var(--success);
+  }
+
+  .stats-strip .is-down {
+    color: var(--error);
+  }
+
+  /* ----------------------------------------------------- Explorateur */
+  .explorer {
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .explorer__info {
+    position: sticky;
+    top: 6rem;
+  }
+
+  .zone-hint {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
+    text-align: center;
+  }
+
+  .search {
     position: relative;
-    margin-bottom: 15px;
+    margin-bottom: 1rem;
   }
 
-  .search-box input {
-    width: 100%;
-    padding: 14px 16px;
-    padding-left: 45px;
-    border: 2px solid #e8e8e8;
-    border-radius: 10px;
-    font-size: 15px;
-    transition: border-color 0.3s;
-  }
-
-  .search-box input:focus {
-    outline: none;
-    border-color: #2563eb;
-  }
-
-  .search-box svg {
+  .search svg {
     position: absolute;
-    left: 15px;
+    left: 1rem;
     top: 50%;
     transform: translateY(-50%);
-    color: #6c757d;
+    width: 1.125rem;
+    height: 1.125rem;
+    stroke: var(--aubergine-3);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    pointer-events: none;
   }
 
-  /* Region List */
-  .region-list {
-    max-height: 300px;
+  .search .input {
+    padding-left: 2.75rem;
+  }
+
+  .zone-list {
+    max-height: 24rem;
     overflow-y: auto;
-  }
-
-  .region-list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 15px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .region-list-item:hover {
-    background: #f8f9fa;
-  }
-
-  .region-list-item.active {
-    background: #e8f4fd;
-  }
-
-  .region-list-item .name {
-    font-weight: 500;
-    color: #2c3e50;
-  }
-
-  .region-list-item .price {
-    font-weight: 600;
-    color: #2563eb;
-  }
-
-  /* Departments Section */
-  .departments-section {
-    background: white;
-    padding: 60px 0;
-  }
-
-  .departments-section h2 {
-    text-align: center;
-    font-size: 32px;
-    margin-bottom: 40px;
-    color: #2c3e50;
-  }
-
-  .departments-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
+    gap: 0.125rem;
+    padding-right: 0.25rem;
   }
 
-  .department-card {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 12px;
-    text-align: center;
+  .zone-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid transparent;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
     transition:
-      transform 0.3s,
-      box-shadow 0.3s;
-    cursor: pointer;
+      background-color 0.15s var(--ease),
+      border-color 0.15s var(--ease);
   }
 
-  .department-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    background: white;
+  .zone-item:hover {
+    background: var(--beige-25);
   }
 
-  .department-card .dept-name {
+  .zone-item.active {
+    background: var(--orange-5);
+    border-color: var(--orange-25);
+  }
+
+  .zone-item .name {
+    font-size: var(--text-sm);
+    font-weight: 500;
+  }
+
+  .zone-item .price {
+    font-size: var(--text-sm);
     font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 8px;
+    color: var(--orange);
+    white-space: nowrap;
   }
 
-  .department-card .dept-price {
-    font-size: 20px;
-    font-weight: 700;
-    color: #2563eb;
+  /* ----------------------------------------------------- Classements */
+  .rank-title {
+    padding-bottom: 1rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--text-md);
   }
 
-  .department-card .dept-change {
-    font-size: 13px;
-    margin-top: 5px;
-  }
-
-  /* Cities Section */
-  .cities-section {
-    padding: 60px 0;
-  }
-
-  .cities-section h2 {
-    text-align: center;
-    font-size: 32px;
-    margin-bottom: 20px;
-    color: #2c3e50;
-  }
-
-  .cities-section .subtitle {
-    text-align: center;
-    color: #6c757d;
-    margin-bottom: 40px;
-  }
-
-  .cities-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 30px;
-  }
-
-  .cities-card {
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-  }
-
-  .cities-card h3 {
-    font-size: 20px;
-    margin-bottom: 20px;
-    color: #2c3e50;
+  .city {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 1rem;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--border);
   }
 
-  .city-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 0;
-    border-bottom: 1px solid #f0f0f0;
-  }
-
-  .city-row:last-child {
+  .city:last-child {
     border-bottom: none;
   }
 
-  .city-rank {
-    width: 30px;
-    height: 30px;
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    border-radius: 50%;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: 600;
+  .city__rank {
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
   }
 
-  .city-name {
+  .city__name {
     flex: 1;
-    margin-left: 15px;
     font-weight: 500;
   }
 
-  .city-price {
-    font-weight: 700;
-    color: #2563eb;
-  }
-
-  /* CTA Section */
-  .cta-section {
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    padding: 60px 0;
-    text-align: center;
-    color: white;
-  }
-
-  .cta-section h2 {
-    font-size: 32px;
-    margin-bottom: 15px;
-  }
-
-  .cta-section p {
-    font-size: 18px;
-    opacity: 0.9;
-    margin-bottom: 30px;
-  }
-
-  .cta-button {
-    display: inline-block;
-    padding: 18px 45px;
-    background: white;
-    color: #2563eb;
-    text-decoration: none;
-    border-radius: 6px;
+  .city__price {
     font-weight: 600;
-    font-size: 18px;
-    transition:
-      transform 0.3s,
-      box-shadow 0.3s;
+    letter-spacing: -0.02em;
   }
 
-  .cta-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-  }
-
-  /* Responsive */
-  @media (max-width: 992px) {
-    .content-grid {
-      grid-template-columns: 1fr;
+  @media (max-width: 900px) {
+    .explorer {
+      grid-template-columns: minmax(0, 1fr);
     }
 
-    .stats-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    .departments-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (max-width: 768px) {
-    .hero h1 {
-      font-size: 32px;
-    }
-
-    .stats-grid {
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .cities-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .departments-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .map-container {
-      height: 400px;
+    .explorer__info {
+      position: static;
     }
   }
 </style>

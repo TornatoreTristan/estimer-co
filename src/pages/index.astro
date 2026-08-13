@@ -1,137 +1,341 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { partenaires } from '../data/partenaires';
 
-const stats = [
-  { number: '+5,2%', label: 'Hausse annuelle moyenne' },
-  { number: '15-20%', label: 'Écart de prix possible sans estimation' },
-  { number: '3-6 mois', label: 'Délai moyen de vente avec bonne estimation' },
+const logos = partenaires.slice(0, 8).map((p) => p.logo);
+
+const problemes = [
+  {
+    titre: 'Des estimations qui varient du simple au double',
+    texte:
+      "Trois agences, trois prix. Sans méthode ni données, impossible de savoir laquelle a raison — et l'écart peut atteindre 15 à 20 % de la valeur de votre bien.",
+  },
+  {
+    titre: 'Un bien affiché trop cher qui ne part pas',
+    texte:
+      "Un prix mal calibré, et votre annonce s'installe dans le paysage. Après trois mois sans visite, la seule issue est la baisse de prix — celle que vous vouliez éviter.",
+  },
+  {
+    titre: 'Aucune visibilité sur votre marché local',
+    texte:
+      "Les prix ne bougent pas de la même façon d'une rue à l'autre. Sans les transactions réelles de votre secteur, vous négociez à l'aveugle.",
+  },
+];
+
+const blocs = [
+  {
+    eyebrow: 'Analyse de marché',
+    titre: 'Les transactions réelles de votre secteur, pas une moyenne nationale',
+    texte:
+      "Nous croisons les ventes récentes de votre quartier, la tension du marché local et l'évolution des prix sur 12 mois pour situer votre bien au bon endroit de la fourchette.",
+    lien: { href: '/carte', label: 'Voir les prix par région' },
+    visuel: 'marche',
+  },
+  {
+    eyebrow: 'Évaluation technique',
+    titre: 'Chaque critère qui fait varier le prix, pris en compte',
+    texte:
+      "Surface, nombre de pièces, état, exposition, terrain, équipements et DPE. Le diagnostic énergétique pèse à lui seul jusqu'à 25 % du prix : nous l'intégrons au calcul plutôt que de l'ignorer.",
+    lien: { href: '/estimation', label: 'Estimer mon bien' },
+    visuel: 'criteres',
+  },
+  {
+    eyebrow: 'Réseau de partenaires',
+    titre: 'Et si vous vendez, les bons professionnels au bon moment',
+    texte:
+      `${partenaires.length} partenaires — réseaux d'agences, banques, notaires et diagnostiqueurs — que nous vous présentons uniquement si vous le demandez. Jamais de revente de vos coordonnées.`,
+    lien: { href: '/partenaires', label: 'Découvrir nos partenaires' },
+    visuel: 'partenaires',
+  },
 ];
 
 const chiffres = [
-  { icon: '🏠', value: '50 000+', label: 'Estimations réalisées' },
-  { icon: '🤝', value: '31', label: 'Partenaires de confiance' },
-  { icon: '⭐', value: '98%', label: 'Clients satisfaits' },
-  { icon: '⏱️', value: '24h', label: 'Délai de réponse moyen' },
+  { value: '50 000+', label: 'Estimations réalisées' },
+  { value: String(partenaires.length), label: 'Partenaires de confiance' },
+  { value: '98 %', label: 'Clients satisfaits' },
+  { value: '24 h', label: 'Délai de réponse moyen' },
 ];
 
-const valeurs = [
+const temoignages = [
   {
-    image: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&h=400&fit=crop',
-    alt: 'Transparence - Documents et analyse',
-    titre: 'Transparence',
-    texte:
-      "Nous croyons en une estimation immobilière transparente et documentée. Chaque estimation est detaillee et justifiee par des donnees concretes du marche. Vous savez exactement comment nous arrivons a nos conclusions.",
+    quote:
+      "L'estimation était précise et le rapport très complet. J'ai pu fixer mon prix sans hésiter et vendre mon appartement en six semaines.",
+    nom: 'Marie L.',
+    detail: 'Appartement vendu à Lyon',
   },
   {
-    image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&h=400&fit=crop',
-    alt: 'Excellence - Analyse professionnelle',
-    titre: 'Excellence',
-    texte:
-      "Notre methodologie est constamment affinee pour vous garantir la meilleure precision. Nous travaillons avec les meilleurs experts et partenaires du secteur pour vous offrir un service de qualite superieure.",
+    quote:
+      "J'ai reçu mon estimation en moins de 24 h et elle correspondait exactement au prix auquel j'ai finalement vendu ma maison.",
+    nom: 'Philippe D.',
+    detail: 'Maison vendue à Bordeaux',
   },
   {
-    image: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=600&h=400&fit=crop',
-    alt: 'Accessibilite - Service pour tous',
-    titre: 'Accessibilite',
+    quote:
+      "J'hésitais sur le prix de mon studio. Le rapport m'a donné les arguments pour tenir ma position face aux acheteurs.",
+    nom: 'Sophie C.',
+    detail: 'Studio vendu à Paris',
+  },
+];
+
+const profils = [
+  {
+    titre: 'Vous vendez',
+    sousTitre: 'Fixez le juste prix, dès le premier jour',
     texte:
-      "L'estimation de qualite doit etre accessible a tous. C'est pourquoi nos services sont 100% gratuits et sans engagement. Chaque proprietaire merite de connaitre la vraie valeur de son bien.",
+      "Un prix cohérent avec le marché attire les visites tout de suite. Vous partez avec un rapport chiffré qui justifie votre position face aux acheteurs comme face aux agences.",
+  },
+  {
+    titre: 'Vous réfléchissez',
+    sousTitre: 'Sachez ce que vaut votre bien, sans engagement',
+    texte:
+      "Rien ne vous oblige à vendre. Beaucoup de propriétaires demandent une estimation simplement pour savoir où ils en sont avant d'arbitrer un projet.",
+  },
+  {
+    titre: 'Vous gérez un patrimoine',
+    sousTitre: 'Pilotez la valeur de vos biens dans le temps',
+    texte:
+      "Suivez l'évolution de vos actifs immobiliers, anticipez l'impact des nouvelles normes énergétiques et arbitrez vos investissements sur des chiffres, pas des impressions.",
+  },
+];
+
+const garanties = [
+  {
+    titre: 'Gratuit et sans engagement',
+    texte:
+      "Aucun frais, aucune carte bancaire, aucune obligation de vendre. L'estimation de qualité doit rester accessible à tous les propriétaires.",
+  },
+  {
+    titre: 'Vos données restent chez vous',
+    texte:
+      'Vos informations ne sont ni revendues ni transmises à un partenaire sans votre accord explicite. Hébergement en France.',
+  },
+  {
+    titre: 'Une méthode documentée',
+    texte:
+      'Chaque estimation est justifiée par des données concrètes. Vous voyez comment nous arrivons au chiffre, pas seulement le chiffre.',
+  },
+];
+
+const etapes = [
+  {
+    titre: 'Vous décrivez votre bien',
+    duree: '3 minutes',
+    points: [
+      'Type de bien, surface et nombre de pièces',
+      'Adresse exacte et code postal',
+      'Diagnostic énergétique (ou demande de DPE)',
+    ],
+  },
+  {
+    titre: 'Nous analysons le marché',
+    duree: 'Sous 24 heures',
+    points: [
+      'Transactions réelles de votre secteur',
+      'Pondération selon les critères de votre bien',
+      'Fourchette basse, moyenne et haute',
+    ],
+  },
+  {
+    titre: 'Vous recevez votre rapport',
+    duree: 'Immédiatement disponible',
+    points: [
+      'Estimation détaillée et téléchargeable en PDF',
+      'Analyse du marché local et de sa dynamique',
+      'Mise en relation avec un expert, si vous le souhaitez',
+    ],
   },
 ];
 ---
 
 <BaseLayout
-  title="Accueil - Estimer mon bien"
-  description="L'estimation immobilière fiable, gratuite et rapide. Recevez un rapport complet sur la valorisation de votre patrimoine immobilier."
+  title="Estimer mon bien — l'estimation immobilière fiable, gratuite et rapide"
+  description="Recevez sous 24 h un rapport complet sur la valeur de votre bien immobilier : analyse du marché local, impact du DPE et fourchette de prix justifiée."
 >
-  <!-- Hero Section -->
+  <!-- ------------------------------------------------------------ Hero -->
   <section class="hero">
     <div class="container">
-      <h1>L'estimation immobilière fiable, gratuite et rapide</h1>
-      <p>Recevez un rapport complet sur la valorisation de votre patrimoine immobilier</p>
-      <a href="/estimation" class="cta-button">Estimer mon bien gratuitement</a>
-    </div>
-  </section>
-
-  <!-- Votre Bien Section -->
-  <section class="your-property-section">
-    <div class="container">
-      <h2>Votre bien mérite la meilleure estimation</h2>
-      <div class="property-content">
-        <div class="property-text">
-          <h3>L'immobilier en France : un marché en constante évolution</h3>
-          <p>
-            Le marché immobilier français a connu des fluctuations importantes ces dernières années.
-            Avec une hausse moyenne de 5,2% par an depuis 2020, il est devenu crucial de connaître la
-            valeur réelle de votre patrimoine.
+      <div class="hero__grid">
+        <div class="hero__copy">
+          <span class="pill">Gratuit · Sans engagement</span>
+          <h1>L'estimation immobilière fiable, gratuite et rapide</h1>
+          <p class="lead">
+            Recevez un rapport complet sur la valeur de votre bien : transactions réelles de votre
+            secteur, impact du DPE et fourchette de prix justifiée. Sous 24 heures.
           </p>
-          <p>
-            Que vous envisagiez de vendre, d'acheter ou simplement de connaître la valeur de votre
-            bien, une estimation précise est indispensable. Elle vous permet de :
-          </p>
-          <ul>
-            <li>Fixer le juste prix en cas de vente</li>
-            <li>Négocier sereinement avec les acheteurs</li>
-            <li>Optimiser votre patrimoine et vos investissements</li>
-            <li>Anticiper les évolutions du marché local</li>
-          </ul>
-          <p>
-            Avec Estimer mon bien, bénéficiez d'une analyse complète et transparente basée sur les
-            données du marché actuel, les spécificités de votre bien et l'évolution de votre secteur
-            géographique.
+          <div class="btn-row">
+            <a href="/estimation" class="btn btn--primary btn--lg">Estimer mon bien</a>
+            <a href="/carte" class="btn btn--outline btn--lg">Voir les prix au m²</a>
+          </div>
+          <p class="hero__note">
+            <strong>50 000+</strong> propriétaires accompagnés &nbsp;·&nbsp; <strong>98 %</strong> de
+            clients satisfaits
           </p>
         </div>
-        <div class="property-stats">
-          {
-            stats.map((stat) => (
-              <div class="stat-box">
-                <div class="stat-number">{stat.number}</div>
-                <div class="stat-label">{stat.label}</div>
+
+        <!-- Aperçu du rapport, dessiné en CSS plutôt qu'en image -->
+        <div class="hero__preview" aria-hidden="true">
+          <div class="preview">
+            <div class="preview__head">
+              <span class="preview__dot"></span>
+              <span class="mono">Rapport d'estimation</span>
+            </div>
+            <div class="preview__body">
+              <div class="preview__label">Estimation moyenne</div>
+              <div class="preview__price">348 500 €</div>
+              <div class="preview__range">
+                <div><span>Minimum</span><strong>331 100 €</strong></div>
+                <div><span>Maximum</span><strong>365 900 €</strong></div>
               </div>
-            ))
-          }
+              <div class="preview__bar"><span></span></div>
+              <ul class="preview__rows">
+                <li><span>Prix au m²</span><strong>4 100 €</strong></li>
+                <li><span>Surface</span><strong>85 m²</strong></li>
+                <li><span>DPE</span><strong class="tag tag--ok">C</strong></li>
+                <li><span>Marché local 12 mois</span><strong class="up">+2,4 %</strong></li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Notre Histoire Section -->
-  <section class="story-section">
+  <!-- --------------------------------------------------- Bandeau logos -->
+  <section class="section--sm logos">
     <div class="container">
-      <div class="story-content">
-        <div class="story-text">
-          <h2>Notre histoire</h2>
-          <p>
-            Fondée en 2015, Estimer mon bien est née d'une vision simple mais ambitieuse :
-            démocratiser l'accès à l'estimation immobilière de qualité pour tous les propriétaires
-            français.
-          </p>
-          <p>
-            Face à un marché souvent opaque et des estimations approximatives, nous avons développé
-            une méthodologie unique alliant expertise humaine et analyse de données du marché. Notre
-            engagement : vous fournir une estimation précise, transparente et gratuite de votre bien
-            immobilier.
-          </p>
-          <p>
-            Aujourd'hui, avec plus de 50 000 estimations réalisées et un réseau de partenaires
-            prestigieux, Estimer mon bien s'impose comme la référence en matière d'estimation
-            immobilière en France.
-          </p>
-        </div>
-        <div class="story-image"></div>
+      <p class="logos__title">Un réseau de {partenaires.length} partenaires de confiance</p>
+      <div class="logos__row">
+        {logos.map((logo) => <span>{logo}</span>)}
       </div>
     </div>
   </section>
 
-  <!-- Stats Section -->
-  <section class="stats-section">
+  <!-- --------------------------------------------------------- Problème -->
+  <section class="section section--beige">
     <div class="container">
-      <div class="stats-grid">
+      <div class="section-head">
+        <span class="eyebrow">Le problème</span>
+        <h2>Personne ne sait vraiment ce que vaut son bien.</h2>
+        <p>
+          Un prix affiché au doigt mouillé, trois avis d'agence contradictoires, et une décision à
+          plusieurs centaines de milliers d'euros prise sans donnée fiable.
+        </p>
+      </div>
+
+      <div class="grid grid--3">
         {
-          chiffres.map((c) => (
-            <div class="stat-item">
-              <span class="icon">{c.icon}</span>
-              <h3>{c.value}</h3>
-              <p>{c.label}</p>
+          problemes.map((probleme) => (
+            <article class="card card--hover problem">
+              <h3>{probleme.titre}</h3>
+              <p>{probleme.texte}</p>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------- Blocs alternés -->
+  <section class="section section--white">
+    <div class="container">
+      <div class="section-head section-head--center">
+        <span class="eyebrow">La solution</span>
+        <h2>Une estimation construite sur des données, pas sur une intuition</h2>
+        <p>
+          Trois briques d'analyse, un seul rapport. Vous savez exactement d'où vient le chiffre.
+        </p>
+      </div>
+
+      <div class="blocks">
+        {
+          blocs.map((bloc) => (
+            <article class="block">
+              <div class="block__copy">
+                <span class="eyebrow">{bloc.eyebrow}</span>
+                <h3>{bloc.titre}</h3>
+                <p>{bloc.texte}</p>
+                <a href={bloc.lien.href} class="link-arrow">
+                  {bloc.lien.label}
+                </a>
+              </div>
+
+              <div class="block__visual" aria-hidden="true">
+                {bloc.visuel === 'marche' && (
+                  <div class="viz viz--chart">
+                    <div class="viz__head">
+                      <span class="mono">Prix au m² · 12 mois</span>
+                      <span class="up">+2,4 %</span>
+                    </div>
+                    <div class="bars">
+                      {[42, 55, 48, 63, 58, 71, 66, 80, 76, 88, 84, 96].map((h) => (
+                        <span style={`height:${h}%`} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {bloc.visuel === 'criteres' && (
+                  <div class="viz viz--dpe">
+                    <div class="viz__head">
+                      <span class="mono">Impact du DPE sur le prix</span>
+                    </div>
+                    <ul class="dpe">
+                      <li>
+                        <span class="dpe__letter dpe__letter--a">A</span>
+                        <span class="dpe__track">
+                          <span style="width:100%" />
+                        </span>
+                        <strong>+15 %</strong>
+                      </li>
+                      <li>
+                        <span class="dpe__letter dpe__letter--c">C</span>
+                        <span class="dpe__track">
+                          <span style="width:62%" />
+                        </span>
+                        <strong>référence</strong>
+                      </li>
+                      <li>
+                        <span class="dpe__letter dpe__letter--f">F</span>
+                        <span class="dpe__track">
+                          <span style="width:34%" />
+                        </span>
+                        <strong>−18 %</strong>
+                      </li>
+                      <li>
+                        <span class="dpe__letter dpe__letter--g">G</span>
+                        <span class="dpe__track">
+                          <span style="width:22%" />
+                        </span>
+                        <strong>−25 %</strong>
+                      </li>
+                    </ul>
+                  </div>
+                )}
+
+                {bloc.visuel === 'partenaires' && (
+                  <div class="viz viz--net">
+                    {partenaires.slice(0, 9).map((partenaire) => (
+                      <span class="chip">{partenaire.logo}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ----------------------------------------------------------- Chiffres -->
+  <section class="section--sm section--dark">
+    <div class="container">
+      <div class="stat-band stat-band--dark">
+        {
+          chiffres.map((chiffre) => (
+            <div class="stat">
+              <div class="stat__value">{chiffre.value}</div>
+              <div class="stat__label">{chiffre.label}</div>
             </div>
           ))
         }
@@ -139,660 +343,625 @@ const valeurs = [
     </div>
   </section>
 
-  <!-- Expertise Section -->
-  <section class="expertise-section">
+  <!-- ------------------------------------------------------- Témoignages -->
+  <section class="section section--beige">
     <div class="container">
-      <h2>Notre expertise immobilière à 360°</h2>
-      <p class="subtitle">
-        Une approche complète et professionnelle pour valoriser votre patrimoine
-      </p>
-
-      <div class="expertise-grid">
-        <div class="expertise-card">
-          <div class="expertise-icon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#2563eb"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <line x1="18" y1="20" x2="18" y2="10"></line>
-              <line x1="12" y1="20" x2="12" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="14"></line>
-            </svg>
-          </div>
-          <h3>Analyse de marché</h3>
-          <p>
-            Nous analysons en temps réel les transactions immobilières de votre secteur pour une
-            estimation au prix du marché actuel.
-          </p>
-        </div>
-
-        <div class="expertise-card">
-          <div class="expertise-icon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#2563eb"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-              <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-          </div>
-          <h3>Évaluation technique</h3>
-          <p>
-            Notre méthode prend en compte tous les critères : surface, état, exposition, équipements,
-            performances énergétiques (DPE).
-          </p>
-        </div>
-
-        <div class="expertise-card">
-          <div class="expertise-icon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#2563eb"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-            </svg>
-          </div>
-          <h3>Réseau de partenaires</h3>
-          <p>
-            Grâce à nos 31 partenaires (Century 21, Orpi, Laforêt, Dr House Immo, BNP Paribas,
-            Notaires de France...), nous vous connectons aux meilleurs professionnels.
-          </p>
-        </div>
-
-        <div class="expertise-card">
-          <div class="expertise-icon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#2563eb"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-          </div>
-          <h3>Réactivité</h3>
-          <p>
-            Une estimation rapide et précise en moins de 24 heures, sans engagement de votre part.
-          </p>
-        </div>
-
-        <div class="expertise-card">
-          <div class="expertise-icon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#2563eb"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              <path d="M9 12l2 2 4-4"></path>
-            </svg>
-          </div>
-          <h3>Confidentialité</h3>
-          <p>
-            Vos données sont sécurisées et ne seront jamais partagées sans votre consentement
-            explicite.
-          </p>
-        </div>
-
-        <div class="expertise-card">
-          <div class="expertise-icon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#2563eb"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-          </div>
-          <h3>Accompagnement</h3>
-          <p>
-            Au-delà de l'estimation, nous vous conseillons sur les meilleures stratégies de
-            valorisation de votre bien.
-          </p>
-        </div>
+      <div class="section-head">
+        <span class="eyebrow">Témoignages</span>
+        <h2>Ils ont vendu au prix qu'ils avaient fixé.</h2>
       </div>
 
-      <div style="text-align: center; margin-top: 40px">
-        <a
-          href="/estimation"
-          class="cta-button"
-          style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white;"
-          >Commencer mon estimation gratuite</a
-        >
-      </div>
-    </div>
-  </section>
-
-  <!-- Values Section -->
-  <section class="values-section">
-    <div class="container">
-      <h2>Nos valeurs</h2>
-      <p class="subtitle">Les principes qui guident notre engagement envers vous</p>
-      <div class="values-list">
+      <div class="grid grid--3">
         {
-          valeurs.map((valeur, i) => (
-            <div class="value-item">
-              <div class="value-image">
-                <img src={valeur.image} alt={valeur.alt} />
+          temoignages.map((temoignage) => (
+            <figure class="card quote">
+              <div class="quote__stars" aria-label="5 étoiles sur 5">
+                ★★★★★
               </div>
-              <div class="value-content">
-                <div class="value-number">{i + 1}</div>
-                <h3>{valeur.titre}</h3>
-                <p>{valeur.texte}</p>
-              </div>
-            </div>
+              <blockquote>{temoignage.quote}</blockquote>
+              <figcaption>
+                <strong>{temoignage.nom}</strong>
+                <span>{temoignage.detail}</span>
+              </figcaption>
+            </figure>
           ))
         }
       </div>
     </div>
   </section>
 
-  <!-- Final CTA Section -->
-  <section class="cta-section">
+  <!-- ------------------------------------------------------------ Pour qui -->
+  <section class="section section--white">
     <div class="container">
-      <h2>Prêt à découvrir la valeur de votre bien ?</h2>
-      <p>
-        Rejoignez les 50 000+ propriétaires qui nous ont fait confiance pour estimer leur patrimoine
-        immobilier
-      </p>
-      <a href="/estimation" class="cta-button">Estimer mon bien maintenant</a>
+      <div class="section-head">
+        <span class="eyebrow">Pour qui ?</span>
+        <h2>Conçu pour les propriétaires qui veulent un chiffre, pas un discours</h2>
+      </div>
+
+      <div class="grid grid--3">
+        {
+          profils.map((profil) => (
+            <article class="card card--hover persona">
+              <span class="pill pill--neutral">{profil.titre}</span>
+              <h3>{profil.sousTitre}</h3>
+              <p>{profil.texte}</p>
+            </article>
+          ))
+        }
+      </div>
+
+      <div class="grid grid--3 guarantees">
+        {
+          garanties.map((garantie) => (
+            <article class="guarantee">
+              <h4>{garantie.titre}</h4>
+              <p>{garantie.texte}</p>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- Étapes -->
+  <section class="section section--sand">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Comment ça marche</span>
+        <h2>Trois étapes, aucune visite obligatoire</h2>
+        <p>Le formulaire prend trois minutes. Le rapport arrive sous 24 heures.</p>
+      </div>
+
+      <div class="steps">
+        {
+          etapes.map((etape, i) => (
+            <article class="step">
+              <div class="step__num mono">{String(i + 1).padStart(2, '0')}</div>
+              <h3>{etape.titre}</h3>
+              <span class="step__duree mono">{etape.duree}</span>
+              <ul class="check-list">
+                {etape.points.map((point) => (
+                  <li>{point}</li>
+                ))}
+              </ul>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------- CTA final -->
+  <section class="section section--dark">
+    <div class="container">
+      <div class="section-head section-head--center">
+        <h2>Prêt à découvrir la valeur de votre bien ?</h2>
+        <p>Deux façons de commencer, selon le temps que vous avez devant vous.</p>
+      </div>
+
+      <div class="grid grid--2 final-cta">
+        <article class="card card--dark">
+          <span class="pill">En autonomie</span>
+          <h3>Estimation en ligne</h3>
+          <p>
+            Trois minutes de formulaire, un rapport détaillé sous 24 heures. Gratuit, sans
+            engagement, sans carte bancaire.
+          </p>
+          <a href="/estimation" class="btn btn--light">Estimer mon bien</a>
+        </article>
+
+        <article class="card card--dark">
+          <span class="pill pill--neutral">Accompagné</span>
+          <h3>Parler à un expert</h3>
+          <p>
+            Une question sur votre situation, un bien atypique, un projet particulier ? Notre équipe
+            vous répond sous 24 heures.
+          </p>
+          <a href="/contact" class="btn btn--ghost-light">Nous contacter</a>
+        </article>
+      </div>
     </div>
   </section>
 </BaseLayout>
 
-<style is:global>
-  /* Hero Section */
+<style>
+  /* ------------------------------------------------------------- Hero */
   .hero {
+    position: relative;
+    padding: clamp(3rem, 1.5rem + 5vw, 6rem) 0 clamp(3.5rem, 2rem + 5vw, 6.5rem);
     background:
-      linear-gradient(135deg, rgba(37, 99, 235, 0.45) 0%, rgba(30, 64, 175, 0.45) 100%),
-      url("https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600&h=900&fit=crop")
-        center/cover;
-    color: white;
-    padding: 120px 0;
-    text-align: center;
-    position: relative;
+      radial-gradient(60rem 32rem at 78% -12%, var(--orange-10) 0%, transparent 62%),
+      linear-gradient(180deg, var(--beige-25) 0%, var(--beige-10) 100%);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
   }
 
-  .hero h1 {
-    font-size: 56px;
-    font-weight: 700;
-    margin-bottom: 25px;
-    line-height: 1.2;
-  }
-
-  .hero p {
-    font-size: 24px;
-    margin-bottom: 40px;
-    opacity: 0.95;
-    max-width: 800px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .cta-button {
-    display: inline-block;
-    padding: 18px 45px;
-    background: white;
-    color: #2563eb;
-    text-decoration: none;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 18px;
-    transition:
-      transform 0.3s,
-      box-shadow 0.3s;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  }
-
-  .cta-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-  }
-
-  /* Votre Bien Section */
-  .your-property-section {
-    background-color: #f8f9fa;
-    padding: 80px 0;
-  }
-
-  .your-property-section h2 {
-    text-align: center;
-    font-size: 38px;
-    margin-bottom: 50px;
-    color: #2c3e50;
-  }
-
-  .property-content {
+  .hero__grid {
     display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: 60px;
-    align-items: start;
-  }
-
-  .property-text h3 {
-    font-size: 28px;
-    margin-bottom: 20px;
-    color: #2c3e50;
-  }
-
-  .property-text p {
-    font-size: 17px;
-    color: #6c757d;
-    margin-bottom: 20px;
-    line-height: 1.8;
-  }
-
-  .property-text ul {
-    list-style: none;
-    padding: 0;
-    margin: 25px 0;
-  }
-
-  .property-text ul li {
-    font-size: 17px;
-    color: #2c3e50;
-    padding: 12px 0 12px 35px;
-    position: relative;
-  }
-
-  .property-text ul li::before {
-    content: "✓";
-    position: absolute;
-    left: 0;
-    color: #2563eb;
-    font-weight: bold;
-    font-size: 20px;
-  }
-
-  .property-stats {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 25px;
-  }
-
-  .stat-box {
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-    text-align: center;
-    transition:
-      transform 0.3s,
-      box-shadow 0.3s;
-  }
-
-  .stat-box:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-  }
-
-  .stat-number {
-    font-size: 42px;
-    font-weight: 700;
-    color: #2563eb;
-    margin-bottom: 10px;
-  }
-
-  .stat-label {
-    font-size: 16px;
-    color: #6c757d;
-    line-height: 1.4;
-  }
-
-  /* Notre Histoire Section */
-  .story-section {
-    background-color: #ffffff;
-    padding: 80px 0;
-  }
-
-  .story-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 60px;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: clamp(2rem, 1rem + 4vw, 4.5rem);
     align-items: center;
   }
 
-  .story-text h2 {
-    font-size: 38px;
-    margin-bottom: 25px;
-    color: #2c3e50;
+  .hero__copy .pill {
+    margin-bottom: 1.5rem;
   }
 
-  .story-text p {
-    font-size: 18px;
-    color: #6c757d;
-    margin-bottom: 20px;
-    line-height: 1.8;
+  .hero__copy h1 {
+    margin-bottom: 1.25rem;
   }
 
-  .story-image {
-    width: 100%;
-    height: 400px;
-    background:
-      linear-gradient(135deg, rgba(37, 99, 235, 0.3) 0%, rgba(30, 64, 175, 0.3) 100%),
-      url("https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=600&fit=crop")
-        center/cover;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  .hero__copy .lead {
+    max-width: 34rem;
+    margin-bottom: 2rem;
   }
 
-  /* Expertise Section */
-  .expertise-section {
-    background-color: #f8f9fa;
-    padding: 80px 0;
+  .hero__note {
+    margin-top: 1.5rem;
+    font-size: var(--text-sm);
+    color: var(--text-soft);
   }
 
-  .expertise-section h2 {
-    text-align: center;
-    font-size: 38px;
-    margin-bottom: 20px;
-    color: #2c3e50;
+  .hero__note strong {
+    color: var(--black);
+    font-weight: 600;
   }
 
-  .expertise-section .subtitle {
-    text-align: center;
-    font-size: 20px;
-    color: #6c757d;
-    margin-bottom: 60px;
+  /* Aperçu du rapport */
+  .preview {
+    background: var(--white);
+    border: 1px solid var(--border-strong);
   }
 
-  .expertise-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 40px;
-    margin-bottom: 60px;
-  }
-
-  .expertise-card {
-    background: white;
-    padding: 40px 30px;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-    text-align: center;
-    transition:
-      transform 0.3s,
-      box-shadow 0.3s;
-  }
-
-  .expertise-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-  }
-
-  .expertise-icon {
-    width: 90px;
-    height: 90px;
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    border-radius: 50%;
+  .preview__head {
     display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--beige-10);
+    font-size: var(--text-tiny);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .preview__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    background: var(--orange);
+  }
+
+  .preview__body {
+    padding: clamp(1.5rem, 1rem + 1.5vw, 2rem);
+  }
+
+  .preview__label {
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+  }
+
+  .preview__price {
+    font-size: clamp(2.25rem, 1.5rem + 2.4vw, 3rem);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+    margin: 0.25rem 0 1.25rem;
+  }
+
+  .preview__range {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .preview__range div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid var(--border);
+    background: var(--beige-10);
+  }
+
+  .preview__range span {
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
+  }
+
+  .preview__range strong {
+    font-size: var(--text-base);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .preview__bar {
+    height: 0.375rem;
+    margin: 1.25rem 0;
+    background: var(--beige-50);
+    overflow: hidden;
+  }
+
+  .preview__bar span {
+    display: block;
+    width: 68%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--orange-50), var(--orange));
+  }
+
+  .preview__rows {
+    display: grid;
+    gap: 0.125rem;
+  }
+
+  .preview__rows li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 0;
+    border-top: 1px solid var(--border);
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+  }
+
+  .preview__rows strong {
+    font-weight: 600;
+    color: var(--black);
+  }
+
+  .tag {
+    padding: 0.125rem 0.5rem;
+    font-size: var(--text-tiny);
+  }
+
+  .tag--ok {
+    background: var(--success-soft);
+    color: var(--success);
+  }
+
+  .up {
+    color: var(--success);
+    font-weight: 600;
+  }
+
+  /* ------------------------------------------------------------ Logos */
+  .logos {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logos__title {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 1.75rem;
+  }
+
+  .logos__row {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 25px;
-    font-size: 36px;
-    color: white;
+    gap: 0.75rem 2.5rem;
   }
 
-  .expertise-icon svg {
-    width: 44px;
-    height: 44px;
-    stroke: white;
+  .logos__row span {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--aubergine-4);
+    transition: color 0.2s var(--ease);
   }
 
-  .expertise-card h3 {
-    font-size: 24px;
-    margin-bottom: 15px;
-    color: #2c3e50;
+  .logos__row span:hover {
+    color: var(--aubergine-1);
   }
 
-  .expertise-card p {
-    color: #6c757d;
-    line-height: 1.7;
-    font-size: 16px;
+  /* --------------------------------------------------------- Problème */
+  .problem {
+    border-top: 3px solid var(--orange-25);
   }
 
-  /* CTA Section */
-  .cta-section {
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    color: white;
-    padding: 80px 0;
-    text-align: center;
+  .problem h3 {
+    font-size: var(--h4);
+    margin-bottom: 0.75rem;
   }
 
-  .cta-section h2 {
-    font-size: 42px;
-    margin-bottom: 25px;
-  }
-
-  .cta-section p {
-    font-size: 20px;
-    margin-bottom: 40px;
-    opacity: 0.95;
-    max-width: 700px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .cta-section .cta-button {
-    background: white;
-    color: #2563eb;
-  }
-
-  /* Stats Section - Style unifié */
-  .stats-section {
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    padding: 50px 0;
-    color: white;
-  }
-
-  .stats-grid {
+  /* --------------------------------------------------- Blocs alternés */
+  .blocks {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 40px;
-    text-align: center;
+    gap: clamp(3rem, 1.5rem + 4vw, 5rem);
   }
 
-  .stat-item {
-    display: flex;
-    flex-direction: column;
+  .block {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(2rem, 1rem + 3vw, 4rem);
     align-items: center;
   }
 
-  .stat-item .icon {
-    font-size: 36px;
-    margin-bottom: 10px;
+  .block:nth-child(even) .block__copy {
+    order: 2;
   }
 
-  .stat-item h3 {
-    font-size: 40px;
-    color: white;
-    margin-bottom: 10px;
-    font-weight: 700;
+  .block__copy h3 {
+    font-size: var(--h3);
+    margin-bottom: 1rem;
+    max-width: 24ch;
   }
 
-  .stat-item p {
-    font-size: 15px;
-    color: rgba(255, 255, 255, 0.9);
+  .block__copy p {
+    color: var(--text-soft);
+    font-size: var(--text-md);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
   }
 
-  /* Values Section */
-  .values-section {
-    background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
-    padding: 80px 0;
+  .viz {
+    background: var(--beige-25);
+    border: 1px solid var(--border);
+    padding: clamp(1.25rem, 1rem + 1vw, 1.75rem);
   }
 
-  .values-section h2 {
-    text-align: center;
-    font-size: 38px;
-    margin-bottom: 20px;
-    color: #2c3e50;
-  }
-
-  .values-section .subtitle {
-    text-align: center;
-    font-size: 18px;
-    color: #6c757d;
-    margin-bottom: 60px;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .values-list {
+  .viz__head {
     display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .value-item {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 60px;
     align-items: center;
-    padding: 60px 0;
-    border-bottom: 1px solid #e8e8e8;
+    justify-content: space-between;
+    font-size: var(--text-tiny);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 1.25rem;
   }
 
-  .value-item:last-child {
-    border-bottom: none;
+  .bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    height: 11rem;
   }
 
-  .value-item:nth-child(even) {
-    direction: rtl;
+  .bars span {
+    flex: 1;
+    background: var(--orange-25);
   }
 
-  .value-item:nth-child(even) > * {
-    direction: ltr;
+  .bars span:nth-last-child(-n + 3) {
+    background: var(--orange);
   }
 
-  .value-image {
-    width: 100%;
-    height: 280px;
-    border-radius: 16px;
+  .dpe {
+    display: grid;
+    gap: 0.875rem;
+  }
+
+  .dpe li {
+    display: grid;
+    grid-template-columns: 1.75rem 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: var(--text-sm);
+  }
+
+  .dpe__letter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    font-weight: 600;
+    font-size: var(--text-sm);
+    color: var(--white);
+  }
+
+  .dpe__letter--a {
+    background: #446f28;
+  }
+  .dpe__letter--c {
+    background: #9cce7b;
+    color: var(--black);
+  }
+  .dpe__letter--f {
+    background: var(--orange-95);
+  }
+  .dpe__letter--g {
+    background: var(--error);
+  }
+
+  .dpe__track {
+    height: 0.5rem;
+    background: var(--beige-75);
     overflow: hidden;
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
   }
 
-  .value-image img {
-    width: 100%;
+  .dpe__track span {
+    display: block;
     height: 100%;
-    object-fit: cover;
+    background: var(--aubergine-1);
   }
 
-  .value-content {
-    padding: 20px 0;
+  .dpe strong {
+    font-size: var(--text-tiny);
+    font-weight: 600;
+    color: var(--text-soft);
+    white-space: nowrap;
   }
 
-  .value-number {
-    display: inline-block;
-    width: 50px;
-    height: 50px;
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    border-radius: 50%;
-    color: white;
-    font-size: 24px;
-    font-weight: 700;
-    line-height: 50px;
-    text-align: center;
-    margin-bottom: 20px;
+  .viz--net {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
-  .value-content h3 {
-    font-size: 28px;
-    margin-bottom: 15px;
-    color: #2c3e50;
+  .chip {
+    padding: 0.5rem 0.875rem;
+    border: 1px solid var(--border);
+    background: var(--white);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--aubergine-1);
   }
 
-  .value-content p {
-    color: #6c757d;
-    line-height: 1.8;
-    font-size: 16px;
+  /* ------------------------------------------------------ Témoignages */
+  .quote {
+    display: flex;
+    flex-direction: column;
   }
 
-  @media (max-width: 768px) {
-    .value-item,
-    .value-item:nth-child(even) {
-      grid-template-columns: 1fr;
-      direction: ltr;
-      gap: 30px;
+  .quote__stars {
+    color: var(--orange);
+    letter-spacing: 0.15em;
+    font-size: var(--text-sm);
+    margin-bottom: 1rem;
+  }
+
+  .quote blockquote {
+    flex: 1;
+    font-size: var(--text-md);
+    line-height: 1.55;
+    letter-spacing: -0.01em;
+    color: var(--black);
+    margin-bottom: 1.5rem;
+  }
+
+  .quote figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    font-size: var(--text-sm);
+  }
+
+  .quote figcaption strong {
+    font-weight: 600;
+  }
+
+  .quote figcaption span {
+    color: var(--text-faint);
+  }
+
+  /* --------------------------------------------------------- Pour qui */
+  .persona .pill {
+    margin-bottom: 1rem;
+  }
+
+  .persona h3 {
+    font-size: var(--h4);
+  }
+
+  .guarantees {
+    margin-top: clamp(2rem, 1rem + 2vw, 3rem);
+    padding-top: clamp(2rem, 1rem + 2vw, 3rem);
+    border-top: 1px solid var(--border);
+  }
+
+  .guarantee h4 {
+    margin-bottom: 0.5rem;
+  }
+
+  .guarantee p {
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+    line-height: 1.6;
+  }
+
+  /* ----------------------------------------------------------- Étapes */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  .step {
+    background: var(--white);
+    border: 1px solid var(--border);
+    padding: clamp(1.5rem, 1rem + 1.2vw, 2rem);
+  }
+
+  .step__num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-bottom: 1.25rem;
+    background: var(--black);
+    color: var(--white);
+    font-size: var(--text-sm);
+    font-weight: 500;
+  }
+
+  .step h3 {
+    font-size: var(--h4);
+    margin-bottom: 0.375rem;
+  }
+
+  .step__duree {
+    display: block;
+    font-size: var(--text-tiny);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 1.25rem;
+  }
+
+  .step .check-list li {
+    font-size: var(--text-sm);
+  }
+
+  /* -------------------------------------------------------- CTA final */
+  .final-cta .card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .final-cta h3 {
+    font-size: var(--h3);
+  }
+
+  .final-cta p {
+    flex: 1;
+    font-size: var(--text-base);
+  }
+
+  /* ------------------------------------------------------- Responsive */
+  @media (max-width: 992px) {
+    .hero__grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 2.5rem;
     }
 
-    .value-image {
-      height: 200px;
+    .preview {
+      max-width: 30rem;
+    }
+
+    .block {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* En colonne unique, le texte repasse toujours au-dessus du visuel. */
+    .block:nth-child(even) .block__copy {
+      order: 0;
+    }
+
+    .steps {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 
-  /* Responsive */
-  @media (max-width: 768px) {
-    .hero h1 {
-      font-size: 36px;
+  @media (max-width: 640px) {
+    .preview__range {
+      grid-template-columns: minmax(0, 1fr);
     }
 
-    .hero p {
-      font-size: 18px;
-    }
-
-    .property-content {
-      grid-template-columns: 1fr;
-    }
-
-    .story-content {
-      grid-template-columns: 1fr;
-    }
-
-    .story-image {
-      height: 300px;
-    }
-
-    .expertise-grid,
-    .values-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .stats-grid {
-      grid-template-columns: repeat(2, 1fr);
+    .bars {
+      height: 8rem;
     }
   }
 </style>

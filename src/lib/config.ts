@@ -15,4 +15,10 @@ export const CONFIG = {
   EMAIL: {
     TO: import.meta.env.PUBLIC_CONTACT_EMAIL,
   },
+  // Consommé par le futur composant Analytics.astro (Lot 1). Volontairement
+  // pas de comportement ici : lire cette valeur vide et ne pas charger gtag.js
+  // est la responsabilité du composant, pas de ce fichier de config.
+  ANALYTICS: {
+    GA4_MEASUREMENT_ID: import.meta.env.PUBLIC_GA4_MEASUREMENT_ID,
+  },
 } as const;
