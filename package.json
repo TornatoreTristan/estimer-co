@@ -10,7 +10,9 @@
     "check": "astro check",
     "astro": "astro",
     "validate-content": "node scripts/validate-content.mjs",
-    "migrate-legacy-data": "node scripts/migrate-legacy-data.mjs"
+    "migrate-legacy-data": "node scripts/migrate-legacy-data.mjs",
+    "test:wizard": "node --test scripts/test-estimation-wizard.mjs",
+    "test:estimation-ui": "node --test scripts/test-estimation-ui.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",

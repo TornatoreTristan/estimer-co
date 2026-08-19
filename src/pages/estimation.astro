@@ -2,7 +2,8 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ClientConfig from '../components/ClientConfig.astro';
 import RawScript from '../components/RawScript.astro';
-import estimationScript from '../scripts/estimation.js?raw';
+import estimationWizardScript from '../scripts/estimation-wizard.js?raw';
+import estimationUiScript from '../scripts/estimation-ui.js?raw';
 import { partenaires } from '../data/partenaires';
 
 const benefices = [
@@ -69,6 +70,50 @@ const etapes = [
   { titre: 'Vous recevez le rapport', texte: 'Estimation détaillée, téléchargeable en PDF.' },
   { titre: 'Vous êtes accompagné', texte: 'Nos partenaires vous guident, si vous le souhaitez.' },
 ];
+
+// Découpage du formulaire en 5 étapes (specs/estimation-wizard.md §1). Sert de
+// source unique pour l'indicateur de progression ET l'en-tête (eyebrow / h2 /
+// description) de chaque <fieldset> ci-dessous — le contenu propre à chaque
+// étape (champs, conditionnels) reste écrit explicitement pour ne pas forcer
+// un markup générique là où chaque étape a une forme réellement différente.
+const wizardSteps = [
+  {
+    id: 1,
+    shortLabel: 'Adresse',
+    eyebrow: 'Étape 1 sur 5',
+    title: "Quelle est l'adresse du bien ?",
+    description:
+      'Nous préremplissons le code postal et la ville dès que vous sélectionnez une suggestion.',
+  },
+  {
+    id: 2,
+    shortLabel: 'Type de bien',
+    eyebrow: 'Étape 2 sur 5',
+    title: 'Quel est le type de bien ?',
+    description: 'Ce choix conditionne les questions suivantes, notamment sur le terrain.',
+  },
+  {
+    id: 3,
+    shortLabel: 'Caractéristiques',
+    eyebrow: 'Étape 3 sur 5',
+    title: 'Caractéristiques et DPE',
+    description: 'Surface, nombre de pièces et diagnostic énergétique : la base de notre calcul.',
+  },
+  {
+    id: 4,
+    shortLabel: 'Situation',
+    eyebrow: 'Étape 4 sur 5',
+    title: 'Votre situation',
+    description: 'Quelques précisions sur votre projet, pour mieux vous accompagner.',
+  },
+  {
+    id: 5,
+    shortLabel: 'Coordonnées',
+    eyebrow: 'Étape 5 sur 5',
+    title: 'Vos coordonnées',
+    description: 'Dernière étape : nous vous envoyons votre rapport détaillé sous 24 h.',
+  },
+];
 ---
 
 <BaseLayout
@@ -114,157 +159,336 @@ const etapes = [
             <p>Tous les champs marqués d'un <span class="required">*</span> sont obligatoires.</p>
           </div>
 
-          <form id="estimationForm">
-            <div class="form-legend">Le bien</div>
+          <div
+            class="wizard-progress"
+            role="progressbar"
+            aria-valuemin="1"
+            aria-valuemax={wizardSteps.length}
+            aria-valuenow="1"
+            aria-label="Progression du formulaire d'estimation"
+          >
+            <ol class="wizard-progress__list">
+              {
+                wizardSteps.map((step, index) => (
+                  <li
+                    class="wizard-progress__item"
+                    data-state={index === 0 ? 'active' : 'upcoming'}
+                    aria-current={index === 0 ? 'step' : undefined}
+                  >
+                    <span class="wizard-progress__num mono">{String(step.id).padStart(2, '0')}</span>
+                    <span class="wizard-progress__label">{step.shortLabel}</span>
+                  </li>
+                ))
+              }
+            </ol>
+          </div>
 
-            <div class="field">
-              <label for="propertyType">Type de bien <span class="required">*</span></label>
-              <select id="propertyType" class="select" required>
-                <option value="">Sélectionnez un type</option>
-                <option value="appartement">Appartement</option>
-                <option value="maison">Maison</option>
-                <option value="terrain">Terrain</option>
-                <option value="local-commercial">Local commercial</option>
-              </select>
-            </div>
+          <p id="wizardLiveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></p>
 
-            <div class="field" id="hasTerrainGroup" style="display: none">
-              <label for="hasTerrain">Avez-vous du terrain ? <span class="required">*</span></label>
-              <select id="hasTerrain" class="select">
-                <option value="">Sélectionnez une option</option>
-                <option value="yes">Oui</option>
-                <option value="no">Non</option>
-              </select>
-            </div>
+          <p class="wizard-alert" role="alert" hidden></p>
 
-            <div class="field" id="terrainSizeGroup" style="display: none">
-              <label for="terrainSize">Surface du terrain (m²) <span class="required">*</span></label>
-              <input type="number" id="terrainSize" class="input" placeholder="500" min="1" />
-            </div>
+          <form id="estimationForm" novalidate>
+            <!-- ================================================ Étape 1 -->
+            <fieldset class="wizard-step" data-step="1">
+              <legend class="wizard-step__head">
+                <span class="eyebrow">{wizardSteps[0].eyebrow}</span>
+                <h2>{wizardSteps[0].title}</h2>
+                <p class="muted">{wizardSteps[0].description}</p>
+              </legend>
 
-            <div class="field">
-              <label for="address">Adresse du bien <span class="required">*</span></label>
-              <input type="text" id="address" class="input" placeholder="123 rue de la Paix" required />
-            </div>
-
-            <div class="field-row">
               <div class="field">
-                <label for="postalCode">Code postal <span class="required">*</span></label>
+                <label for="address">Adresse du bien <span class="required">*</span></label>
                 <input
                   type="text"
-                  id="postalCode"
+                  id="address"
+                  name="address"
                   class="input"
-                  placeholder="75001"
+                  placeholder="12 rue de la Paix"
                   required
-                  pattern="[0-9]{5}"
+                  autocomplete="off"
+                  aria-describedby="address-error"
                 />
+                <p class="field-error" id="address-error" role="alert" hidden></p>
               </div>
 
-              <div class="field">
-                <label for="city">Ville <span class="required">*</span></label>
-                <input type="text" id="city" class="input" placeholder="Paris" required />
+              <div class="address-recap card card--sand" id="addressRecap" hidden>
+                <div class="address-recap__row">
+                  <span class="muted">Code postal</span>
+                  <strong id="addressRecapPostal"></strong>
+                </div>
+                <div class="address-recap__row">
+                  <span class="muted">Ville</span>
+                  <strong id="addressRecapCity"></strong>
+                </div>
+                <button type="button" class="link-arrow" id="addressRecapEdit">
+                  Ce n'est pas la bonne adresse ?
+                </button>
               </div>
-            </div>
 
-            <div class="field-row">
+              <div class="address-manual" id="addressManual" hidden>
+                <p class="muted address-manual__hint">
+                  Complétez le code postal et la ville : nous n'avons pas pu les détecter automatiquement.
+                </p>
+                <div class="field-row">
+                  <div class="field">
+                    <label for="postalCode">Code postal <span class="required">*</span></label>
+                    <input
+                      type="text"
+                      id="postalCode"
+                      name="postalCode"
+                      class="input"
+                      placeholder="75001"
+                      pattern="[0-9]{5}"
+                      inputmode="numeric"
+                      required
+                      aria-describedby="postalCode-error"
+                    />
+                    <p class="field-error" id="postalCode-error" role="alert" hidden></p>
+                  </div>
+                  <div class="field">
+                    <label for="city">Ville <span class="required">*</span></label>
+                    <input
+                      type="text"
+                      id="city"
+                      name="city"
+                      class="input"
+                      placeholder="Paris"
+                      required
+                      aria-describedby="city-error"
+                    />
+                    <p class="field-error" id="city-error" role="alert" hidden></p>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- ================================================ Étape 2 -->
+            <fieldset class="wizard-step" data-step="2" hidden>
+              <legend class="wizard-step__head">
+                <span class="eyebrow">{wizardSteps[1].eyebrow}</span>
+                <h2>{wizardSteps[1].title}</h2>
+                <p class="muted">{wizardSteps[1].description}</p>
+              </legend>
+
               <div class="field">
-                <label for="surface">Surface (m²) <span class="required">*</span></label>
-                <input type="number" id="surface" class="input" placeholder="85" required min="1" />
+                <label for="propertyType">Type de bien <span class="required">*</span></label>
+                <select
+                  id="propertyType"
+                  name="propertyType"
+                  class="select"
+                  required
+                  aria-describedby="propertyType-error"
+                >
+                  <option value="">Sélectionnez un type</option>
+                  <option value="appartement">Appartement</option>
+                  <option value="maison">Maison</option>
+                  <option value="terrain">Terrain</option>
+                  <option value="local-commercial">Local commercial</option>
+                </select>
+                <p class="field-error" id="propertyType-error" role="alert" hidden></p>
               </div>
 
-              <div class="field">
-                <label for="rooms">Nombre de pièces <span class="required">*</span></label>
-                <input type="number" id="rooms" class="input" placeholder="3" required min="1" />
-              </div>
-            </div>
-
-            <div class="field">
-              <label for="dpe">Diagnostic énergétique (DPE) <span class="required">*</span></label>
-              <select id="dpe" class="select" required>
-                <option value="">Sélectionnez une option</option>
-                <option value="A">A — Excellent</option>
-                <option value="B">B — Très bon</option>
-                <option value="C">C — Bon</option>
-                <option value="D">D — Moyen</option>
-                <option value="E">E — Insuffisant</option>
-                <option value="F">F — Mauvais</option>
-                <option value="G">G — Très mauvais</option>
-                <option value="unknown">Je ne connais pas mon DPE</option>
-              </select>
-            </div>
-
-            <div class="field" id="dpeRequestGroup" style="display: none">
-              <label for="dpeRequest">Souhaitez-vous réaliser un DPE ?</label>
-              <select id="dpeRequest" class="select">
-                <option value="">Sélectionnez une option</option>
-                <option value="yes">Oui, je souhaite un devis</option>
-                <option value="no">Non merci</option>
-              </select>
-            </div>
-
-            <div id="ritmodiagLink" class="dpe-cta" style="display: none">
-              <a
-                href="https://www.ritmodiag.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="btn btn--dark btn--block"
-              >
-                Obtenir un devis DPE gratuit &rarr;
-              </a>
-            </div>
-
-            <div class="form-legend">Votre situation</div>
-
-            <div class="field-row">
-              <div class="field">
-                <label for="isOwner">Êtes-vous propriétaire ? <span class="required">*</span></label>
-                <select id="isOwner" class="select" required>
+              <div class="field" id="hasTerrainGroup" hidden>
+                <label for="hasTerrain">Avez-vous du terrain ? <span class="required">*</span></label>
+                <select id="hasTerrain" name="hasTerrain" class="select" aria-describedby="hasTerrain-error">
                   <option value="">Sélectionnez une option</option>
                   <option value="yes">Oui</option>
                   <option value="no">Non</option>
                 </select>
+                <p class="field-error" id="hasTerrain-error" role="alert" hidden></p>
               </div>
 
-              <div class="field">
-                <label for="wantToSell">Souhaitez-vous vendre ? <span class="required">*</span></label>
-                <select id="wantToSell" class="select" required>
-                  <option value="">Sélectionnez une option</option>
-                  <option value="yes">Oui</option>
-                  <option value="no">Non, juste une estimation</option>
-                  <option value="maybe">Peut-être, je réfléchis</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-legend">Vos coordonnées</div>
-
-            <div class="field">
-              <label for="name">Nom et prénom <span class="required">*</span></label>
-              <input type="text" id="name" class="input" placeholder="Jean Dupont" required />
-            </div>
-
-            <div class="field-row">
-              <div class="field">
-                <label for="email">Email <span class="required">*</span></label>
+              <div class="field" id="terrainSizeGroup" hidden>
+                <label for="terrainSize">Surface du terrain (m²) <span class="required">*</span></label>
                 <input
-                  type="email"
-                  id="email"
+                  type="number"
+                  id="terrainSize"
+                  name="terrainSize"
                   class="input"
-                  placeholder="jean.dupont@email.com"
-                  required
+                  placeholder="500"
+                  min="1"
+                  aria-describedby="terrainSize-error"
                 />
+                <p class="field-error" id="terrainSize-error" role="alert" hidden></p>
+              </div>
+            </fieldset>
+
+            <!-- ================================================ Étape 3 -->
+            <fieldset class="wizard-step" data-step="3" hidden>
+              <legend class="wizard-step__head">
+                <span class="eyebrow">{wizardSteps[2].eyebrow}</span>
+                <h2>{wizardSteps[2].title}</h2>
+                <p class="muted">{wizardSteps[2].description}</p>
+              </legend>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="surface">Surface (m²) <span class="required">*</span></label>
+                  <input
+                    type="number"
+                    id="surface"
+                    name="surface"
+                    class="input"
+                    placeholder="85"
+                    required
+                    min="1"
+                    aria-describedby="surface-error"
+                  />
+                  <p class="field-error" id="surface-error" role="alert" hidden></p>
+                </div>
+
+                <div class="field">
+                  <label for="rooms">Nombre de pièces <span class="required">*</span></label>
+                  <input
+                    type="number"
+                    id="rooms"
+                    name="rooms"
+                    class="input"
+                    placeholder="3"
+                    required
+                    min="1"
+                    aria-describedby="rooms-error"
+                  />
+                  <p class="field-error" id="rooms-error" role="alert" hidden></p>
+                </div>
               </div>
 
               <div class="field">
-                <label for="phone">Téléphone <span class="required">*</span></label>
-                <input type="tel" id="phone" class="input" placeholder="06 12 34 56 78" required />
+                <label for="dpe">Diagnostic énergétique (DPE) <span class="required">*</span></label>
+                <select id="dpe" name="dpe" class="select" required aria-describedby="dpe-error">
+                  <option value="">Sélectionnez une option</option>
+                  <option value="A">A — Excellent</option>
+                  <option value="B">B — Très bon</option>
+                  <option value="C">C — Bon</option>
+                  <option value="D">D — Moyen</option>
+                  <option value="E">E — Insuffisant</option>
+                  <option value="F">F — Mauvais</option>
+                  <option value="G">G — Très mauvais</option>
+                  <option value="unknown">Je ne connais pas mon DPE</option>
+                </select>
+                <p class="field-error" id="dpe-error" role="alert" hidden></p>
               </div>
-            </div>
 
-            <button type="submit" class="btn btn--primary btn--lg btn--block">
-              <span>Recevoir mon estimation gratuite</span>
-              <span>&rarr;</span>
-            </button>
+              <div class="field" id="dpeRequestGroup" hidden>
+                <label for="dpeRequest">Souhaitez-vous réaliser un DPE ?</label>
+                <select id="dpeRequest" name="dpeRequest" class="select" aria-describedby="dpeRequest-error">
+                  <option value="">Sélectionnez une option</option>
+                  <option value="yes">Oui, je souhaite un devis</option>
+                  <option value="no">Non merci</option>
+                </select>
+                <p class="field-error" id="dpeRequest-error" role="alert" hidden></p>
+              </div>
+
+              <div id="ritmodiagLink" class="dpe-cta" hidden>
+                <a
+                  href="https://www.ritmodiag.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="btn btn--dark btn--block"
+                >
+                  Obtenir un devis DPE gratuit &rarr;
+                </a>
+              </div>
+            </fieldset>
+
+            <!-- ================================================ Étape 4 -->
+            <fieldset class="wizard-step" data-step="4" hidden>
+              <legend class="wizard-step__head">
+                <span class="eyebrow">{wizardSteps[3].eyebrow}</span>
+                <h2>{wizardSteps[3].title}</h2>
+                <p class="muted">{wizardSteps[3].description}</p>
+              </legend>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="isOwner">Êtes-vous propriétaire ? <span class="required">*</span></label>
+                  <select id="isOwner" name="isOwner" class="select" required aria-describedby="isOwner-error">
+                    <option value="">Sélectionnez une option</option>
+                    <option value="yes">Oui</option>
+                    <option value="no">Non</option>
+                  </select>
+                  <p class="field-error" id="isOwner-error" role="alert" hidden></p>
+                </div>
+
+                <div class="field">
+                  <label for="wantToSell">Souhaitez-vous vendre ? <span class="required">*</span></label>
+                  <select
+                    id="wantToSell"
+                    name="wantToSell"
+                    class="select"
+                    required
+                    aria-describedby="wantToSell-error"
+                  >
+                    <option value="">Sélectionnez une option</option>
+                    <option value="yes">Oui</option>
+                    <option value="no">Non, juste une estimation</option>
+                    <option value="maybe">Peut-être, je réfléchis</option>
+                  </select>
+                  <p class="field-error" id="wantToSell-error" role="alert" hidden></p>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- ================================================ Étape 5 -->
+            <fieldset class="wizard-step" data-step="5" hidden>
+              <legend class="wizard-step__head">
+                <span class="eyebrow">{wizardSteps[4].eyebrow}</span>
+                <h2>{wizardSteps[4].title}</h2>
+                <p class="muted">{wizardSteps[4].description}</p>
+              </legend>
+
+              <div class="field">
+                <label for="name">Nom et prénom <span class="required">*</span></label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  class="input"
+                  placeholder="Jean Dupont"
+                  required
+                  aria-describedby="name-error"
+                />
+                <p class="field-error" id="name-error" role="alert" hidden></p>
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="email">Email <span class="required">*</span></label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    class="input"
+                    placeholder="jean.dupont@email.com"
+                    required
+                    aria-describedby="email-error"
+                  />
+                  <p class="field-error" id="email-error" role="alert" hidden></p>
+                </div>
+
+                <div class="field">
+                  <label for="phone">Téléphone <span class="required">*</span></label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    class="input"
+                    placeholder="06 12 34 56 78"
+                    required
+                    aria-describedby="phone-error"
+                  />
+                  <p class="field-error" id="phone-error" role="alert" hidden></p>
+                </div>
+              </div>
+            </fieldset>
+
+            <div class="wizard-nav">
+              <button type="button" class="btn btn--outline" id="wizardPrev" hidden>&larr; Précédent</button>
+              <button type="button" class="btn btn--primary" id="wizardNext">Suivant &rarr;</button>
+              <button type="submit" class="btn btn--primary btn--lg btn--block" id="wizardSubmit" hidden>
+                <span>Recevoir mon estimation gratuite</span><span>&rarr;</span>
+              </button>
+            </div>
           </form>
 
           <p class="form-card__foot">
@@ -365,7 +589,8 @@ const etapes = [
     </div>
   </section>
 
-  <RawScript slot="body-end" code={estimationScript} />
+  <RawScript slot="body-end" code={estimationWizardScript} />
+  <RawScript slot="body-end" code={estimationUiScript} />
 </BaseLayout>
 
 <style>
@@ -452,10 +677,6 @@ const etapes = [
     margin: 1.25rem 0;
   }
 
-  .form-card button[type='submit'] {
-    margin-top: 1.75rem;
-  }
-
   .form-card__foot {
     margin-top: 1.25rem;
     padding-top: 1.25rem;
@@ -463,6 +684,160 @@ const etapes = [
     font-size: var(--text-tiny);
     color: var(--text-faint);
     text-align: center;
+  }
+
+  /* ----------------------------------------------------------- Wizard */
+
+  .wizard-progress {
+    margin-bottom: 1.75rem;
+  }
+
+  .wizard-progress__list {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .wizard-progress__item {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-faint);
+  }
+
+  .wizard-progress__item[data-state='active'] {
+    border-color: var(--orange);
+    color: var(--black);
+  }
+
+  .wizard-progress__item[data-state='active'] .wizard-progress__num {
+    color: var(--orange);
+  }
+
+  .wizard-progress__item[data-state='done'] {
+    border-color: var(--black);
+    color: var(--text-soft);
+  }
+
+  .wizard-progress__num {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.06em;
+  }
+
+  .wizard-progress__label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .wizard-progress__item[data-state='done'] .wizard-progress__label::before {
+    content: '';
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+    background: var(--orange-10)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff6e34' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E")
+      center / 0.6rem no-repeat;
+  }
+
+  .wizard-alert {
+    margin-bottom: 1.5rem;
+    padding: 0.9375rem 1.125rem;
+    border: 1px solid var(--error);
+    background: var(--error-soft);
+    color: var(--error);
+    font-size: var(--text-sm);
+    font-weight: 500;
+  }
+
+  .wizard-step {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+  }
+
+  .wizard-step__head {
+    display: block;
+    width: 100%;
+    padding: 0;
+    margin: 0 0 1.5rem;
+  }
+
+  .wizard-step__head h2 {
+    font-size: var(--h3);
+    margin-bottom: 0.375rem;
+  }
+
+  .wizard-step__head .eyebrow {
+    margin-bottom: 0.625rem;
+  }
+
+  .address-recap {
+    margin: 0.75rem 0 1.125rem;
+  }
+
+  .address-recap__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.375rem 0;
+    font-size: var(--text-sm);
+  }
+
+  .address-recap__row + .address-recap__row {
+    border-top: 1px solid var(--beige-75);
+  }
+
+  .address-recap #addressRecapEdit {
+    margin-top: 0.875rem;
+  }
+
+  .address-manual__hint {
+    margin-bottom: 0.875rem;
+    font-size: var(--text-sm);
+  }
+
+  .wizard-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.75rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .wizard-nav #wizardNext {
+    margin-left: auto;
+  }
+
+  .wizard-nav #wizardSubmit {
+    flex: 1 1 100%;
+    order: 3;
+  }
+
+  @media (max-width: 600px) {
+    .wizard-progress__num {
+      display: none;
+    }
+
+    .wizard-progress__label {
+      font-size: var(--text-tiny);
+    }
+
+    .wizard-progress__list {
+      gap: 0.5rem;
+    }
   }
 
   /* --------------------------------------------------------------- Étapes */
