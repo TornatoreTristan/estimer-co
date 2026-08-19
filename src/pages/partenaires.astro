@@ -26,8 +26,24 @@ import { partenaires } from '../data/partenaires';
       <div class="grid grid--3">
         {
           partenaires.map((partenaire) => (
-            <article class="partner card card--hover">
-              <div class="partner__logo">{partenaire.logo}</div>
+            <article
+              class:list={['partner', 'card', 'card--hover', { 'partner--featured': partenaire.featured }]}
+            >
+              <div class="partner__logo">
+                {
+                  partenaire.logo ? (
+                    <img
+                      src={partenaire.logo}
+                      alt={`Logo ${partenaire.name}`}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    partenaire.logoTexte
+                  )
+                }
+              </div>
+              {partenaire.featured && <span class="partner__badge">Partenaire privilégié</span>}
               <h3>{partenaire.name}</h3>
               <p>{partenaire.description}</p>
               <a
@@ -105,6 +121,18 @@ import { partenaires } from '../data/partenaires';
     text-align: center;
   }
 
+  /* `contain` : les logos fournis ont des ratios très variables (RITMODiag est
+     en 3,6:1, Les Bons Biens en 6,6:1) — on les inscrit dans la pastille sans
+     jamais les rogner ni les déformer. Le plafond de hauteur, plus bas que la
+     pastille, est ce qui donne aux logotypes une taille optique comparable :
+     borner par la largeur seule ferait paraître les marques les plus larges
+     deux fois plus grosses que les autres. */
+  .partner__logo img {
+    max-width: 100%;
+    max-height: 3rem;
+    object-fit: contain;
+  }
+
   .partner h3 {
     font-size: var(--text-md);
     margin-bottom: 0.5rem;
@@ -113,5 +141,35 @@ import { partenaires } from '../data/partenaires';
   .partner p {
     flex: 1;
     margin-bottom: 1.25rem;
+  }
+
+  /* Carte mise en avant : même grammaire plate que le reste, accent orange. */
+  .partner--featured {
+    background: var(--orange-5);
+    border-color: var(--orange);
+    box-shadow: inset 0 0 0 1px var(--orange);
+  }
+
+  .partner--featured:hover {
+    background: var(--orange-10);
+    border-color: var(--orange);
+  }
+
+  .partner--featured .partner__logo {
+    background: var(--orange-10);
+    border-color: var(--orange-50);
+    color: var(--orange);
+  }
+
+  .partner__badge {
+    display: inline-block;
+    margin-bottom: 0.625rem;
+    padding: 0.25rem 0.625rem;
+    background: var(--orange);
+    color: var(--white);
+    font-size: var(--text-tiny);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 </style>

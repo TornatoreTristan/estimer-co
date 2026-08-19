@@ -31,7 +31,7 @@
 
 /**
  * Détermine la visibilité des champs conditionnels de l'étape 2 (terrain) et
- * de l'étape 3 (devis DPE / CTA Ritmodiag), à partir des seules données du
+ * de l'étape 3 (devis DPE / CTA RITMODiag), à partir des seules données du
  * wizard. Fonction pure, réutilisée par `syncConditionalVisibility()` pour
  * appliquer effectivement ces règles au DOM (US-5, US-8).
  *
@@ -39,7 +39,7 @@
  * `isFieldVisible()` (source unique de vérité, déclarée dans
  * `estimation-wizard.js` à partir de `WIZARD_STEPS[].conditionalFields`) —
  * cette fonction ne redéfinit PAS ces règles métier. Seul `showRitmodiagCta`
- * est propre à l'UI : le CTA Ritmodiag n'est pas un champ de `WizardData`
+ * est propre à l'UI : le CTA RITMODiag n'est pas un champ de `WizardData`
  * (rien à réinitialiser en cascade), donc aucune règle équivalente n'existe
  * côté wizard à dupliquer.
  *

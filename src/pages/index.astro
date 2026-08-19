@@ -2,7 +2,10 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { partenaires } from '../data/partenaires';
 
-const logos = partenaires.slice(0, 8).map((p) => p.logo);
+// Bandeau et pastilles restent en texte : le rendu est volontairement discret
+// (gris, une seule graisse), et n'afficher en image que les 2 partenaires qui
+// ont un fichier logo déséquilibrerait la ligne.
+const logos = partenaires.slice(0, 8).map((p) => p.logoTexte);
 
 const problemes = [
   {
@@ -315,7 +318,7 @@ const etapes = [
                 {bloc.visuel === 'partenaires' && (
                   <div class="viz viz--net">
                     {partenaires.slice(0, 9).map((partenaire) => (
-                      <span class="chip">{partenaire.logo}</span>
+                      <span class="chip">{partenaire.logoTexte}</span>
                     ))}
                   </div>
                 )}

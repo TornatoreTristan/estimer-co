@@ -194,7 +194,7 @@ test("computeConditionalVisibility — dpe 'unknown' révèle la question devis"
   assert.equal(result.showRitmodiagCta, false);
 });
 
-test("computeConditionalVisibility — dpeRequest 'yes' révèle le CTA Ritmodiag", () => {
+test("computeConditionalVisibility — dpeRequest 'yes' révèle le CTA RITMODiag", () => {
   const { computeConditionalVisibility } = loadUiModule();
   const result = computeConditionalVisibility({ dpe: "unknown", dpeRequest: "yes" });
   assert.equal(result.showRitmodiagCta, true);

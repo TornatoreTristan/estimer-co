@@ -1,7 +1,8 @@
 ---
 slug: ritmodiag
-nom: Ritmodiag
-logoTexte: Ritmodiag
+nom: RITMODiag
+logo: /logos/ritmodiag.svg
+logoTexte: RITMODiag
 description: Expert en diagnostic immobilier (DPE, amiante, plomb, électricité, gaz). Des diagnostics précis et rapides pour tous vos biens immobiliers.
 categorie: agence-immobiliere
 url: https://www.ritmodiag.com

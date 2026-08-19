@@ -26,7 +26,7 @@ Le champ `address` stocké dans `lastEstimation` est la **valeur brute laissée 
 |---|---|---|---|
 | 1 | **Adresse du bien** | `address` (autocomplete), `postalCode`, `city` (auto-remplis) | Un seul geste avant tout engagement. Résultat immédiat visible (préremplissage) → progression perçue dès la 1ʳᵉ interaction. |
 | 2 | **Type de bien** | `propertyType`, `hasTerrain` (si maison), `terrainSize` (si terrain) | Champ pivot conditionnant d'autres champs : l'isoler évite un écran « à trous ». |
-| 3 | **Caractéristiques & DPE** | `surface`, `rooms`, `dpe`, `dpeRequest` (si DPE inconnu), CTA Ritmodiag | Données factuelles nécessaires au calcul ; place naturelle de l'accroche DPE. |
+| 3 | **Caractéristiques & DPE** | `surface`, `rooms`, `dpe`, `dpeRequest` (si DPE inconnu), CTA RITMODiag | Données factuelles nécessaires au calcul ; place naturelle de l'accroche DPE. |
 | 4 | **Votre situation** | `isOwner`, `wantToSell` | Qualification peu engageante, transition douce vers le contact. |
 | 5 | **Vos coordonnées** | `name`, `email`, `phone` + bouton final | PII en dernier, après investissement de temps → meilleur taux de complétion. |
 
@@ -168,7 +168,7 @@ Scénario: Devis DPE si DPE inconnu (étape 3)
   When je sélectionne "Je ne connais pas mon DPE"
   Then "Souhaitez-vous réaliser un DPE ?" devient visible
   When je sélectionne "Oui, je souhaite un devis"
-  Then le CTA Ritmodiag devient visible dans l'étape 3
+  Then le CTA RITMODiag devient visible dans l'étape 3
 ```
 
 ### US-9 — Validation par étape
