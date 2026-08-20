@@ -2,6 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ClientConfig from '../components/ClientConfig.astro';
 import RawScript from '../components/RawScript.astro';
+import leadApiScript from '../scripts/lead-api.js?raw';
 import contactScript from '../scripts/contact.js?raw';
 
 const raisons = [
@@ -126,6 +127,10 @@ const raisons = [
     </div>
   </section>
 
+  <!-- `lead-api.js` avant `contact.js` : ce dernier consomme
+       `buildContactLeadPayload`, `requestLead` et `shouldUseLegacyFallback`
+       (globales). -->
+  <RawScript slot="body-end" code={leadApiScript} />
   <RawScript slot="body-end" code={contactScript} />
 </BaseLayout>
 

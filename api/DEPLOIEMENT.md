@@ -163,11 +163,240 @@ RATE_LIMIT_ESTIMATION_DAILY=60/1 day
 RATE_LIMIT_GEOCODE=30/1 minute
 RATE_LIMIT_MARCHE=60/1 minute
 RATE_LIMIT_GLOBAL=120/1 minute
+RATE_LIMIT_LEADS=5/1 minute
+RATE_LIMIT_LEADS_DAILY=20/1 day
 ```
+
+`RATE_LIMIT_LEADS` est volontairement bien plus serré que les autres : un abus
+sur `POST /v1/leads` ne coûte pas du CPU, il **fait partir des e-mails depuis
+notre domaine**. Ce qui se consomme là, c'est la réputation d'expéditeur — et
+un domaine grillé chez les gros fournisseurs met des semaines à revenir,
+pendant lesquelles plus aucun accusé de réception n'arrive chez personne. Cinq
+envois par minute couvrent très largement un humain qui corrige et resoumet son
+formulaire.
+
+### E-mails transactionnels
+
+Voir la section 4 ci-dessous : la mise en service demande une configuration
+DNS chez le registrar en plus des variables Coolify.
 
 ---
 
-## 4. Premier déploiement
+## 4. E-mails transactionnels — Scaleway TEM
+
+`POST /v1/leads` transmet par e-mail les demandes d'estimation et les messages
+de contact. **Par défaut, rien ne part.** Tant que `MAIL_TRANSPORT` n'est pas
+posé à `smtp`, l'API tourne en `dry-run` : le message est intégralement
+construit, rendu et journalisé, mais aucune connexion SMTP n'est ouverte.
+
+C'est délibéré, et cela a deux conséquences pratiques :
+
+- un déploiement existant ne casse pas en montant cette version — il n'envoie
+  simplement pas encore d'e-mail ;
+- **le jour de la bascule, il faut penser à cette variable**, sinon le
+  formulaire répondra 200 à tout le monde sans qu'un seul lead n'arrive. Le
+  service journalise un avertissement au démarrage quand il tourne en `dry-run`
+  en production, précisément pour que cet état ne passe pas inaperçu.
+
+### 4.1 Prérequis Scaleway — le domaine d'abord
+
+**Console Scaleway → Transactional Email → Domaines → Ajouter un domaine.**
+
+Scaleway refuse tout envoi depuis un domaine non vérifié : ce n'est pas une
+formalité administrative, c'est ce qui empêche n'importe qui d'écrire au nom de
+`estimer.co`. Tant que la vérification n'est pas au vert, chaque envoi échoue —
+et l'API répondra 502 `MAIL_UNAVAILABLE`.
+
+La console affiche les enregistrements DNS à créer chez le registrar du
+domaine. **Copiez les valeurs exactes qu'elle affiche** : elles contiennent une
+clé publique et un identifiant propres à votre projet, et aucun exemple de
+documentation ne peut s'y substituer.
+
+| Enregistrement | Rôle | Ce qui casse s'il manque |
+|---|---|---|
+| TXT de vérification | prouve que le domaine vous appartient | le domaine reste « non vérifié », **aucun envoi possible** |
+| **SPF** (TXT sur le domaine) | autorise les serveurs Scaleway à émettre pour `estimer.co` | les e-mails partent mais sont classés en spam, ou rejetés |
+| **DKIM** (TXT sur `<sélecteur>._domainkey.estimer.co`) | signe cryptographiquement chaque message | même effet que SPF absent, en pire chez Gmail et Outlook |
+| **DMARC** (TXT sur `_dmarc.estimer.co`) | dit aux destinataires quoi faire d'un message non authentifié | délivrabilité dégradée, et aucun retour sur les usurpations |
+| MX | seulement si le domaine doit aussi *recevoir* | sans objet ici : la boîte interne est ailleurs (voir `MAIL_TO`) |
+
+Si le domaine porte déjà un SPF (Google Workspace, un autre envoyeur…),
+**fusionnez** les `include:` dans un enregistrement TXT unique. Deux
+enregistrements SPF distincts sur le même domaine invalident les deux — c'est
+l'erreur la plus fréquente de cette étape, et elle est silencieuse.
+
+Pour DMARC, commencez en `p=none` (observation seule), vérifiez pendant
+quelques jours que les rapports ne signalent rien d'anormal, puis durcissez
+vers `p=quarantine`. Passer directement en `p=reject` sur un domaine dont on
+n'a pas encore l'inventaire complet des envoyeurs revient à couper sa propre
+messagerie.
+
+La propagation DNS prend de quelques minutes à quelques heures. Relancez la
+vérification depuis la console jusqu'au vert **avant** de basculer
+`MAIL_TRANSPORT`.
+
+### 4.2 Identifiants SMTP
+
+**Console Scaleway → IAM → Clés API → Générer une clé API**, avec la permission
+Transactional Email sur le projet concerné.
+
+| Ce que demande l'API | Ce que fournit Scaleway |
+|---|---|
+| `SMTP_USERNAME` | l'**ID du projet** Scaleway (un UUID) — ni secret, ni personnel |
+| `SMTP_PASSWORD` | la **clé API secrète**, affichée **une seule fois** à la création |
+
+La clé secrète n'est jamais réaffichée : si elle est perdue, il faut en générer
+une nouvelle et révoquer l'ancienne. Elle se saisit **uniquement** dans les
+Environment Variables de Coolify, qui les stocke chiffrées — jamais dans un
+fichier du dépôt, jamais dans un ticket, jamais dans une capture d'écran.
+
+> L'API ne journalise jamais cette valeur. Le récapitulatif de configuration
+> écrit au démarrage l'omet par construction (elle n'est pas masquée : elle est
+> absente), et les erreurs de transport ne sont journalisées que par leur
+> message, jamais par l'objet d'erreur — lequel embarque les options de
+> connexion, mot de passe compris.
+
+### 4.3 Variables Coolify
+
+À saisir dans **Environment Variables** du service `estimer-api` :
+
+```
+MAIL_TRANSPORT=smtp
+SMTP_HOST=smtp.tem.scw.cloud
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USERNAME=<ID du projet Scaleway>
+SMTP_PASSWORD=<clé API secrète Scaleway>
+MAIL_FROM_ADDRESS=contact@estimer.co
+MAIL_FROM_NAME=Estimer mon bien
+MAIL_REPLY_TO=contact@estimer.co
+MAIL_TO=<boîte interne qui reçoit les leads>
+MAIL_TIMEOUT=10000
+MAIL_SEND_ACKNOWLEDGEMENT=true
+```
+
+| Variable | Rôle | Défaut si absente |
+|---|---|---|
+| `MAIL_TRANSPORT` | `smtp` (envoi réel) ou `dry-run` (aucune connexion SMTP) | `dry-run` |
+| `SMTP_HOST` | endpoint SMTP Scaleway, identique dans toutes les régions | `smtp.tem.scw.cloud` |
+| `SMTP_PORT` | voir la matrice ci-dessous | `587` |
+| `SMTP_SECURE` | TLS implicite. `true` **obligatoire** sur 465 / 2465 | déduit du port |
+| `SMTP_USERNAME` | ID du projet Scaleway | — *(requis si `smtp`)* |
+| `SMTP_PASSWORD` | clé API secrète | — *(requis si `smtp`)* |
+| `MAIL_FROM_ADDRESS` | expéditeur — **doit appartenir au domaine vérifié** | — *(requis si `smtp`)* |
+| `MAIL_FROM_NAME` | nom d'affichage de l'expéditeur | `Estimer mon bien` |
+| `MAIL_REPLY_TO` | adresse de réponse des accusés de réception | `MAIL_FROM_ADDRESS` |
+| `MAIL_TO` | boîte interne destinataire des leads | — *(requis si `smtp`)* |
+| `MAIL_TIMEOUT` | délai maximal d'un envoi, en ms, borné à `[1000, 60000]` | `10000` |
+| `MAIL_SEND_ACKNOWLEDGEMENT` | accusé de réception au prospect | `true` |
+
+**Matrice des ports.** Scaleway TEM écoute sur plusieurs ports parce que
+beaucoup d'hébergeurs filtrent les ports bas en sortie :
+
+| Port | Chiffrement | `SMTP_SECURE` | Quand l'utiliser |
+|---|---|---|---|
+| 587 | STARTTLS | `false` | **défaut recommandé** |
+| 2587 | STARTTLS | `false` | si 587 est filtré en sortie |
+| 465 | TLS implicite | `true` | alternative classique |
+| 2465 | TLS implicite | `true` | si 465 est filtré |
+| 25 | STARTTLS | `false` | à éviter, filtré presque partout |
+
+Symptôme d'un port filtré : les envois échouent tous en `timeout` après
+`MAIL_TIMEOUT`, sans jamais d'erreur d'authentification. Si l'authentification
+échoue, en revanche, c'est la clé API ou l'ID de projet qui sont en cause, pas
+le port.
+
+`MAIL_FROM_ADDRESS` **doit** appartenir au domaine vérifié à l'étape 4.1. Une
+adresse d'un domaine voisin (un `@gmail.com`, par exemple) est refusée par
+Scaleway à l'envoi. `MAIL_TO`, en revanche, est libre : c'est un destinataire,
+pas un expéditeur — la boîte interne peut rester chez n'importe quel
+fournisseur.
+
+### 4.4 Ce que l'API refuse de faire
+
+Le contrôle de cohérence tourne **au démarrage**, avant d'accepter la moindre
+requête :
+
+- `MAIL_TRANSPORT=smtp` avec un `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
+  `MAIL_FROM_ADDRESS` ou `MAIL_TO` manquant ou invalide → **le service ne
+  démarre pas**, avec la liste des variables fautives dans les journaux.
+
+  C'est volontaire, et c'est la même règle que pour le reste de cette API : un
+  service qui refuse de démarrer se voit en trente secondes, une boîte de
+  réception vide se remarque au bout d'une semaine — après avoir perdu les
+  leads de la semaine.
+
+- `MAIL_TRANSPORT=dry-run` en production → le service démarre et **journalise
+  un avertissement**. C'est un état légitime pendant la vérification du domaine,
+  mais qui ne doit pas s'installer par inadvertance.
+
+- `MAIL_TRANSPORT` avec une valeur inconnue → `dry-run` est appliqué et un
+  avertissement est journalisé. En cas de doute, on n'envoie pas.
+
+### 4.5 Vérification après bascule
+
+```bash
+curl -s -X POST https://api.estimer.co/v1/leads \
+  -H 'Content-Type: application/json' -H 'Origin: https://estimer.co' \
+  -d '{"kind":"contact","name":"Test Deploiement",
+       "email":"<votre adresse de test>","subject":"information",
+       "message":"Verification du canal transactionnel."}'
+```
+
+| Réponse | Interprétation |
+|---|---|
+| `{"status":"sent","reference":"…"}` | e-mail réellement remis à Scaleway |
+| `{"status":"dry-run","reference":"…"}` | `MAIL_TRANSPORT` est resté sur `dry-run` — **rien n'est parti** |
+| `422` | payload invalide (le corps liste les champs fautifs) |
+| `429` | quota `RATE_LIMIT_LEADS` atteint |
+| `502 MAIL_UNAVAILABLE` | l'API n'a pas pu remettre l'e-mail : domaine non vérifié, identifiants refusés, ou port filtré |
+
+Vérifiez ensuite **les deux** e-mails : celui reçu sur `MAIL_TO`, et l'accusé de
+réception arrivé sur l'adresse de test. Contrôlez que ce dernier n'est pas en
+spam — c'est le signe qui trahit un SPF ou un DKIM incomplet, et il ne se voit
+pas dans les journaux de l'API.
+
+Côté journaux (Coolify → Logs), les événements à chercher :
+
+| Événement | Signification |
+|---|---|
+| `mail.internal_sent` | l'e-mail interne est parti |
+| `mail.internal_dry_run` | il a été construit mais **non envoyé** |
+| `mail.acknowledgement_sent` | l'accusé de réception est parti |
+| `mail.acknowledgement_failed` | l'accusé a échoué — **le lead reste acquis**, l'e-mail interne étant envoyé en premier et son sort indépendant |
+| `mail.internal_failed` | échec de l'e-mail interne : c'est le seul qui fait perdre un lead, il est à traiter à la main |
+| `mail.not_configured` | `MAIL_TO` absent |
+
+Les adresses y apparaissent **masquées** (`j***t@example.com`) : le domaine
+reste lisible, ce qui suffit à diagnostiquer un rejet par fournisseur, mais les
+journaux ne constituent pas un second fichier de prospects.
+
+### 4.6 RGPD — ce que cet endpoint fait et ne fait pas
+
+`POST /v1/leads` est le **seul** endpoint qui reçoit des données personnelles,
+et il n'en persiste aucune : les coordonnées traversent le processus, partent
+par SMTP, et disparaissent. Aucune table, aucun fichier, aucun journal en clair.
+
+`POST /v1/estimations` continue de les **refuser** explicitement (422
+`forbidden_pii`). C'est cette séparation qui garantit que `estimations_log` ne
+contient toujours aucune donnée d'identification, et elle ne doit pas être
+fusionnée « pour simplifier ».
+
+La mise en service ajoute un sous-traitant au registre des traitements
+(Scaleway, pour l'acheminement des e-mails) : la politique de confidentialité
+doit le mentionner.
+
+### 4.7 Retour arrière
+
+Poser `MAIL_TRANSPORT=dry-run` et redéployer. Le formulaire continue de
+répondre 200, plus aucun e-mail ne part, et les journaux le disent à chaque
+soumission (`mail.internal_dry_run`). C'est le bon geste si la réputation du
+domaine pose problème : cela arrête l'émission sans casser le parcours des
+visiteurs.
+
+---
+
+## 5. Premier déploiement
 
 1. **Deploy** dans Coolify.
 2. Vérifier la sonde :
@@ -196,7 +425,7 @@ RATE_LIMIT_GLOBAL=120/1 minute
 
 ---
 
-## 5. Chargement des données — l'étape longue
+## 6. Chargement des données — l'étape longue
 
 ### Référentiel communal, d'abord
 
@@ -250,7 +479,7 @@ curl -s -X POST https://api.estimer.co/v1/estimations \
 
 ---
 
-## 6. Tâches planifiées
+## 7. Tâches planifiées
 
 **Coolify → Scheduled Tasks**, sur le service `estimer-api` :
 
@@ -270,7 +499,7 @@ est idempotente : si le millésime n'est pas encore publié, elle ne fait rien.
 
 ---
 
-## 7. Côté site statique — dernière étape
+## 8. Côté site statique — dernière étape
 
 **GitHub → Settings → Secrets and variables → Actions → New repository secret :**
 
@@ -289,12 +518,17 @@ parvienne à l'exploitation. Un repli doit être un incident visible, jamais un
 
 ---
 
-## 8. Contrôles avant ouverture au public
+## 9. Contrôles avant ouverture au public
 
 - [ ] Restauration de sauvegarde testée
 - [ ] `TRUSTED_PROXY` vérifié sur la vraie plage Docker — sinon le rate limiting
       est soit global, soit contournable
 - [ ] `/health` répond `hasMutations: true`
+- [ ] Domaine vérifié chez Scaleway TEM, SPF + DKIM + DMARC au vert
+- [ ] `MAIL_TRANSPORT=smtp` — sinon `POST /v1/leads` répond 200 sans qu'aucun
+      lead n'arrive
+- [ ] Un lead de test reçu sur `MAIL_TO`, **et** son accusé de réception reçu
+      hors du dossier spam
 - [ ] Une estimation en zone dense (Paris, Lyon) revient en moins d'une seconde
 - [ ] Une estimation à Strasbourg affiche la mention Livre foncier et **aucune**
       revendication de source DVF

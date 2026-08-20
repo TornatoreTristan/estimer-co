@@ -15,12 +15,15 @@ import {
   throttleEstimationDaily,
   throttleGeocode,
   throttleGlobal,
+  throttleLead,
+  throttleLeadDaily,
 } from '#start/limiter'
 
 const HealthController = () => import('#controllers/health_controller')
 const MetaController = () => import('#controllers/meta_controller')
 const GeocodeController = () => import('#controllers/geocode_controller')
 const EstimationsController = () => import('#controllers/estimations_controller')
+const LeadsController = () => import('#controllers/leads_controller')
 
 /*
  * Sonde Coolify — HORS rate limiting et hors garde d'Origin (§6.1).
@@ -51,6 +54,17 @@ router
     router
       .post('/estimations', [EstimationsController, 'store'])
       .use([throttleEstimation, throttleEstimationDaily])
+
+    /*
+     * Flux transactionnel : coordonnées du prospect + contexte, transmis par
+     * e-mail (Scaleway TEM). C'est le SEUL endpoint qui reçoit des données
+     * personnelles, et il n'en persiste aucune.
+     *
+     * Quotas volontairement plus serrés que l'estimation (5/min, 20/jour) :
+     * un abus ici fait partir des e-mails depuis notre domaine, et se paie en
+     * réputation d'expéditeur, pas en CPU.
+     */
+    router.post('/leads', [LeadsController, 'store']).use([throttleLead, throttleLeadDaily])
 
     /*
      * Lot 3 — statistiques de marché (§6.1) :

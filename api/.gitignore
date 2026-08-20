@@ -8,6 +8,9 @@ tmp
 .env.local
 .env.production.local
 .env.development.local
+# Surcharges locales de poste (ex. un port PostgreSQL déjà pris par un autre
+# projet). Chargées AVANT `.env.test` par @adonisjs/env, donc prioritaires.
+.env.test.local
 
 # Frontend assets compiled code
 public/assets

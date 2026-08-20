@@ -83,6 +83,10 @@ const API_SCRIPT_PATH = path.join(__dirname, "..", "src", "scripts", "estimation
 const API_SOURCE = readFileSync(API_SCRIPT_PATH, "utf8");
 const API_SCRIPT = new vm.Script(API_SOURCE, { filename: "estimation-api.js" });
 
+const LEAD_SCRIPT_PATH = path.join(__dirname, "..", "src", "scripts", "lead-api.js");
+const LEAD_SOURCE = readFileSync(LEAD_SCRIPT_PATH, "utf8");
+const LEAD_SCRIPT = new vm.Script(LEAD_SOURCE, { filename: "lead-api.js" });
+
 /**
  * @param {{document?: object}} [globals] `document` minimal optionnel, pour
  *   exercer les quelques fonctions qui en dépendent (`getSelectedOptionText`)
@@ -636,9 +640,19 @@ test("getSelectedOptionText — libellé par défaut si le <select> n'a jamais �
 // `localStorage`, `sessionStorage` et `window.location` sont bouchonnés et
 // journalisés, ce qui permet d'observer ce qui compte vraiment :
 //   - COMBIEN d'appels `POST /v1/estimations` partent,
-//   - COMBIEN de leads EmailJS partent,
-//   - dans quel ORDRE surviennent EmailJS, la persistance et la redirection,
+//   - COMBIEN de leads partent, et PAR QUEL CANAL,
+//   - dans quel ORDRE surviennent l'envoi, la persistance et la redirection,
 //   - si le formulaire redevient utilisable après un échec (drapeau relâché).
+//
+// DEUX CANAUX D'ENVOI, JAMAIS LES DEUX À LA FOIS
+// ----------------------------------------------
+// Depuis le passage aux e-mails transactionnels, le lead part par
+// `POST /v1/leads` (API, gabarit rendu côté serveur, identifiants SMTP hors du
+// navigateur). EmailJS n'est plus qu'un repli LEGACY, réservé aux cas où l'on
+// SAIT qu'aucun e-mail n'est parti. Le harnais compte donc séparément
+// `leadCalls` (canal nominal) et `emailSends` (repli), et les tests vérifient
+// systématiquement que leur somme vaut 1 : un lead envoyé deux fois, c'est un
+// prospect rappelé deux fois par deux conseillers.
 
 /** Options d'un `<select>` du formulaire, dans l'ordre du markup. */
 const SUBMIT_SELECT_OPTIONS = {
@@ -725,15 +739,28 @@ function okApiResult(overrides) {
  * effets de bord.
  *
  * @param {{responses?: Array<{status?:number, body?:object, networkError?:boolean}>,
+ *          leadResponses?: Array<{status?:number, body?:object, networkError?:boolean, pending?:boolean}>,
+ *          apiBaseUrl?: string,
+ *          withoutLeadApi?: boolean,
  *          fallback?: string}} [config]
  */
 function createSubmitHarness(config) {
   const cfg = config || {};
   const responses = cfg.responses || [{ status: 200, body: okApiResult() }];
+  /*
+   * Réponses de `POST /v1/leads` (e-mails transactionnels). Par défaut :
+   * l'API accepte et envoie. `pending: true` simule un envoi ENCORE EN VOL —
+   * indispensable pour rejouer le scénario bfcache, où la page gèle alors que
+   * la requête d'envoi n'a pas répondu.
+   */
+  const leadResponses = cfg.leadResponses || [
+    { status: 200, body: { status: "sent", reference: "REF123", acknowledgement: true } },
+  ];
 
   const log = [];          // journal ordonné des effets de bord observables
-  const fetchCalls = [];
-  const emailSends = [];
+  const fetchCalls = [];   // POST /v1/estimations
+  const leadCalls = [];    // POST /v1/leads
+  const emailSends = [];   // repli legacy EmailJS
   const focusLog = [];
   const consoleErrors = [];
   const elements = new Map();
@@ -946,16 +973,29 @@ function createSubmitHarness(config) {
   };
 
   // --- réseau -------------------------------------------------------------
+  //
+  // Deux endpoints distincts, deux journaux distincts : `POST /v1/estimations`
+  // (le calcul) et `POST /v1/leads` (l'e-mail transactionnel). Le routage se
+  // fait sur l'URL et non sur le rang d'appel — sans quoi ajouter un endpoint
+  // décalerait silencieusement toutes les réponses bouchonnées.
   function fetchStub(url, init) {
-    const index = Math.min(fetchCalls.length, responses.length - 1);
-    const spec = responses[index] || {};
-    fetchCalls.push({
+    const isLead = String(url).indexOf("/v1/leads") !== -1;
+    const calls = isLead ? leadCalls : fetchCalls;
+    const specs = isLead ? leadResponses : responses;
+    const index = Math.min(calls.length, specs.length - 1);
+    const spec = specs[index] || {};
+
+    calls.push({
       url: url,
       method: init && init.method,
       body: init && init.body ? JSON.parse(init.body) : null,
     });
-    log.push("fetch");
+    log.push(isLead ? "lead" : "fetch");
+
     if (spec.networkError) return Promise.reject(new Error("réseau indisponible (bouchon)"));
+    // Requête qui ne répond jamais : le code appelant reste « en vol ».
+    if (spec.pending) return new Promise(function () {});
+
     return Promise.resolve({
       status: spec.status === undefined ? 200 : spec.status,
       headers: {
@@ -987,8 +1027,17 @@ function createSubmitHarness(config) {
   globalThis.window = windowStub;
   globalThis.localStorage = localStorageStub;
   globalThis.sessionStorage = sessionStorageStub;
+  /*
+   * `apiBaseUrl: ""` simule un déploiement SANS API (état actuel de la prod
+   * tant que `PUBLIC_API_URL` n'est pas posé) : ni le calcul ni l'envoi du
+   * lead ne partent sur le réseau, et le parcours doit rester complet grâce
+   * au repli statique et au repli EmailJS.
+   */
   globalThis.CONFIG = {
-    API: { BASE_URL: "https://api.test.local", FALLBACK: cfg.fallback || "static" },
+    API: {
+      BASE_URL: cfg.apiBaseUrl === undefined ? "https://api.test.local" : cfg.apiBaseUrl,
+      FALLBACK: cfg.fallback || "static",
+    },
     EMAILJS: { SERVICE_ID: "service_test", TEMPLATE_ID: "template_test", PUBLIC_KEY: "pk_test" },
     EMAIL: { TO: "contact@estimer.co" },
   };
@@ -1009,9 +1058,29 @@ function createSubmitHarness(config) {
     consoleErrors.push(Array.prototype.join.call(arguments, " "));
   };
 
+  /*
+   * Ordre de production, celui d'`estimation.astro` : google-places,
+   * estimation-wizard, estimation-api, lead-api, puis estimation-ui — qui
+   * consomme les globales des quatre précédents.
+   *
+   * `lead-api.js` est chargé SAUF si le scénario demande explicitement son
+   * absence (`withoutLeadApi`), ce qui simule une page qui aurait oublié le
+   * script : `estimation-ui.js` doit alors se rabattre sur EmailJS plutôt que
+   * de casser toute la soumission sur une `ReferenceError`.
+   */
   PLACES_SCRIPT.runInThisContext();
   WIZARD_SCRIPT.runInThisContext();
   API_SCRIPT.runInThisContext();
+  if (cfg.withoutLeadApi) {
+    // `runInThisContext` crée des globales non configurables : on ne peut pas
+    // les `delete`, on les neutralise en les remettant à `undefined` — ce que
+    // voient les gardes `typeof … !== "function"` d'`estimation-ui.js`.
+    globalThis.requestLead = undefined;
+    globalThis.buildEstimationLeadPayload = undefined;
+    globalThis.shouldUseLegacyFallback = undefined;
+  } else {
+    LEAD_SCRIPT.runInThisContext();
+  }
   UI_SCRIPT.runInThisContext();
 
   function setField(id, value) {
@@ -1023,7 +1092,12 @@ function createSubmitHarness(config) {
   return {
     log: log,
     fetchCalls: fetchCalls,
+    leadCalls: leadCalls,
     emailSends: emailSends,
+    /** Corps JSON du dernier `POST /v1/leads`, ou `null`. */
+    lastLeadBody() {
+      return leadCalls.length ? leadCalls[leadCalls.length - 1].body : null;
+    },
     redirects: redirects,
     focusLog: focusLog,
     consoleErrors: consoleErrors,
@@ -1179,7 +1253,7 @@ test("harnais de soumission — le formulaire rempli mène bien à l'étape 5", 
 // B4 — DOUBLE SOUMISSION
 // ---------------------------------------------------------------------------
 
-test("B4 — deux Entrée rapprochées ne produisent QU'UN appel API, QU'UN lead EmailJS, QU'UNE redirection", async () => {
+test("B4 — deux Entrée rapprochées ne produisent QU'UN appel API, QU'UN lead, QU'UNE redirection", async () => {
   await withSubmitHarness({ responses: [{ status: 200, body: okApiResult() }] }, async (h) => {
     h.fillValidForm();
 
@@ -1193,7 +1267,8 @@ test("B4 — deux Entrée rapprochées ne produisent QU'UN appel API, QU'UN lead
     await h.waitFor(() => h.redirects.length > 0, "redirection vers /rapport/");
 
     assert.equal(h.fetchCalls.length, 1, "un seul POST /v1/estimations");
-    assert.equal(h.emailSends.length, 1, "un seul envoi EmailJS (pas de lead dupliqué)");
+    assert.equal(h.leadCalls.length, 1, "un seul POST /v1/leads (pas de lead dupliqué)");
+    assert.equal(h.emailSends.length, 0, "l'API a envoyé : aucun repli EmailJS");
     assert.equal(h.redirects.length, 1, "une seule redirection");
     assert.deepEqual(h.redirects, ["/rapport/"]);
     assert.equal(
@@ -1214,7 +1289,8 @@ test("B4 — une troisième soumission pendant l'appel en vol reste sans effet",
     await h.waitFor(() => h.redirects.length > 0, "redirection vers /rapport/");
 
     assert.equal(h.fetchCalls.length, 1);
-    assert.equal(h.emailSends.length, 1);
+    assert.equal(h.leadCalls.length, 1);
+    assert.equal(h.emailSends.length, 0);
     assert.equal(h.redirects.length, 1);
   });
 });
@@ -1243,7 +1319,7 @@ test("B4 — le drapeau n'est jamais posé quand l'étape 5 est invalide (le for
 // pendant la navigation. Mais un « Précédent » depuis /rapport/ ne recharge
 // PAS la page : le navigateur la restaure depuis le bfcache avec ses closures
 // intactes, drapeau compris. Sans écouteur `pageshow`, le formulaire revient
-// à l'écran, réactivé par le `.finally` d'EmailJS... et n'envoie plus jamais
+// à l'écran, réactivé par la fin de l'envoi du lead... et n'envoie plus jamais
 // rien, sans le moindre message. Revenir corriger une saisie après avoir vu
 // son estimation est un geste courant : c'est un lead perdu en silence.
 // ---------------------------------------------------------------------------
@@ -1262,13 +1338,12 @@ test("bfcache — après un retour arrière depuis /rapport/, une nouvelle soumi
       h.submit();
       await h.waitFor(() => h.redirects.length > 0, "redirection vers /rapport/");
       assert.equal(h.fetchCalls.length, 1);
-      assert.equal(h.emailSends.length, 1);
+      assert.equal(h.leadCalls.length, 1);
+      assert.equal(h.emailSends.length, 0);
 
-      // La promesse EmailJS se résout avant le gel de la page : le bouton
-      // redevient cliquable (`setSubmitBusy(false)` dans son `.finally`) alors
-      // que `submitInFlight` reste, lui, à `true`. C'est exactement l'état
-      // trompeur que le bfcache va restaurer.
-      h.resolveEmail();
+      // Le lead API s'est résolu avant le gel de la page : le bouton redevient
+      // cliquable alors que `submitInFlight` reste, lui, à `true`. C'est
+      // exactement l'état trompeur que le bfcache va restaurer.
       await h.settle();
       assert.equal(h.submitBtn.disabled, false, "le bouton est bien réactivé avant le gel");
 
@@ -1281,13 +1356,16 @@ test("bfcache — après un retour arrière depuis /rapport/, une nouvelle soumi
 
       await h.waitFor(() => h.redirects.length > 1, "seconde redirection vers /rapport/");
       assert.equal(h.fetchCalls.length, 2, "un second POST /v1/estimations doit partir");
-      assert.equal(h.emailSends.length, 2, "un second lead EmailJS doit partir");
+      assert.equal(h.leadCalls.length, 2, "un second POST /v1/leads doit partir");
+      assert.equal(h.emailSends.length, 0, "aucun repli EmailJS sur le chemin API nominal");
     }
   );
 });
 
 test("bfcache — l'état visuel du bouton est remis au repos, même si EmailJS était encore en vol au gel", async () => {
-  await withSubmitHarness({ responses: [{ status: 200, body: okApiResult() }] }, async (h) => {
+  await withSubmitHarness(
+    { responses: [{ status: 200, body: okApiResult() }], withoutLeadApi: true },
+    async (h) => {
     const idleHTML = h.submitBtn.innerHTML;
 
     h.fillValidForm();
@@ -1309,7 +1387,8 @@ test("bfcache — l'état visuel du bouton est remis au repos, même si EmailJS 
       true,
       "le message de progression ne doit pas subsister sur un formulaire au repos"
     );
-  });
+    }
+  );
 });
 
 test("bfcache — un `pageshow` ordinaire (persisted=false) ne relâche PAS le drapeau (non-régression B4)", async () => {
@@ -1338,7 +1417,8 @@ test("bfcache — un `pageshow` ordinaire (persisted=false) ne relâche PAS le d
     await h.settle();
 
     assert.equal(h.fetchCalls.length, 1, "un seul POST /v1/estimations");
-    assert.equal(h.emailSends.length, 1, "un seul lead EmailJS");
+    assert.equal(h.leadCalls.length, 1, "un seul POST /v1/leads");
+    assert.equal(h.emailSends.length, 0, "aucun repli EmailJS");
     assert.equal(h.redirects.length, 1, "une seule redirection");
   });
 });
@@ -1358,7 +1438,7 @@ test("ordre de soumission — EmailJS puis persistance puis redirection, sans at
     // redirection ne doit pas en dépendre (US-10, « Échec d'envoi EmailJS »).
     assert.deepEqual(
       h.log.filter((entry) => entry !== "fetch"),
-      ["emailjs", "persist:lastEstimation", "redirect"]
+      ["lead", "persist:lastEstimation", "redirect"]
     );
 
     const stored = h.lastEstimation();
@@ -1373,7 +1453,9 @@ test("ordre de soumission — EmailJS puis persistance puis redirection, sans at
 });
 
 test("ordre de soumission — un échec EmailJS ne change ni la persistance ni la redirection", async () => {
-  await withSubmitHarness({ responses: [{ status: 200, body: okApiResult() }] }, async (h) => {
+  await withSubmitHarness(
+    { responses: [{ status: 200, body: okApiResult() }], withoutLeadApi: true },
+    async (h) => {
     h.fillValidForm();
     h.submit();
     await h.waitFor(() => h.redirects.length > 0, "redirection vers /rapport/");
@@ -1383,7 +1465,8 @@ test("ordre de soumission — un échec EmailJS ne change ni la persistance ni l
 
     assert.equal(h.redirects.length, 1);
     assert.ok(h.lastEstimation(), "`lastEstimation` reste écrite malgré l'échec d'e-mail");
-  });
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -1454,7 +1537,8 @@ test("422 — le drapeau est relâché : corriger puis resoumettre déclenche bi
 
       await h.waitFor(() => h.redirects.length > 0, "redirection après correction");
       assert.equal(h.fetchCalls.length, 2, "la seconde soumission doit repartir");
-      assert.equal(h.emailSends.length, 1);
+      assert.equal(h.leadCalls.length, 1);
+      assert.equal(h.emailSends.length, 0);
     }
   );
 });
@@ -1523,15 +1607,17 @@ test("5xx — exactement 2 appels (1 + 1 retry) puis `static-fallback` affiché 
       await h.waitFor(() => h.redirects.length > 0, "redirection vers /rapport/");
 
       assert.equal(h.fetchCalls.length, 2, "1 tentative + 1 unique retry");
-      assert.equal(h.emailSends.length, 1, "le lead part, avec sa mention de mode dégradé");
+      assert.equal(h.leadCalls.length, 1, "le lead transactionnel part avec le statut de mode dégradé");
+      assert.equal(h.emailSends.length, 0, "aucun repli EmailJS si l'API lead accepte");
       assert.equal(h.redirects.length, 1);
 
       const stored = h.lastEstimation();
       assert.equal(stored.estimationStatus, "static-fallback");
       assert.ok(stored.estimation.estimationMoyenne > 0, "un prix de repli est bien affiché");
-      assert.ok(
-        h.emailSends[0].params.message.includes("ESTIMATION NON CALCULEE (API indisponible)"),
-        "l'e-mail interne signale le mode dégradé"
+      assert.equal(
+        h.lastLeadBody().estimation.status,
+        "static-fallback",
+        "l'API transactionnelle reçoit le statut de mode dégradé"
       );
     }
   );
@@ -1562,6 +1648,7 @@ test("erreur réseau + FALLBACK=none — estimation différée, aucun chiffre in
 test("chemin d'erreur imprévu — le formulaire redevient soumettable (drapeau jamais bloqué à true)", async () => {
   await withSubmitHarness(
     {
+      withoutLeadApi: true,
       responses: [
         // 200 sans corps exploitable : `requestEstimation` renvoie un échec
         // `deferred`, et le repli statique prend la main. On force ensuite une

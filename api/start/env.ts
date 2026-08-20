@@ -83,4 +83,43 @@ export default await Env.create(new URL('../', import.meta.url), {
   RATE_LIMIT_GEOCODE: Env.schema.string.optional(),
   RATE_LIMIT_MARCHE: Env.schema.string.optional(),
   RATE_LIMIT_GLOBAL: Env.schema.string.optional(),
+  RATE_LIMIT_LEADS: Env.schema.string.optional(),
+  RATE_LIMIT_LEADS_DAILY: Env.schema.string.optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | E-mails transactionnels — Scaleway Transactional Email (TEM)
+  |--------------------------------------------------------------------------
+  |
+  | Toutes ces variables sont déclarées OPTIONNELLES ici, et c'est délibéré :
+  | `MAIL_TRANSPORT` vaut `dry-run` par défaut, régime dans lequel aucune
+  | d'entre elles n'est nécessaire. Un déploiement existant continue donc de
+  | démarrer sans être reconfiguré — il n'enverra simplement aucun e-mail.
+  |
+  | La cohérence RÉELLE (« si transport = smtp, alors host/user/password/from
+  | sont obligatoires ») ne s'exprime pas dans ce schéma, qui valide chaque
+  | variable isolément. Elle est contrôlée au démarrage par
+  | `assertMailSettings()` (`app/lib/mail_config.ts`), appelé depuis
+  | `start/kernel.ts` : en production, une configuration SMTP incomplète fait
+  | échouer le démarrage, au même titre qu'une variable manquante ci-dessus.
+  |
+  | `SMTP_PASSWORD` est la clé API Scaleway : elle vit UNIQUEMENT dans le
+  | gestionnaire de secrets de Coolify, jamais dans un fichier commité.
+  |
+  */
+  MAIL_TRANSPORT: Env.schema.enum.optional(['smtp', 'dry-run'] as const),
+  SMTP_HOST: Env.schema.string.optional({ format: 'host' }),
+  SMTP_PORT: Env.schema.number.optional(),
+  SMTP_SECURE: Env.schema.boolean.optional(),
+  SMTP_USERNAME: Env.schema.string.optional(),
+  SMTP_PASSWORD: Env.schema.string.optional(),
+  MAIL_FROM_ADDRESS: Env.schema.string.optional(),
+  MAIL_FROM_NAME: Env.schema.string.optional(),
+  MAIL_REPLY_TO: Env.schema.string.optional(),
+  /** Boîte interne qui reçoit les leads (§ e-mails transactionnels). */
+  MAIL_TO: Env.schema.string.optional(),
+  /** Délai maximal d'un envoi, en millisecondes. */
+  MAIL_TIMEOUT: Env.schema.number.optional(),
+  /** Accusé de réception envoyé au prospect. Désactivable sans redéploiement. */
+  MAIL_SEND_ACKNOWLEDGEMENT: Env.schema.boolean.optional(),
 })

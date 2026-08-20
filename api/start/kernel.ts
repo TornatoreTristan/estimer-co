@@ -12,8 +12,12 @@ import router from '@adonisjs/core/services/router'
 import server from '@adonisjs/core/services/server'
 import logger from '@adonisjs/core/services/logger'
 
+import app from '@adonisjs/core/services/app'
+
 import env from '#start/env'
 import { trustedProxyStartupWarning } from '#lib/client_ip'
+import { mailSettings } from '#config/mail'
+import { assertMailSettings, describeMailSettings } from '#lib/mail_config'
 
 /**
  * The error handler is used to convert an exception
@@ -33,6 +37,25 @@ const proxyWarning = trustedProxyStartupWarning(env.get('TRUSTED_PROXY'), env.ge
 if (proxyWarning) {
   logger.warn(proxyWarning)
 }
+
+/*
+ * Contrôle de la configuration e-mail — même philosophie que ci-dessus.
+ *
+ * `start/env.ts` valide chaque variable isolément ; il ne sait pas dire « si
+ * MAIL_TRANSPORT=smtp, alors host/user/password/from sont obligatoires ». Or
+ * la panne correspondante est parfaitement silencieuse : le service démarre,
+ * `POST /v1/leads` répond 200, et pas un seul lead n'arrive. `assertMailSettings`
+ * LÈVE en production dans ce cas — un service qui ne démarre pas est visible en
+ * trente secondes, une boîte vide se remarque au bout d'une semaine.
+ *
+ * L'avertissement inverse (dry-run actif en production) est journalisé sans
+ * bloquer : c'est un état volontaire pendant la mise en place du domaine chez
+ * Scaleway, mais il ne doit pas passer inaperçu.
+ */
+for (const message of assertMailSettings(mailSettings, { inProduction: app.inProduction })) {
+  logger.warn(message)
+}
+logger.info({ mail: describeMailSettings(mailSettings) }, 'Configuration e-mail chargée.')
 
 /**
  * Pile serveur : s'exécute sur toutes les requêtes, y compris celles sans

@@ -963,36 +963,10 @@ if (estimationFormEl) {
     var payload = wizard.serializeForSubmit(estimation);
     payload.estimationStatus = estimationStatus;
 
-    var templateParams = buildEmailTemplateParams(payload, {
-      propertyTypeText: getSelectedOptionText("propertyType"),
-      dpeText: getSelectedOptionText("dpe"),
-      toEmail: typeof CONFIG !== "undefined" && CONFIG.EMAIL ? CONFIG.EMAIL.TO : undefined,
-    });
-
-    if (
-      typeof emailjs !== "undefined" &&
-      typeof CONFIG !== "undefined" &&
-      CONFIG.EMAILJS &&
-      CONFIG.EMAILJS.SERVICE_ID
-    ) {
-      emailjs
-        .send(CONFIG.EMAILJS.SERVICE_ID, CONFIG.EMAILJS.TEMPLATE_ID, templateParams)
-        .then(function (emailResponse) {
-          console.log("Email envoye avec succes!", emailResponse.status, emailResponse.text);
-        })
-        .catch(function (error) {
-          console.error("Erreur envoi email:", error);
-        })
-        .finally(function () {
-          setSubmitBusy(submitBtn, false, originalHTML);
-        });
-    } else {
-      console.error("EmailJS indisponible : envoi de l'email ignoré.");
-      setSubmitBusy(submitBtn, false, originalHTML);
-    }
+    sendLead(payload, submitBtn, originalHTML);
 
     // Comportement identique à l'ancien estimation.js : la persistance et la
-    // redirection ne dépendent PAS de la résolution de la promesse EmailJS
+    // redirection ne dépendent PAS de la résolution de l'envoi du lead
     // (US-10, scénario "Échec d'envoi EmailJS" -> redirection quand même).
     //
     // `submitInFlight` reste à `true` sur ce chemin : le lead est parti et on
@@ -1003,6 +977,121 @@ if (estimationFormEl) {
     wizard.clearPersistedState();
     // Barre finale obligatoire : `trailingSlash: 'always'` (astro.config.mjs).
     window.location.href = "/rapport/";
+  }
+
+  /**
+   * Transmission du lead — API transactionnelle d'abord, EmailJS en repli.
+   *
+   * ══════════════════════════════════════════════════════════════════════
+   * UN SEUL ENVOI, JAMAIS DEUX
+   * ══════════════════════════════════════════════════════════════════════
+   * L'e-mail part désormais de notre API (`POST /v1/leads`, Scaleway TEM) :
+   * le gabarit est rendu côté serveur, aucun identifiant d'envoi ne vit dans
+   * la page. EmailJS n'est conservé que comme repli LEGACY, et seulement
+   * lorsque `shouldUseLegacyFallback()` établit qu'aucun e-mail n'est parti —
+   * API non configurée, requête jamais émise, ou refus explicite du serveur.
+   *
+   * Sur un timeout, un 422 ou un 429, on ne rejoue RIEN : mieux vaut un lead
+   * à rattraper qu'un prospect rappelé deux fois par deux conseillers, ou un
+   * quota contourné par une porte de service.
+   *
+   * L'appel est NON BLOQUANT vis-à-vis de la redirection, exactement comme
+   * l'était `emailjs.send()` : `finalizeSubmit` enchaîne sur la persistance
+   * et la navigation sans attendre cette promesse.
+   */
+  function sendLead(payload, submitBtn, originalHTML) {
+    /*
+     * `requestLead` n'est pas chargé sur toutes les pages (le module est
+     * indépendant) : sans cette garde, une page qui oublierait le script
+     * casserait toute la soumission au lieu de perdre l'e-mail.
+     */
+    if (typeof requestLead !== "function" || typeof buildEstimationLeadPayload !== "function") {
+      console.error("lead-api.js absent : repli sur EmailJS.");
+      sendLeadWithEmailJs(payload, submitBtn, originalHTML);
+      return;
+    }
+
+    var apiConfig = apiConfigForStatus();
+
+    requestLead(
+      buildEstimationLeadPayload(payload),
+      { baseUrl: apiConfig.BASE_URL },
+      function (response) {
+        if (response.status === "ok") {
+          // `dry-run` : l'API a tout construit sans ouvrir de connexion SMTP
+          // (domaine pas encore vérifié chez Scaleway, par exemple). Le
+          // parcours est nominal, mais aucun e-mail n'existe : on le dit.
+          if (response.mode === "dry-run") {
+            console.warn(
+              "Lead accepté en mode dry-run : aucun e-mail n'a été envoyé (réf. " +
+                response.reference +
+                ")."
+            );
+          }
+          setSubmitBusy(submitBtn, false, originalHTML);
+          return;
+        }
+
+        if (shouldUseLegacyFallback(response)) {
+          console.warn(
+            "API transactionnelle indisponible (" +
+              (response.reason || "inconnu") +
+              ") : repli EmailJS."
+          );
+          sendLeadWithEmailJs(payload, submitBtn, originalHTML);
+          return;
+        }
+
+        // Aucun repli possible sans risque de doublon : le lead reste dans
+        // `localStorage` (cf. `persistEstimation`), donc rattrapable.
+        console.error(
+          "Lead non transmis :",
+          response.reason,
+          response.httpStatus,
+          response.message
+        );
+        setSubmitBusy(submitBtn, false, originalHTML);
+      }
+    );
+  }
+
+  /**
+   * Repli LEGACY par EmailJS. Conservé tant que `PUBLIC_API_URL` n'est pas
+   * déployé partout — un formulaire qui ne produit aucun lead est pire qu'un
+   * formulaire qui en produit par l'ancien chemin.
+   *
+   * À SUPPRIMER une fois l'API en production sur tous les environnements
+   * (avec `PUBLIC_EMAILJS_*` et le script CDN de `estimation.astro`).
+   */
+  function sendLeadWithEmailJs(payload, submitBtn, originalHTML) {
+    if (
+      typeof emailjs === "undefined" ||
+      typeof CONFIG === "undefined" ||
+      !CONFIG.EMAILJS ||
+      !CONFIG.EMAILJS.SERVICE_ID
+    ) {
+      console.error("EmailJS indisponible : envoi de l'email ignoré.");
+      setSubmitBusy(submitBtn, false, originalHTML);
+      return;
+    }
+
+    var templateParams = buildEmailTemplateParams(payload, {
+      propertyTypeText: getSelectedOptionText("propertyType"),
+      dpeText: getSelectedOptionText("dpe"),
+      toEmail: CONFIG.EMAIL ? CONFIG.EMAIL.TO : undefined,
+    });
+
+    emailjs
+      .send(CONFIG.EMAILJS.SERVICE_ID, CONFIG.EMAILJS.TEMPLATE_ID, templateParams)
+      .then(function (emailResponse) {
+        console.log("Email envoye avec succes!", emailResponse.status, emailResponse.text);
+      })
+      .catch(function (error) {
+        console.error("Erreur envoi email:", error);
+      })
+      .finally(function () {
+        setSubmitBusy(submitBtn, false, originalHTML);
+      });
   }
 
   /** `CONFIG.API` défensif (la clé peut manquer sur une preview sans .env). */
