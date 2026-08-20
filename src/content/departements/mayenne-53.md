@@ -1,7 +1,7 @@
 ---
 slug: mayenne-53
 nom: Mayenne
-title: Prix immobilier au m² — Mayenne
+title: Prix immobilier au m², Mayenne
 codeInsee: "53"
 regionParente: pays-de-la-loire
 prixM2: 1580

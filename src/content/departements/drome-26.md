@@ -1,7 +1,7 @@
 ---
 slug: drome-26
 nom: Drôme
-title: Prix immobilier au m² — Drôme
+title: Prix immobilier au m², Drôme
 codeInsee: "26"
 regionParente: auvergne-rhone-alpes
 prixM2: 2380

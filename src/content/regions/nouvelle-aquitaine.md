@@ -1,7 +1,7 @@
 ---
 slug: nouvelle-aquitaine
 nom: Nouvelle-Aquitaine
-title: Prix immobilier au m² — Nouvelle-Aquitaine
+title: Prix immobilier au m², Nouvelle-Aquitaine
 prixM2: 2540
 prixMaisons: 2350
 prixAppartements: 2980

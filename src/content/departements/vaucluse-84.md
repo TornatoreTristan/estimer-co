@@ -1,7 +1,7 @@
 ---
 slug: vaucluse-84
 nom: Vaucluse
-title: Prix immobilier au m² — Vaucluse
+title: Prix immobilier au m², Vaucluse
 codeInsee: "84"
 regionParente: provence-alpes-cote-azur
 prixM2: 2480

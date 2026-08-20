@@ -1,7 +1,7 @@
 ---
 slug: manche-50
 nom: Manche
-title: Prix immobilier au m² — Manche
+title: Prix immobilier au m², Manche
 codeInsee: "50"
 regionParente: normandie
 prixM2: 1890

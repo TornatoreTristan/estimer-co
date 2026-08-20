@@ -1,7 +1,7 @@
 ---
 slug: eure-et-loir-28
 nom: Eure-et-Loir
-title: Prix immobilier au m² — Eure-et-Loir
+title: Prix immobilier au m², Eure-et-Loir
 codeInsee: "28"
 regionParente: centre-val-de-loire
 prixM2: 1680

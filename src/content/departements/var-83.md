@@ -1,7 +1,7 @@
 ---
 slug: var-83
 nom: Var
-title: Prix immobilier au m² — Var
+title: Prix immobilier au m², Var
 codeInsee: "83"
 regionParente: provence-alpes-cote-azur
 prixM2: 3980

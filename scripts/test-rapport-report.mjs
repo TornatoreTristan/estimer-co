@@ -1,0 +1,630 @@
+#!/usr/bin/env node
+/**
+ * Vérification autonome du rendu de `/rapport` (`src/scripts/rapport-report.js`)
+ * et des sections correspondantes du PDF (`src/scripts/pdf-report.js`).
+ *
+ * Même technique que les autres suites (`vm.Script`) : les
+ * fichiers sont exécutés tels qu'ils seront injectés en production — scripts
+ * classiques, aucun `import`/`export`, tout en portée globale — dans l'ordre
+ * réel de la page `/rapport` : `pdf-report.js` (helpers `formatPrice`,
+ * `capitalizeWords`, `capitalizeFirst`), puis `estimation-api.js` (bouton
+ * « Relancer le calcul »), enfin `rapport-report.js`.
+ *
+ * `rapport-report.js` s'exécute intégralement au chargement (il lit
+ * `localStorage.lastEstimation` et écrit dans le DOM) : on lui fournit donc un
+ * faux `document` dont `getElementById` crée les éléments à la demande, ce qui
+ * permet d'inspecter ensuite le `innerHTML`/`textContent` réellement produit
+ * pour chaque carte.
+ *
+ * Chaque scénario tourne dans un CONTEXTE `vm` NEUF (et non
+ * `runInThisContext`, comme les suites du wizard) : `rapport-report.js`
+ * déclare `const lastEstimation` en portée globale, ce qu'un même realm ne
+ * peut évaluer deux fois. Un contexte par rendu, c'est aussi l'assurance
+ * qu'aucun test n'hérite de l'état d'un autre.
+ *
+ * Ce que cette suite verrouille :
+ * - US-6 / §8.2 : AUCUNE mention DVF/DGFiP sur un rapport `reference-table`
+ *   (territoires du Livre foncier : Bas-Rhin, Haut-Rhin, Moselle, Mayotte) —
+ *   la contradiction « Ventes réelles enregistrées par la DGFiP » au-dessus
+ *   d'un état vide « Références départementales (hors base DVF) » relevée en
+ *   revue QA ;
+ * - l'échappement HTML des valeurs venues de `localStorage` ;
+ * - l'ajustement temporel n'est affiché QUE si un indice INSEE-Notaires a
+ *   réellement servi (`dataSource.priceIndexQuarter`) ;
+ * - la lecture DÉFENSIVE de `method.coefficientSources` (champ d'API à venir) :
+ *   le rendu doit être correct avec ET sans ce champ.
+ *
+ * Usage : `node --test scripts/test-rapport-report.mjs`.
+ */
+
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import vm from "node:vm";
+import test from "node:test";
+import assert from "node:assert/strict";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function loadScript(name) {
+  const file = path.join(__dirname, "..", "src", "scripts", name);
+  return new vm.Script(readFileSync(file, "utf8"), { filename: name });
+}
+
+const PDF_SCRIPT = loadScript("pdf-report.js");
+const API_SCRIPT = loadScript("estimation-api.js");
+const REPORT_SCRIPT = loadScript("rapport-report.js");
+
+// ============================================================================
+// Faux DOM minimal
+// ============================================================================
+
+/**
+ * Éléments portant l'attribut `hidden` dans `src/pages/rapport.astro` : leur
+ * état initial fait partie du comportement testé (une carte n'apparaît que si
+ * le script la révèle explicitement).
+ */
+const HIDDEN_BY_DEFAULT = [
+  "estimationStatusBanner",
+  "rangeNote",
+  "estimationWarnings",
+  "dataSourceBanner",
+  "confidenceCard",
+  "comparablesCard",
+  "methodologyCard",
+  "cityAnalysis",
+];
+
+function makeElement(id) {
+  const listeners = {};
+  return {
+    id: id,
+    innerHTML: "",
+    textContent: "",
+    hidden: HIDDEN_BY_DEFAULT.indexOf(id) !== -1,
+    disabled: false,
+    addEventListener(type, fn) {
+      (listeners[type] = listeners[type] || []).push(fn);
+    },
+    dispatch(type, event) {
+      (listeners[type] || []).forEach(function (fn) {
+        fn(event || {});
+      });
+    },
+    setAttribute() {},
+    getAttribute() {
+      return null;
+    },
+  };
+}
+
+/**
+ * `lastEstimation` nominal (mode `comparables`, Paris), auquel chaque test
+ * applique ses variantes. Reproduit la forme réellement écrite par
+ * `estimation-ui.js` : les clés historiques à plat, plus l'objet `estimation`
+ * enrichi par l'API.
+ */
+function baseLastEstimation(overrides) {
+  return Object.assign(
+    {
+      propertyType: "appartement",
+      address: "12 rue de la Paix",
+      postalCode: "75001",
+      city: "paris",
+      surface: 85,
+      rooms: 3,
+      dpe: "C",
+      isOwner: "yes",
+      wantToSell: "yes",
+      estimationStatus: "ok",
+      estimation: {
+        prixM2: 10000,
+        estimationMin: 765000,
+        estimationMax: 935000,
+        estimationMoyenne: 850000,
+        confidence: { score: 78, label: "high" },
+        display: { confidenceLabelFr: "Élevé" },
+        range: { low: 765000, high: 935000, halfWidthPct: 0.1, basis: "iqr" },
+        method: {
+          kind: "comparables",
+          level: "radius",
+          radiusM: 500,
+          comparablesCount: 24,
+          windowMonths: 24,
+          surfaceTolerancePct: 20,
+          medianPriceM2Raw: 9800,
+          timeAdjustmentFactor: 1,
+          coefficients: { surface: 1.02, dpe: 0.97, total: 0.99 },
+        },
+        comparables: [
+          {
+            street: "rue de rivoli",
+            distanceM: 220,
+            date: "2025-03",
+            propertyType: "appartement",
+            surface: 82,
+            pricePerSqm: 9900,
+          },
+        ],
+        dataSource: {
+          dataCoverage: "full",
+          priceIndexQuarter: null,
+          attributionFr: "Source : DVF (DGFiP), publiées le 1er octobre 2025.",
+          disclaimerFr: "Cette estimation ne constitue pas une expertise.",
+        },
+      },
+    },
+    overrides || {}
+  );
+}
+
+/**
+ * Rapport « Strasbourg » : territoire du Livre foncier, donc AUCUNE
+ * transaction DVF — l'API répond `kind: 'reference-table'`, `comparables: []`,
+ * `dataCoverage: 'no-dvf'` (cf. specs/estimation-donnees-reelles.md §3.2).
+ */
+function strasbourgLastEstimation() {
+  const data = baseLastEstimation({
+    postalCode: "67000",
+    city: "strasbourg",
+  });
+  data.estimation.method = {
+    kind: "reference-table",
+    level: "departement-reference",
+    comparablesCount: 0,
+    windowMonths: 24,
+    timeAdjustmentFactor: 1,
+    coefficients: { surface: 1.02, dpe: 0.97, total: 0.99 },
+  };
+  data.estimation.comparables = [];
+  data.estimation.confidence = { score: 34, label: "low" };
+  data.estimation.dataSource = {
+    dataCoverage: "no-dvf",
+    priceIndexQuarter: null,
+    attributionFr:
+      "Source : références départementales internes, hors base publique DVF.",
+    disclaimerFr: "Cette estimation ne constitue pas une expertise.",
+  };
+  return data;
+}
+
+/**
+ * Exécute `rapport-report.js` sur un `lastEstimation` donné et renvoie les
+ * éléments produits.
+ */
+function renderReport(lastEstimation) {
+  const elements = new Map();
+  const store = new Map();
+  store.set("lastEstimation", JSON.stringify(lastEstimation));
+
+  const sandbox = {
+    console: { log() {}, error() {}, warn() {} },
+    setTimeout: function () {},
+    clearTimeout: function () {},
+    document: {
+      getElementById(id) {
+        if (!elements.has(id)) elements.set(id, makeElement(id));
+        return elements.get(id);
+      },
+      querySelector() {
+        return null;
+      },
+    },
+    window: { location: { href: "" }, addEventListener() {} },
+    localStorage: {
+      getItem(key) {
+        return store.has(key) ? store.get(key) : null;
+      },
+      setItem(key, value) {
+        store.set(key, String(value));
+      },
+      removeItem(key) {
+        store.delete(key);
+      },
+    },
+    CONFIG: { API: { BASE_URL: "https://api.test.local" } },
+  };
+  vm.createContext(sandbox);
+
+  // Ordre de production de la page `/rapport` (cf. rapport.astro).
+  PDF_SCRIPT.runInContext(sandbox);
+  API_SCRIPT.runInContext(sandbox);
+  REPORT_SCRIPT.runInContext(sandbox);
+
+  return {
+    sandbox: sandbox,
+    get(id) {
+      return elements.get(id) || null;
+    },
+    /** Texte + HTML de toutes les cartes VISIBLES (celles qui ne sont pas `hidden`). */
+    visibleHtml() {
+      let html = "";
+      elements.forEach(function (element) {
+        if (element.hidden) return;
+        html += " " + element.textContent + " " + element.innerHTML;
+      });
+      return html;
+    },
+  };
+}
+
+// ============================================================================
+// US-6 / §8.2 — aucune mention DVF/DGFiP hors base DVF
+// ============================================================================
+
+test("reference-table (Strasbourg) — la carte des comparables ne s'affiche pas du tout", () => {
+  const report = renderReport(strasbourgLastEstimation());
+
+  assert.equal(
+    report.get("comparablesCard").hidden,
+    true,
+    "une carte « Ventes réelles… » sans aucune vente réelle n'a pas lieu d'être"
+  );
+});
+
+test("reference-table (Strasbourg) — le titre « Ventes réelles enregistrées par la DGFiP » n'est jamais posé", () => {
+  const report = renderReport(strasbourgLastEstimation());
+  const title = report.get("comparablesTitle");
+
+  assert.equal(
+    title.textContent,
+    "",
+    "le titre du markup (« Transactions comparables ») ne doit pas être réécrit en mention DGFiP"
+  );
+});
+
+test("reference-table (Strasbourg) — aucune mention DGFiP/DVF dans le contenu affiché, sauf l'explication Livre foncier", () => {
+  const report = renderReport(strasbourgLastEstimation());
+
+  // La seule mention légitime : le bandeau qui EXPLIQUE pourquoi ces
+  // transactions ne figurent PAS dans DVF, et la ligne de méthodologie
+  // « Références départementales (hors base DVF) ». Aucune ne présente le
+  // chiffre comme issu de DVF.
+  const banner = report.get("estimationStatusBanner").innerHTML;
+  assert.match(banner, /Territoire relevant du Livre foncier/);
+  assert.match(banner, /ne figurent pas dans la base publique DVF de la DGFiP/);
+
+  assert.equal(
+    report.get("comparablesContent").innerHTML,
+    "",
+    "aucun état vide sous un titre DGFiP"
+  );
+
+  const source = report.get("dataSourceBanner").innerHTML;
+  assert.match(source, /références départementales internes, hors base publique DVF/);
+  assert.equal(
+    /Ventes réelles enregistrées/.test(report.visibleHtml()),
+    false,
+    "la formule « Ventes réelles enregistrées » ne doit apparaître nulle part"
+  );
+});
+
+test("comparables (Paris) — non-régression : le titre DGFiP et le tableau restent affichés", () => {
+  const report = renderReport(baseLastEstimation());
+
+  assert.equal(report.get("comparablesCard").hidden, false);
+  assert.equal(
+    report.get("comparablesTitle").textContent,
+    "Ventes réelles enregistrées par la DGFiP"
+  );
+  assert.match(report.get("comparablesContent").innerHTML, /Rue de Rivoli/);
+  assert.match(report.get("comparablesContent").innerHTML, /mars 2025/);
+});
+
+test("static-fallback — la carte des comparables reste masquée (non-régression)", () => {
+  const data = baseLastEstimation({ estimationStatus: "static-fallback" });
+  const report = renderReport(data);
+
+  assert.equal(report.get("comparablesCard").hidden, true);
+  assert.equal(
+    /DGFiP/.test(report.visibleHtml()),
+    false,
+    "un repli interne ne cite jamais la DGFiP"
+  );
+});
+
+// ============================================================================
+// Échappement HTML des valeurs venues de localStorage
+// ============================================================================
+
+test("détails du bien — adresse, code postal et ville sont échappés", () => {
+  const report = renderReport(
+    baseLastEstimation({
+      address: '<img src=x onerror="alert(1)">',
+      city: "<script>alert(2)</script>",
+      postalCode: "<b>75001</b>",
+    })
+  );
+
+  const html = report.get("propertyDetails").innerHTML;
+  assert.equal(html.includes("<img"), false, "aucune balise injectée depuis l'adresse");
+  assert.equal(html.includes("<script"), false, "aucune balise injectée depuis la ville");
+  assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/);
+  assert.match(html, /&lt;b&gt;75001&lt;\/b&gt;/);
+});
+
+test("détails du bien — les valeurs normales restent lisibles telles quelles", () => {
+  const report = renderReport(baseLastEstimation());
+  const html = report.get("propertyDetails").innerHTML;
+
+  assert.match(html, /12 rue de la Paix/);
+  assert.match(html, /75001 Paris/);
+  assert.match(html, /Appartement/);
+  assert.match(html, /85 m²/);
+  assert.match(html, /3 pièces/);
+  assert.match(html, /Classe C/);
+});
+
+// ============================================================================
+// Ajustement temporel — pas de correction affichée tant qu'il n'y en a pas
+// ============================================================================
+
+test("méthodologie — aucun « Ajustement temporel » tant que priceIndexQuarter est null (Lot 4 non livré)", () => {
+  const report = renderReport(baseLastEstimation());
+
+  assert.equal(
+    report.get("methodologyContent").innerHTML.includes("Ajustement temporel"),
+    false,
+    "afficher ×1,00 suggérerait une correction qui n'a pas eu lieu"
+  );
+});
+
+test("méthodologie — l'ajustement temporel s'affiche dès que l'indice INSEE est renseigné", () => {
+  const data = baseLastEstimation();
+  data.estimation.dataSource.priceIndexQuarter = "2025-T2";
+  data.estimation.method.timeAdjustmentFactor = 1.031;
+  const report = renderReport(data);
+
+  const html = report.get("methodologyContent").innerHTML;
+  assert.match(html, /Ajustement temporel médian/);
+  assert.match(html, /×1,03/);
+  assert.match(html, /indice INSEE-Notaires 2025-T2/);
+});
+
+// ============================================================================
+// method.coefficientSources — champ d'API à venir, lecture défensive
+// ============================================================================
+
+test("coefficients — sans `coefficientSources`, les libellés d'origine sont conservés", () => {
+  const report = renderReport(baseLastEstimation());
+  const html = report.get("methodologyContent").innerHTML;
+
+  assert.match(html, /Surface du bien/);
+  assert.match(html, /Dégressivité du prix au m²/);
+  assert.match(html, /Diagnostic énergétique/);
+  assert.match(html, /Coefficients de valeur verte de référence/);
+});
+
+test("coefficients — avec `coefficientSources`, c'est le libellé de l'API qui s'affiche", () => {
+  const data = baseLastEstimation();
+  data.estimation.method.coefficientSources = [
+    {
+      key: "dpe",
+      label: "Diagnostic de performance énergétique",
+      sourceLabel:
+        "Valeur provisoire de la spécification produit, à calibrer au Lot 5.",
+      sourceUrl: "https://www.notaires.fr/fr/valeur-verte",
+      dateSource: "2025-11",
+    },
+  ];
+  const report = renderReport(data);
+  const html = report.get("methodologyContent").innerHTML;
+
+  assert.match(
+    html,
+    /Valeur provisoire de la spécification produit, à calibrer au Lot 5\./,
+    "la mention honnête portée par la base doit atteindre l'écran"
+  );
+  assert.match(html, /Diagnostic de performance énergétique/);
+  assert.match(html, /\(2025-11\)/);
+  assert.match(html, /<a href="https:\/\/www\.notaires\.fr\/fr\/valeur-verte"/);
+  assert.match(html, /rel="noopener noreferrer"/);
+  assert.equal(
+    html.includes("Coefficients de valeur verte de référence"),
+    false,
+    "le libellé écrit en dur doit céder la place à celui de l'API"
+  );
+  // Les coefficients NON couverts par `coefficientSources` gardent le leur.
+  assert.match(html, /Dégressivité du prix au m²/);
+});
+
+test("coefficients — une `sourceUrl` non http(s) n'est jamais transformée en lien", () => {
+  const data = baseLastEstimation();
+  data.estimation.method.coefficientSources = [
+    {
+      key: "surface",
+      sourceLabel: "Barème interne",
+      sourceUrl: "javascript:alert(1)",
+    },
+  ];
+  const report = renderReport(data);
+  const html = report.get("methodologyContent").innerHTML;
+
+  assert.match(html, /Barème interne/);
+  assert.equal(html.includes("javascript:"), false);
+  assert.equal(html.includes("<a href"), false);
+});
+
+test("coefficients — un `coefficientSources` mal formé n'empêche pas le rendu", () => {
+  const data = baseLastEstimation();
+  data.estimation.method.coefficientSources = { pas: "un tableau" };
+  const report = renderReport(data);
+
+  assert.equal(report.get("methodologyCard").hidden, false);
+  assert.match(report.get("methodologyContent").innerHTML, /Dégressivité du prix au m²/);
+});
+
+// ============================================================================
+// PDF — mêmes règles, même garde (src/scripts/pdf-report.js)
+// ============================================================================
+
+/**
+ * Charge `pdf-report.js` et remplace ses primitives de mise en page par des
+ * collecteurs : on observe CE QUI serait imprimé, sans avoir besoin de jsPDF
+ * ni d'analyser un binaire PDF.
+ */
+function withPdfPrimitivesStubbed(scenario) {
+  const sandbox = { console: { log() {}, error() {}, warn() {} } };
+  vm.createContext(sandbox);
+  PDF_SCRIPT.runInContext(sandbox);
+
+  const emitted = [];
+
+  sandbox.pdfHeading = function (layout, text) {
+    emitted.push({ type: "heading", text: String(text) });
+  };
+  sandbox.pdfParagraph = function (layout, text) {
+    emitted.push({ type: "paragraph", text: String(text) });
+  };
+  sandbox.pdfDataGrid = function (layout, rows) {
+    (rows || []).forEach(function (row) {
+      (row || []).forEach(function (cell) {
+        emitted.push({ type: "fact", text: cell.label + " : " + cell.value });
+      });
+    });
+  };
+  sandbox.pdfNote = function (layout, options) {
+    emitted.push({ type: "note", text: String((options && options.text) || "") });
+  };
+  sandbox.pdfStatBand = function () {};
+
+  const layout = {
+    doc: {},
+    x: 16,
+    y: 40,
+    width: 178,
+    space() {},
+    reserve() {},
+  };
+
+  scenario({
+    layout: layout,
+    emitted: emitted,
+    comparablesSection(ctx) {
+      sandbox.pdfComparablesSection(layout, ctx);
+    },
+    methodologySection(ctx) {
+      sandbox.pdfMethodologySection(layout, ctx);
+    },
+  });
+
+  return emitted;
+}
+
+/** Contexte PDF (`pdfBuildContext`) réduit à ce que lisent les deux sections. */
+function pdfContext(overrides) {
+  return Object.assign(
+    {
+      method: {
+        kind: "comparables",
+        level: "radius",
+        radiusM: 500,
+        comparablesCount: 24,
+        windowMonths: 24,
+        medianPriceM2Raw: 9800,
+        timeAdjustmentFactor: 1,
+        coefficients: { surface: 1.02, dpe: 0.97, total: 0.99 },
+      },
+      comparables: [],
+      dataSource: { dataCoverage: "full", priceIndexQuarter: null },
+      isStaticFallback: false,
+      isDeferred: false,
+    },
+    overrides || {}
+  );
+}
+
+test("PDF — `reference-table` : la section « Ventes réelles enregistrées par la DGFiP » n'est pas imprimée", () => {
+  const emitted = withPdfPrimitivesStubbed(function (pdf) {
+    pdf.comparablesSection(
+      pdfContext({
+        method: { kind: "reference-table", level: "departement-reference", comparablesCount: 0 },
+        dataSource: { dataCoverage: "no-dvf", priceIndexQuarter: null },
+      })
+    );
+  });
+
+  assert.deepEqual(emitted, [], "aucun titre, aucun paragraphe : la section disparaît");
+});
+
+test("PDF — `comparables` sans aucune vente listable : le titre reste, avec son état vide", () => {
+  const emitted = withPdfPrimitivesStubbed(function (pdf) {
+    pdf.comparablesSection(pdfContext());
+  });
+
+  assert.equal(emitted[0].type, "heading");
+  assert.equal(emitted[0].text, "Ventes réelles enregistrées par la DGFiP");
+  assert.match(emitted[1].text, /Aucune vente comparable/);
+});
+
+test("PDF — méthodologie : pas d'« Ajustement temporel » sans indice INSEE", () => {
+  const emitted = withPdfPrimitivesStubbed(function (pdf) {
+    pdf.methodologySection(pdfContext());
+  });
+
+  assert.equal(
+    emitted.some(function (entry) {
+      return entry.text.indexOf("Ajustement temporel") !== -1;
+    }),
+    false
+  );
+});
+
+test("PDF — méthodologie : l'ajustement temporel apparaît avec son trimestre d'indice", () => {
+  const emitted = withPdfPrimitivesStubbed(function (pdf) {
+    const ctx = pdfContext();
+    ctx.method.timeAdjustmentFactor = 1.031;
+    ctx.dataSource.priceIndexQuarter = "2025-T2";
+    pdf.methodologySection(ctx);
+  });
+
+  const fact = emitted.find(function (entry) {
+    return entry.text.indexOf("Ajustement temporel") !== -1;
+  });
+  assert.ok(fact, "la ligne doit exister");
+  assert.match(fact.text, /x1,03 \(2025-T2\)/);
+});
+
+test("PDF — méthodologie : `coefficientSources` remplace les libellés écrits en dur", () => {
+  const emitted = withPdfPrimitivesStubbed(function (pdf) {
+    const ctx = pdfContext();
+    ctx.method.coefficientSources = [
+      {
+        key: "dpe",
+        label: "Diagnostic de performance énergétique",
+        sourceLabel: "valeur provisoire de la spécification produit, à calibrer au Lot 5",
+        dateSource: "2025-11",
+      },
+    ];
+    pdf.methodologySection(ctx);
+  });
+
+  const line = emitted.find(function (entry) {
+    return entry.text.indexOf("Diagnostic de performance énergétique") !== -1;
+  });
+  assert.ok(line, "le libellé de l'API doit être utilisé");
+  assert.match(line.text, /valeur provisoire de la spécification produit, à calibrer au Lot 5 \(2025-11\)/);
+  assert.equal(
+    emitted.some(function (entry) {
+      return entry.text.indexOf("coefficients de valeur verte de référence") !== -1;
+    }),
+    false
+  );
+});
+
+test("PDF — méthodologie : sans `coefficientSources`, rien ne change (non-régression)", () => {
+  const emitted = withPdfPrimitivesStubbed(function (pdf) {
+    pdf.methodologySection(pdfContext());
+  });
+
+  assert.ok(
+    emitted.some(function (entry) {
+      return entry.text.indexOf("coefficients de valeur verte de référence") !== -1;
+    })
+  );
+  assert.ok(
+    emitted.some(function (entry) {
+      return entry.text.indexOf("dégressivité du prix au m²") !== -1;
+    })
+  );
+});

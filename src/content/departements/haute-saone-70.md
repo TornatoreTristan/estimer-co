@@ -1,7 +1,7 @@
 ---
 slug: haute-saone-70
 nom: Haute-Saône
-title: Prix immobilier au m² — Haute-Saône
+title: Prix immobilier au m², Haute-Saône
 codeInsee: "70"
 regionParente: bourgogne-franche-comte
 prixM2: 1180

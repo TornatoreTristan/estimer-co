@@ -1,7 +1,7 @@
 ---
 slug: pas-de-calais-62
 nom: Pas-de-Calais
-title: Prix immobilier au m² — Pas-de-Calais
+title: Prix immobilier au m², Pas-de-Calais
 codeInsee: "62"
 regionParente: hauts-de-france
 prixM2: 1780

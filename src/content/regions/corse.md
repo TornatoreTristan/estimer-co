@@ -1,7 +1,7 @@
 ---
 slug: corse
 nom: Corse
-title: Prix immobilier au m² — Corse
+title: Prix immobilier au m², Corse
 prixM2: 3680
 prixMaisons: 3400
 prixAppartements: 4100

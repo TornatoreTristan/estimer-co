@@ -1,7 +1,7 @@
 ---
 slug: provence-alpes-cote-azur
 nom: Provence-Alpes-Côte d'Azur
-title: Prix immobilier au m² — Provence-Alpes-Côte d'Azur
+title: Prix immobilier au m², Provence-Alpes-Côte d'Azur
 prixM2: 4150
 prixMaisons: 3800
 prixAppartements: 4650

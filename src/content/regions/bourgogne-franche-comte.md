@@ -1,7 +1,7 @@
 ---
 slug: bourgogne-franche-comte
 nom: Bourgogne-Franche-Comté
-title: Prix immobilier au m² — Bourgogne-Franche-Comté
+title: Prix immobilier au m², Bourgogne-Franche-Comté
 prixM2: 1650
 prixMaisons: 1520
 prixAppartements: 1890

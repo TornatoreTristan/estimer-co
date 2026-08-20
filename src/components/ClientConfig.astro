@@ -5,6 +5,13 @@ import { CONFIG } from '../lib/config';
  * Remplace l'ancien `<script src="config.js">` : déclare le global `CONFIG`
  * attendu par les scripts de page, à partir des variables d'environnement.
  * À placer dans le <head>, avant les scripts qui l'utilisent.
+ *
+ * Tout l'objet `CONFIG` est sérialisé : ajouter une clé dans
+ * `src/lib/config.ts` suffit à l'exposer au navigateur (c'est ainsi que
+ * `CONFIG.API = { BASE_URL, FALLBACK }`, consommé par `estimation-api.js`,
+ * arrive côté client). Attention : une variable d'environnement absente vaut
+ * `undefined` et disparaît du JSON — les valeurs par défaut doivent donc être
+ * posées dans `config.ts`, pas ici.
  */
 ---
 

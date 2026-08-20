@@ -1,7 +1,7 @@
 ---
 slug: cher-18
 nom: Cher
-title: Prix immobilier au m² — Cher
+title: Prix immobilier au m², Cher
 codeInsee: "18"
 regionParente: centre-val-de-loire
 prixM2: 1280

@@ -1,7 +1,7 @@
 ---
 slug: calvados-14
 nom: Calvados
-title: Prix immobilier au m² — Calvados
+title: Prix immobilier au m², Calvados
 codeInsee: "14"
 regionParente: normandie
 prixM2: 2450

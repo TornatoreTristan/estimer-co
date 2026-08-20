@@ -1,7 +1,7 @@
 ---
 slug: eure-27
 nom: Eure
-title: Prix immobilier au m² — Eure
+title: Prix immobilier au m², Eure
 codeInsee: "27"
 regionParente: normandie
 prixM2: 2020

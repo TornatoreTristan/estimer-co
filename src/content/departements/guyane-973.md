@@ -1,7 +1,7 @@
 ---
 slug: guyane-973
 nom: Guyane
-title: Prix immobilier au m² — Guyane
+title: Prix immobilier au m², Guyane
 codeInsee: "973"
 regionParente: guyane
 prixM2: 2150

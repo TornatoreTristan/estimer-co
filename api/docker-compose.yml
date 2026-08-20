@@ -1,0 +1,74 @@
+# Environnement de développement local de l'API d'estimation.
+#
+# PostGIS est fourni par l'image officielle `postgis/postgis` : ne jamais
+# tenter d'ajouter l'extension à une image `postgres` nue (cf. spec §9, Lot 0,
+# « risque principal : PostGIS mal provisionné »).
+#
+#   docker compose up -d
+#   node ace migration:run
+#
+# Le port est publié sur 127.0.0.1 uniquement : la base n'est jamais joignable
+# depuis le réseau local. En production (Coolify), le service `estimer-db`
+# n'expose aucun port publiquement (spec §2.2).
+
+# Note Apple Silicon : `postgis/postgis:16-3.4` ne publie pas d'image arm64.
+# Docker Desktop la fait tourner en émulation amd64 (avertissement « platform
+# does not match » au démarrage, sans conséquence fonctionnelle, mais l'import
+# DVF y est sensiblement plus lent qu'en natif). En production (Coolify, x86_64)
+# l'image tourne nativement.
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: estimer-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: estimer
+      POSTGRES_PASSWORD: estimer
+      POSTGRES_DB: estimer
+      # Accélère l'initialisation locale ; sans effet sur la durabilité en prod.
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    ports:
+      # 5433 en local pour ne pas entrer en conflit avec un PostgreSQL déjà
+      # installé sur le poste. Bind explicite sur la loopback.
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - estimer_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U estimer -d estimer']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # L'ingestion DVF fait des COPY volumineux : un peu de mémoire de travail
+    # évite les tris sur disque pendant la phase de transformation set-based.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=64MB
+      - -c
+      - maintenance_work_mem=256MB
+
+  # Base dédiée aux tests : volume éphémère (tmpfs), jamais persistée.
+  # Démarrée uniquement via `docker compose --profile test up -d db_test`.
+  db_test:
+    image: postgis/postgis:16-3.4
+    container_name: estimer-db-test
+    profiles: ['test']
+    environment:
+      POSTGRES_USER: estimer
+      POSTGRES_PASSWORD: estimer
+      POSTGRES_DB: estimer_test
+    ports:
+      - '127.0.0.1:5434:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U estimer -d estimer_test']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  estimer_db_data:

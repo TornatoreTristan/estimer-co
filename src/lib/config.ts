@@ -21,4 +21,21 @@ export const CONFIG = {
   ANALYTICS: {
     GA4_MEASUREMENT_ID: import.meta.env.PUBLIC_GA4_MEASUREMENT_ID,
   },
+  // API d'estimation (service AdonisJS séparé, cf.
+  // specs/estimation-donnees-reelles.md §2.3).
+  //
+  // BASE_URL vide -> `estimation-api.js` ne tente aucun appel réseau et
+  // renvoie immédiatement un échec, ce qui déclenche le repli ci-dessous.
+  //
+  // FALLBACK : 'static' (défaut, DÉCISION CLIENT) -> quand l'API est
+  // injoignable (réseau, timeout, 5xx, 429), l'estimation est calculée par
+  // `calculerEstimation()` et la page affiche un bandeau permanent
+  // « Estimation indicative » SANS aucune mention de DVF ni de la DGFiP.
+  // 'none' -> mode « estimation différée » du §2.4 : aucun prix affiché.
+  // Un `undefined` disparaît du JSON injecté par ClientConfig.astro : la
+  // valeur par défaut est donc appliquée ici, à la source.
+  API: {
+    BASE_URL: import.meta.env.PUBLIC_API_URL || '',
+    FALLBACK: import.meta.env.PUBLIC_ESTIMATION_FALLBACK || 'static',
+  },
 } as const;

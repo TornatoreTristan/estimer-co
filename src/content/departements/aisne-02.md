@@ -1,7 +1,7 @@
 ---
 slug: aisne-02
 nom: Aisne
-title: Prix immobilier au m² — Aisne
+title: Prix immobilier au m², Aisne
 codeInsee: "02"
 regionParente: hauts-de-france
 prixM2: 1420

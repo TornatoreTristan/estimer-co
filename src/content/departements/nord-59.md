@@ -1,7 +1,7 @@
 ---
 slug: nord-59
 nom: Nord
-title: Prix immobilier au m² — Nord
+title: Prix immobilier au m², Nord
 codeInsee: "59"
 regionParente: hauts-de-france
 prixM2: 2280

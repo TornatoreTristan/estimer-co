@@ -1,7 +1,7 @@
 ---
 slug: indre-36
 nom: Indre
-title: Prix immobilier au m² — Indre
+title: Prix immobilier au m², Indre
 codeInsee: "36"
 regionParente: centre-val-de-loire
 prixM2: 1120

@@ -1,7 +1,7 @@
 ---
 slug: bas-rhin-67
 nom: Bas-Rhin
-title: Prix immobilier au m² — Bas-Rhin
+title: Prix immobilier au m², Bas-Rhin
 codeInsee: "67"
 regionParente: grand-est
 prixM2: 2580

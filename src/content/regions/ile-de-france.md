@@ -1,7 +1,7 @@
 ---
 slug: ile-de-france
 nom: Île-de-France
-title: Prix immobilier au m² — Île-de-France
+title: Prix immobilier au m², Île-de-France
 prixM2: 6850
 prixMaisons: 5200
 prixAppartements: 7890

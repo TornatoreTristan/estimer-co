@@ -1,7 +1,7 @@
 ---
 slug: haut-rhin-68
 nom: Haut-Rhin
-title: Prix immobilier au m² — Haut-Rhin
+title: Prix immobilier au m², Haut-Rhin
 codeInsee: "68"
 regionParente: grand-est
 prixM2: 1980

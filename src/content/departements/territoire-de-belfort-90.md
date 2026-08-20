@@ -1,7 +1,7 @@
 ---
 slug: territoire-de-belfort-90
 nom: Territoire de Belfort
-title: Prix immobilier au m² — Territoire de Belfort
+title: Prix immobilier au m², Territoire de Belfort
 codeInsee: "90"
 regionParente: bourgogne-franche-comte
 prixM2: 1480

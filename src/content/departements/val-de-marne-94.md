@@ -1,7 +1,7 @@
 ---
 slug: val-de-marne-94
 nom: Val-de-Marne
-title: Prix immobilier au m² — Val-de-Marne
+title: Prix immobilier au m², Val-de-Marne
 codeInsee: "94"
 regionParente: ile-de-france
 prixM2: 4850

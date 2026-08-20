@@ -1,7 +1,7 @@
 ---
 slug: la-reunion-974
 nom: La Réunion
-title: Prix immobilier au m² — La Réunion
+title: Prix immobilier au m², La Réunion
 codeInsee: "974"
 regionParente: la-reunion
 prixM2: 2480

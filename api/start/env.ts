@@ -1,0 +1,86 @@
+/*
+|--------------------------------------------------------------------------
+| Environment variables service
+|--------------------------------------------------------------------------
+|
+| Validation des variables d'environnement de l'API (spec §6.4).
+| Toute variable manquante fait échouer le démarrage : on préfère un service
+| qui ne démarre pas à un service qui démarre mal configuré (CORS ouvert,
+| proxy non déclaré, sel HMAC vide…).
+|
+*/
+
+import { Env } from '@adonisjs/core/env'
+
+export default await Env.create(new URL('../', import.meta.url), {
+  NODE_ENV: Env.schema.enum(['development', 'production', 'test'] as const),
+  PORT: Env.schema.number(),
+  APP_KEY: Env.schema.string(),
+  HOST: Env.schema.string({ format: 'host' }),
+  LOG_LEVEL: Env.schema.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Base de données (PostgreSQL 16 + PostGIS)
+  |--------------------------------------------------------------------------
+  */
+  DB_HOST: Env.schema.string({ format: 'host' }),
+  DB_PORT: Env.schema.number(),
+  DB_USER: Env.schema.string(),
+  DB_PASSWORD: Env.schema.string.optional(),
+  DB_DATABASE: Env.schema.string(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Sécurité de l'endpoint public (spec §2.5 et §2.6)
+  |--------------------------------------------------------------------------
+  |
+  | CORS_ORIGINS : liste CSV d'origines autorisées. Piloté par l'environnement
+  | pour pouvoir ajouter une preview sans reconstruire l'image.
+  |
+  | TRUSTED_PROXY : liste CSV de CIDR. `X-Forwarded-For` n'est lu QUE si la
+  | connexion vient d'une de ces plages. Sans cela l'en-tête se forge et le
+  | rate limiting est contournable en une ligne de cURL.
+  |
+  */
+  CORS_ORIGINS: Env.schema.string(),
+  TRUSTED_PROXY: Env.schema.string.optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Sources de données externes
+  |--------------------------------------------------------------------------
+  */
+  BAN_API_URL: Env.schema.string(),
+  DVF_BASE_URL: Env.schema.string(),
+  ADEME_API_URL: Env.schema.string.optional(),
+  COG_COMMUNES_URL: Env.schema.string.optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Anonymisation et cache
+  |--------------------------------------------------------------------------
+  |
+  | IP_HASH_SALT : sel du HMAC-SHA256 appliqué aux IP dans `estimations_log`
+  | (§8.3). Jamais commité, jamais journalisé.
+  |
+  */
+  IP_HASH_SALT: Env.schema.string(),
+  ESTIMATION_CACHE_TTL: Env.schema.number.optional(),
+  GEOCODE_CACHE_TTL_DAYS: Env.schema.number.optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Rate limiting (spec §2.6)
+  |--------------------------------------------------------------------------
+  |
+  | Format « N/durée » accepté par @adonisjs/limiter, ex. « 10/1 minute ».
+  |
+  */
+  LIMITER_STORE: Env.schema.enum(['database', 'memory'] as const),
+  RATE_LIMIT_ESTIMATION: Env.schema.string.optional(),
+  RATE_LIMIT_ESTIMATION_DAILY: Env.schema.string.optional(),
+  RATE_LIMIT_GEOCODE: Env.schema.string.optional(),
+  RATE_LIMIT_MARCHE: Env.schema.string.optional(),
+  RATE_LIMIT_GLOBAL: Env.schema.string.optional(),
+})

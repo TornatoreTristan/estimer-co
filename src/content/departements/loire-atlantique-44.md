@@ -1,7 +1,7 @@
 ---
 slug: loire-atlantique-44
 nom: Loire-Atlantique
-title: Prix immobilier au m² — Loire-Atlantique
+title: Prix immobilier au m², Loire-Atlantique
 codeInsee: "44"
 regionParente: pays-de-la-loire
 prixM2: 3250

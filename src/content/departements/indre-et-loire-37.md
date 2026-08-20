@@ -1,7 +1,7 @@
 ---
 slug: indre-et-loire-37
 nom: Indre-et-Loire
-title: Prix immobilier au m² — Indre-et-Loire
+title: Prix immobilier au m², Indre-et-Loire
 codeInsee: "37"
 regionParente: centre-val-de-loire
 prixM2: 2280

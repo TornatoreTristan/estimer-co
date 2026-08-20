@@ -1,7 +1,7 @@
 ---
 slug: cantal-15
 nom: Cantal
-title: Prix immobilier au m² — Cantal
+title: Prix immobilier au m², Cantal
 codeInsee: "15"
 regionParente: auvergne-rhone-alpes
 prixM2: 1280

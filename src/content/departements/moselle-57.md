@@ -1,7 +1,7 @@
 ---
 slug: moselle-57
 nom: Moselle
-title: Prix immobilier au m² — Moselle
+title: Prix immobilier au m², Moselle
 codeInsee: "57"
 regionParente: grand-est
 prixM2: 1680

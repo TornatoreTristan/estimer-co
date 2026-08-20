@@ -1,7 +1,7 @@
 ---
 slug: corse-du-sud-2a
 nom: Corse-du-Sud
-title: Prix immobilier au m² — Corse-du-Sud
+title: Prix immobilier au m², Corse-du-Sud
 codeInsee: 2A
 regionParente: corse
 prixM2: 3850

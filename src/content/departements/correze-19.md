@@ -1,7 +1,7 @@
 ---
 slug: correze-19
 nom: Corrèze
-title: Prix immobilier au m² — Corrèze
+title: Prix immobilier au m², Corrèze
 codeInsee: "19"
 regionParente: nouvelle-aquitaine
 prixM2: 1420

@@ -1,7 +1,7 @@
 ---
 slug: hautes-pyrenees-65
 nom: Hautes-Pyrénées
-title: Prix immobilier au m² — Hautes-Pyrénées
+title: Prix immobilier au m², Hautes-Pyrénées
 codeInsee: "65"
 regionParente: occitanie
 prixM2: 1680

@@ -1,7 +1,7 @@
 ---
 slug: rhone-69
 nom: Rhône
-title: Prix immobilier au m² — Rhône
+title: Prix immobilier au m², Rhône
 codeInsee: "69"
 regionParente: auvergne-rhone-alpes
 prixM2: 4120

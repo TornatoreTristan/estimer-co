@@ -1,0 +1,380 @@
+---
+// Page de travail interne : aperçu live du rapport PDF sans passer par le
+// wizard. Volontairement hors BaseLayout (pas de header/footer) pour laisser
+// toute la hauteur à l'aperçu. Exclue du sitemap (astro.config.mjs) et en
+// noindex : elle n'est pas destinée aux visiteurs.
+import '../styles/global.css';
+import RawScript from '../components/RawScript.astro';
+import pdfReportScript from '../scripts/pdf-report.js?raw';
+import pdfPreviewScript from '../scripts/pdf-preview.js?raw';
+
+const dpeOptions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Aperçu du rapport PDF. Outil interne</title>
+  </head>
+  <body class="preview-body">
+    <div class="preview">
+      <aside class="preview-panel">
+        <header class="preview-head">
+          <span class="eyebrow">Outil interne</span>
+          <h1>Aperçu du rapport PDF</h1>
+          <p>
+            Le rendu vient de <code>src/scripts/pdf-report.js</code>, le même module que le bouton de
+            téléchargement de <a href="/rapport/">/rapport/</a>.
+          </p>
+        </header>
+
+        <div class="preview-toolbar">
+          <label class="field">
+            <span>Jeu de données</span>
+            <select id="previewPreset">
+              <option value="appartementParis">Appartement Paris (marché tendu)</option>
+              <option value="maisonTerrain">Maison avec terrain (marché équilibré)</option>
+              <option value="studioPassoire">Studio DPE G (décote)</option>
+              <option value="maisonSansDpe">Maison sans DPE, champs minimaux</option>
+            </select>
+          </label>
+
+          <!-- Les quatre états d'affichage du rapport (specs
+               estimation-donnees-reelles §7.3) + le mode différé : ce sélecteur
+               superpose au payload le bloc renvoyé par l'API (confidence,
+               method, comparables, dataSource) pour vérifier chaque rendu. -->
+          <label class="field">
+            <span>État du rapport</span>
+            <select id="previewState">
+              <option value="ok">ok — confiance élevée, DVF</option>
+              <option value="ok-price-index">ok + indice INSEE — Lot 4 (non livré en prod)</option>
+              <option value="low-confidence">low-confidence — valeur atténuée</option>
+              <option value="insufficient">insufficient — valeur masquée</option>
+              <option value="no-dvf">no-dvf — Livre foncier</option>
+              <option value="static-fallback">static-fallback — repli indicatif</option>
+              <option value="deferred">deferred — aucune estimation</option>
+              <option value="legacy">legacy — lastEstimation d'avant le Lot 3</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Page affichée</span>
+            <select id="previewPage">
+              <option value="1">Page 1</option>
+              <option value="2">Page 2</option>
+              <option value="3">Page 3</option>
+              <option value="4">Page 4</option>
+            </select>
+          </label>
+        </div>
+
+        <form id="previewForm" class="preview-form">
+          <div class="field-row">
+            <label class="field">
+              <span>Type de bien</span>
+              <select name="propertyType">
+                <option value="appartement">Appartement</option>
+                <option value="maison">Maison</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Classe DPE</span>
+              <select name="dpe">
+                {dpeOptions.map((dpe) => <option value={dpe}>{dpe}</option>)}
+                <option value="unknown">Non renseigné</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Adresse</span>
+            <input type="text" name="address" value="18 rue des Petits Champs" />
+          </label>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Code postal</span>
+              <input type="text" name="postalCode" value="75002" />
+            </label>
+            <label class="field">
+              <span>Ville</span>
+              <input type="text" name="city" value="paris" />
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Surface (m²)</span>
+              <input type="number" name="surface" value="68" min="1" step="1" />
+            </label>
+            <label class="field">
+              <span>Pièces</span>
+              <input type="number" name="rooms" value="3" min="1" step="1" />
+            </label>
+            <label class="field">
+              <span>Prix au m² (€)</span>
+              <input type="number" name="prixM2" value="10400" min="0" step="50" />
+            </label>
+          </div>
+
+          <div class="field-row" data-maison-only hidden>
+            <label class="field">
+              <span>Terrain</span>
+              <select name="hasTerrain">
+                <option value="no">Non</option>
+                <option value="yes">Oui</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Surface terrain (m²)</span>
+              <input type="text" name="terrainSize" value="" />
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Propriétaire</span>
+              <select name="isOwner">
+                <option value="">Non renseigné</option>
+                <option value="yes" selected>Oui</option>
+                <option value="no">Non</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Projet de vente</span>
+              <select name="wantToSell">
+                <option value="">Non renseigné</option>
+                <option value="yes" selected>Oui</option>
+                <option value="maybe">Peut-être</option>
+                <option value="no">Non</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="preview-actions">
+            <button type="submit" id="previewRender" class="btn btn--primary">Régénérer</button>
+            <button type="button" id="previewDownload" class="btn btn--outline">Télécharger</button>
+            <button type="button" id="previewLoadLast" class="btn btn--outline">
+              Dernière estimation réelle
+            </button>
+            <label class="toggle">
+              <input type="checkbox" id="previewAuto" checked />
+              <span>Rendu auto</span>
+            </label>
+          </div>
+        </form>
+
+        <p id="previewStatus" class="preview-status">Génération…</p>
+
+        <details class="preview-json">
+          <summary>Payload JSON (éditable)</summary>
+          <textarea id="previewJson" spellcheck="false" rows="18"></textarea>
+          <button type="button" id="previewApplyJson" class="btn btn--outline">
+            Appliquer le JSON
+          </button>
+        </details>
+      </aside>
+
+      <main class="preview-viewer">
+        <iframe id="pdfFrame" title="Aperçu du rapport PDF"></iframe>
+      </main>
+    </div>
+
+    <script
+      is:inline
+      src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <RawScript code={pdfReportScript} />
+    <RawScript code={pdfPreviewScript} />
+  </body>
+</html>
+
+<style>
+  .preview-body {
+    height: 100vh;
+    overflow: hidden;
+    background: var(--beige-25);
+  }
+
+  .preview {
+    display: grid;
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+    height: 100vh;
+  }
+
+  /* Panneau de réglages */
+  .preview-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    overflow-y: auto;
+    background: var(--white);
+    border-right: 1px solid var(--border);
+  }
+
+  .preview-head h1 {
+    font-size: var(--h4);
+    margin: 0.35rem 0 0.5rem;
+  }
+
+  .preview-head p {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+    line-height: 1.6;
+  }
+
+  .preview-head code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+
+  .preview-toolbar,
+  .preview-form,
+  .field-row {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .preview-toolbar,
+  .field-row {
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  }
+
+  /* Sans cette règle, `display: grid` l'emporterait sur l'attribut `hidden`
+     du bloc terrain, masqué quand le bien n'est pas une maison. */
+  .field-row[hidden] {
+    display: none;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  .field > span {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    font: inherit;
+    font-size: var(--text-sm);
+    color: var(--black);
+    background: var(--white);
+    border: 1px solid var(--border);
+  }
+
+  .field input:focus,
+  .field select:focus {
+    outline: 2px solid var(--orange);
+    outline-offset: -1px;
+  }
+
+  .preview-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .preview-actions .btn {
+    font-size: var(--text-sm);
+    padding: 0.5rem 0.9rem;
+  }
+
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+  }
+
+  .preview-status {
+    margin: 0;
+    padding: 0.6rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    color: var(--text-soft);
+    background: var(--beige-25);
+    border-left: 3px solid var(--orange);
+  }
+
+  .preview-status.is-error {
+    color: #c33228;
+    border-left-color: #c33228;
+    background: #fdf1f0;
+  }
+
+  /* Édition brute du payload */
+  .preview-json summary {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .preview-json textarea {
+    width: 100%;
+    margin-top: 0.75rem;
+    padding: 0.65rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    line-height: 1.5;
+    color: var(--black);
+    background: var(--beige-10);
+    border: 1px solid var(--border);
+    resize: vertical;
+  }
+
+  .preview-json .btn {
+    margin-top: 0.5rem;
+    font-size: var(--text-sm);
+    padding: 0.45rem 0.8rem;
+  }
+
+  /* Aperçu */
+  .preview-viewer {
+    padding: 1rem;
+    background: #e7e1e6;
+  }
+
+  #pdfFrame {
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--border);
+    background: var(--white);
+  }
+
+  @media (max-width: 900px) {
+    .preview-body {
+      height: auto;
+      overflow: auto;
+    }
+
+    .preview {
+      grid-template-columns: minmax(0, 1fr);
+      height: auto;
+    }
+
+    .preview-panel {
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preview-viewer {
+      height: 80vh;
+    }
+  }
+</style>

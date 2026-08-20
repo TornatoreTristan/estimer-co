@@ -1,7 +1,7 @@
 ---
 slug: auvergne-rhone-alpes
 nom: Auvergne-Rhône-Alpes
-title: Prix immobilier au m² — Auvergne-Rhône-Alpes
+title: Prix immobilier au m², Auvergne-Rhône-Alpes
 prixM2: 3280
 prixMaisons: 2950
 prixAppartements: 3750

@@ -1,7 +1,7 @@
 ---
 slug: ardeche-07
 nom: Ardèche
-title: Prix immobilier au m² — Ardèche
+title: Prix immobilier au m², Ardèche
 codeInsee: "07"
 regionParente: auvergne-rhone-alpes
 prixM2: 2120

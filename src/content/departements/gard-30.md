@@ -1,7 +1,7 @@
 ---
 slug: gard-30
 nom: Gard
-title: Prix immobilier au m² — Gard
+title: Prix immobilier au m², Gard
 codeInsee: "30"
 regionParente: occitanie
 prixM2: 2320

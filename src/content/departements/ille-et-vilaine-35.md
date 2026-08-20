@@ -1,7 +1,7 @@
 ---
 slug: ille-et-vilaine-35
 nom: Ille-et-Vilaine
-title: Prix immobilier au m² — Ille-et-Vilaine
+title: Prix immobilier au m², Ille-et-Vilaine
 codeInsee: "35"
 regionParente: bretagne
 prixM2: 2850

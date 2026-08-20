@@ -1,7 +1,7 @@
 ---
 slug: aude-11
 nom: Aude
-title: Prix immobilier au m² — Aude
+title: Prix immobilier au m², Aude
 codeInsee: "11"
 regionParente: occitanie
 prixM2: 1850

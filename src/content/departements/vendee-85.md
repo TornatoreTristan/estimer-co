@@ -1,7 +1,7 @@
 ---
 slug: vendee-85
 nom: Vendée
-title: Prix immobilier au m² — Vendée
+title: Prix immobilier au m², Vendée
 codeInsee: "85"
 regionParente: pays-de-la-loire
 prixM2: 2680

@@ -1,7 +1,7 @@
 ---
 slug: haute-garonne-31
 nom: Haute-Garonne
-title: Prix immobilier au m² — Haute-Garonne
+title: Prix immobilier au m², Haute-Garonne
 codeInsee: "31"
 regionParente: occitanie
 prixM2: 3180

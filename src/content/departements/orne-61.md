@@ -1,7 +1,7 @@
 ---
 slug: orne-61
 nom: Orne
-title: Prix immobilier au m² — Orne
+title: Prix immobilier au m², Orne
 codeInsee: "61"
 regionParente: normandie
 prixM2: 1450

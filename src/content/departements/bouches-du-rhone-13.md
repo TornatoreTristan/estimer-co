@@ -1,7 +1,7 @@
 ---
 slug: bouches-du-rhone-13
 nom: Bouches-du-Rhône
-title: Prix immobilier au m² — Bouches-du-Rhône
+title: Prix immobilier au m², Bouches-du-Rhône
 codeInsee: "13"
 regionParente: provence-alpes-cote-azur
 prixM2: 3650

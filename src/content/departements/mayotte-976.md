@@ -1,7 +1,7 @@
 ---
 slug: mayotte-976
 nom: Mayotte
-title: Prix immobilier au m² — Mayotte
+title: Prix immobilier au m², Mayotte
 codeInsee: "976"
 regionParente: mayotte
 prixM2: 1980

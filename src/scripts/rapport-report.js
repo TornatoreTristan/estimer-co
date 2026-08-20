@@ -1,27 +1,156 @@
+// ============================================================================
+// RAPPORT — rendu de `lastEstimation` sur /rapport (Lot 3)
+// ============================================================================
+//
+// Script classique injecté par `RawScript.astro`, après `pdf-report.js`
+// (helpers `formatPrice`, `capitalizeWords`…), `rapport-map.js` et
+// `estimation-api.js` (bouton « Relancer le calcul »).
+//
+// RÈGLE STRUCTURANTE (US-11) : tout ce qui est nouveau est DÉFENSIF. Un
+// `lastEstimation` déjà présent dans le navigateur d'un visiteur — écrit par
+// la version précédente du site, donc sans `confidence`, `comparables`,
+// `method`, `dataSource` ni `estimationStatus` — doit s'afficher sans la
+// moindre erreur JS : les blocs concernés restent simplement masqués. Les
+// quatre clés historiques (`prixM2`, `estimationMin`, `estimationMax`,
+// `estimationMoyenne`) sont, elles, lues exactement comme avant.
+//
+// RÈGLE D'HONNÊTETÉ (§8.4) : aucun indicateur non sourçable n'est affiché. Le
+// délai de vente moyen, la marge de négociation et le « prix maisons = prix
+// au m² × 0,85 » qui figuraient ici étaient inventés — ils sont supprimés, et
+// pas remplacés par d'autres valeurs inventées. Le bloc « marché local » ne
+// montre plus que ce qui provient réellement de la réponse de l'API.
+
 // Récupérer les données depuis localStorage
       const lastEstimation = JSON.parse(localStorage.getItem("lastEstimation"));
 
+      /**
+       * Échappement HTML des valeurs injectées par `innerHTML`. Les libellés de
+       * voie et de commune viennent de la base DVF, l'adresse vient de
+       * l'utilisateur : rien de tout cela n'est du HTML de confiance.
+       */
+      function escapeHtml(value) {
+        return String(value === undefined || value === null ? "" : value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      /** Élément par id, ou `null`. Évite un `document.getElementById` partout. */
+      function el(id) {
+        return document.getElementById(id);
+      }
+
+      /** Pourcentage français : 0.145 -> « 14,5 % » (une décimale, sans zéro inutile). */
+      function formatPercent(ratio) {
+        const value = Math.round(Number(ratio) * 1000) / 10;
+        return String(value).replace(".", ",") + " %";
+      }
+
+      /** Coefficient multiplicatif : 1.03 -> « +3 % », 0.88 -> « −12 % », 1 -> « neutre ». */
+      function formatCoefficient(coefficient) {
+        const value = Number(coefficient);
+        if (!isFinite(value)) return "—";
+        const delta = Math.round((value - 1) * 1000) / 10;
+        if (delta === 0) return "neutre (×1,00)";
+        const sign = delta > 0 ? "+" : "−";
+        return (
+          sign +
+          String(Math.abs(delta)).replace(".", ",") +
+          " % (×" +
+          value.toFixed(2).replace(".", ",") +
+          ")"
+        );
+      }
+
+      /** « 2025-03 » -> « mars 2025 ». Renvoie la chaîne d'origine si illisible. */
+      const REPORT_MONTHS = [
+        "janvier", "février", "mars", "avril", "mai", "juin",
+        "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+      ];
+
+      function formatMonth(value) {
+        const match = /^(\d{4})-(\d{2})/.exec(String(value || ""));
+        if (!match) return String(value || "—");
+        const monthIndex = Number(match[2]) - 1;
+        const label = REPORT_MONTHS[monthIndex];
+        return label ? label + " " + match[1] : String(value);
+      }
+
+      /** Distance arrondie déjà côté API ; on ne fait que l'habiller. */
+      function formatDistance(metres) {
+        const value = Number(metres);
+        if (!isFinite(value)) return "—";
+        return value >= 1000
+          ? String(Math.round(value / 100) / 10).replace(".", ",") + " km"
+          : Math.round(value) + " m";
+      }
+
+      /** Libellé lisible du niveau géographique retenu (§3.2). */
+      function describeLevel(method) {
+        if (!method) return "";
+        switch (method.level) {
+          case "radius":
+            return method.radiusM
+              ? "Ventes situées dans un rayon de " + formatDistance(method.radiusM)
+              : "Ventes du voisinage immédiat";
+          case "commune":
+            return "Ventes de votre commune";
+          case "epci":
+            return "Ventes de votre intercommunalité";
+          case "departement":
+            return "Ventes de votre département";
+          case "region":
+            return "Ventes de votre région";
+          case "national":
+            return "Références nationales, à défaut de ventes comparables plus proches";
+          case "departement-reference":
+            return "Références départementales (hors base DVF)";
+          default:
+            return "";
+        }
+      }
+
       if (!lastEstimation) {
-        window.location.href = "/estimation";
+        // Barre finale obligatoire : `trailingSlash: 'always'` (astro.config.mjs).
+        window.location.href = "/estimation/";
       } else {
+        // Les nouvelles clés peuvent toutes manquer (localStorage d'une version
+        // antérieure) : chaque accès en aval passe par ces variables, jamais
+        // par une chaîne de propriétés supposée présente.
+        const estimation = lastEstimation.estimation || null;
+        const estimationStatus = lastEstimation.estimationStatus || null;
+        const confidence = estimation ? estimation.confidence : null;
+        const display = estimation ? estimation.display : null;
+        const method = estimation ? estimation.method : null;
+        const dataSource = estimation ? estimation.dataSource : null;
+        const range = estimation ? estimation.range : null;
+        const comparables =
+          estimation && Array.isArray(estimation.comparables) ? estimation.comparables : [];
+        const isStaticFallback = estimationStatus === "static-fallback";
+        const isDeferred = estimationStatus === "deferred" || !estimation;
+
         // Remplir les détails de la propriété
         const propertyDetails = document.getElementById("propertyDetails");
 
-        // Construire le HTML des détails
+        // Construire le HTML des détails. TOUTES les valeurs interpolées ici
+        // proviennent de `localStorage` (donc, à l'origine, d'une saisie
+        // utilisateur) : elles passent sans exception par `escapeHtml`.
         let detailsHTML = `
                 <div class="detail-item">
                     <div class="detail-label">Type de bien</div>
-                    <div class="detail-value">${capitalizeFirst(
-                      lastEstimation.propertyType
+                    <div class="detail-value">${escapeHtml(
+                      capitalizeFirst(lastEstimation.propertyType)
                     )}</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Surface habitable</div>
-                    <div class="detail-value">${lastEstimation.surface} m²</div>
+                    <div class="detail-value">${escapeHtml(lastEstimation.surface)} m²</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Nombre de pièces</div>
-                    <div class="detail-value">${lastEstimation.rooms} pièce${
+                    <div class="detail-value">${escapeHtml(lastEstimation.rooms)} pièce${
           lastEstimation.rooms > 1 ? "s" : ""
         }</div>
                 </div>
@@ -30,7 +159,7 @@
                     <div class="detail-value">${
                       lastEstimation.dpe === "unknown"
                         ? "Non renseigné"
-                        : "Classe " + lastEstimation.dpe
+                        : "Classe " + escapeHtml(lastEstimation.dpe)
                     }</div>
                 </div>`;
 
@@ -54,21 +183,67 @@
             detailsHTML += `
                 <div class="detail-item">
                     <div class="detail-label">Surface du terrain</div>
-                    <div class="detail-value">${lastEstimation.terrainSize} m²</div>
+                    <div class="detail-value">${escapeHtml(lastEstimation.terrainSize)} m²</div>
                 </div>`;
           }
         }
 
+        // Précisions facultatives de l'étape 3 : affichées uniquement si
+        // renseignées (elles n'existent pas sur un ancien `lastEstimation`).
+        const OPTIONAL_LABELS = {
+          floor: { label: "Étage", values: null },
+          hasElevator: {
+            label: "Ascenseur",
+            values: { yes: "Oui", no: "Non", unknown: "Ne sait pas" },
+          },
+          outdoor: {
+            label: "Extérieur",
+            values: {
+              none: "Aucun",
+              balcony: "Balcon",
+              terrace: "Terrasse",
+              garden: "Jardin privatif",
+            },
+          },
+          condition: {
+            label: "État général",
+            values: {
+              "to-renovate": "À rénover",
+              fair: "Correct",
+              good: "Bon",
+              new: "Refait à neuf",
+            },
+          },
+        };
+
+        Object.keys(OPTIONAL_LABELS).forEach(function (key) {
+          const raw = lastEstimation[key];
+          if (raw === undefined || raw === null || String(raw) === "") return;
+          const spec = OPTIONAL_LABELS[key];
+          const value = spec.values ? spec.values[raw] || raw : raw;
+          detailsHTML += `
+                <div class="detail-item">
+                    <div class="detail-label">${escapeHtml(spec.label)}</div>
+                    <div class="detail-value">${escapeHtml(value)}</div>
+                </div>`;
+        });
+
+        // Adresse, code postal et ville viennent d'une saisie utilisateur
+        // relayée par `localStorage` : ils passent par `escapeHtml` comme
+        // toutes les autres valeurs injectées en `innerHTML` ici. L'exposition
+        // se limite au propre navigateur du visiteur, mais une exception au
+        // milieu de champs échappés est exactement ce qui finit par être
+        // recopié ailleurs.
         detailsHTML += `
                 <div class="detail-item">
                     <div class="detail-label">Adresse</div>
-                    <div class="detail-value">${lastEstimation.address}</div>
+                    <div class="detail-value">${escapeHtml(lastEstimation.address)}</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Ville</div>
-                    <div class="detail-value">${
+                    <div class="detail-value">${escapeHtml(
                       lastEstimation.postalCode
-                    } ${capitalizeFirst(lastEstimation.city)}</div>
+                    )} ${escapeHtml(capitalizeWords(lastEstimation.city))}</div>
                 </div>`;
 
         // Ajouter la situation du demandeur
@@ -96,170 +271,657 @@
 
         propertyDetails.innerHTML = detailsHTML;
 
-        // Remplir les prix
-        document.getElementById("estimationMoyenne").textContent = formatPrice(
-          lastEstimation.estimation.estimationMoyenne
-        );
-        document.getElementById("estimationMin").textContent = formatPrice(
-          lastEstimation.estimation.estimationMin
-        );
-        document.getElementById("estimationMax").textContent = formatPrice(
-          lastEstimation.estimation.estimationMax
-        );
-        document.getElementById("prixM2").textContent =
-          formatPrice(lastEstimation.estimation.prixM2) + "/m²";
+        // ------------------------------------------------------------------
+        // Bloc prix. Contrat historique inchangé : quatre `textContent`, mêmes
+        // ids, mêmes clés. L'amplitude affichée dessous vient de
+        // `range.halfWidthPct` — le ±10 % fixe a disparu (§3.7).
+        // ------------------------------------------------------------------
+        if (estimation) {
+          document.getElementById("estimationMoyenne").textContent = formatPrice(
+            estimation.estimationMoyenne
+          );
+          document.getElementById("estimationMin").textContent = formatPrice(
+            estimation.estimationMin
+          );
+          document.getElementById("estimationMax").textContent = formatPrice(
+            estimation.estimationMax
+          );
+          document.getElementById("prixM2").textContent =
+            formatPrice(estimation.prixM2) + "/m²";
+        } else {
+          // Mode différé : aucun prix inventé n'est affiché.
+          ["estimationMoyenne", "estimationMin", "estimationMax", "prixM2"].forEach(
+            function (id) {
+              const node = el(id);
+              if (node) node.textContent = "—";
+            }
+          );
+        }
 
-        // Analyse de la ville
+        // Valeur centrale masquée / atténuée : c'est l'API qui décide (§3.8),
+        // le front n'applique jamais son propre seuil.
+        const priceBoxEl = el("priceBox");
+        if (priceBoxEl) {
+          if (isDeferred || (display && display.showCentralValue === false)) {
+            priceBoxEl.setAttribute("data-central", "hidden");
+          } else if (confidence && confidence.label === "low") {
+            priceBoxEl.setAttribute("data-central", "muted");
+          }
+        }
+
+        const rangeNoteEl = el("rangeNote");
+        if (rangeNoteEl && range && typeof range.halfWidthPct === "number") {
+          const count = method && method.comparablesCount ? method.comparablesCount : 0;
+          rangeNoteEl.textContent =
+            "Amplitude de ± " +
+            formatPercent(range.halfWidthPct) +
+            (range.basis === "iqr" && count
+              ? ", calculée à partir de la dispersion de " +
+                count +
+                " vente" +
+                (count > 1 ? "s" : "") +
+                " réelle" +
+                (count > 1 ? "s" : "") +
+                " de votre secteur."
+              : ".");
+          rangeNoteEl.hidden = false;
+        } else if (rangeNoteEl && isStaticFallback) {
+          rangeNoteEl.textContent =
+            "Fourchette indicative : elle ne reflète aucune dispersion observée sur votre secteur.";
+          rangeNoteEl.hidden = false;
+        }
+
+        // ------------------------------------------------------------------
+        // Bandeaux d'état (§7.2 point 7)
+        // ------------------------------------------------------------------
+        const bannerEl = el("estimationStatusBanner");
+        const banners = [];
+
+        if (isStaticFallback) {
+          // DÉCISION CLIENT : le prix est affiché quand même, mais jamais sous
+          // une mention DVF/DGFiP — ce chiffre ne vient pas de ces données.
+          banners.push(
+            '<p class="report-banner__title">Estimation indicative</p>' +
+              "<p>Nos données de transactions n'ont pas pu être consultées : ce montant " +
+              "provient d'un calcul de repli interne, fondé sur des moyennes, et non sur " +
+              "les ventes réelles enregistrées autour de votre bien. Sa précision est " +
+              "nettement réduite.</p>" +
+              '<button type="button" class="btn btn--dark" id="retryEstimationBtn">' +
+              "Relancer le calcul</button>" +
+              '<p class="report-banner__retry" id="retryEstimationStatus" hidden></p>'
+          );
+        }
+
+        if (isDeferred) {
+          banners.push(
+            '<p class="report-banner__title">Estimation en cours de préparation</p>' +
+              "<p>Nous n'avons pas pu calculer votre estimation en direct. Un conseiller " +
+              "vous l'adresse sous 24 h ouvrées.</p>" +
+              '<a class="btn btn--dark" href="/contact/">Être rappelé par un expert</a>'
+          );
+        }
+
+        if (dataSource && dataSource.dataCoverage === "no-dvf") {
+          banners.push(
+            '<p class="report-banner__title">Territoire relevant du Livre foncier</p>' +
+              "<p>Les départements du Bas-Rhin, du Haut-Rhin, de la Moselle et de Mayotte " +
+              "relèvent du régime du Livre foncier : leurs transactions ne figurent pas dans " +
+              "la base publique DVF de la DGFiP. Cette estimation repose sur des références " +
+              "départementales et non sur des transactions comparables. Sa précision est " +
+              "nettement réduite ; nous vous recommandons une évaluation sur place.</p>" +
+              '<a class="btn btn--dark" href="/contact/">Être rappelé par un expert</a>'
+          );
+        }
+
+        if (confidence && confidence.label === "insufficient" && !isDeferred) {
+          banners.push(
+            '<p class="report-banner__title">Données insuffisantes sur ce secteur</p>' +
+              "<p>Nous ne disposons pas d'assez de ventes comparables pour avancer une " +
+              "valeur centrale défendable. Seule une fourchette large est présentée.</p>" +
+              '<a class="btn btn--dark" href="/contact/">Être rappelé par un expert</a>'
+          );
+        } else if (confidence && confidence.label === "low") {
+          banners.push(
+            '<p class="report-banner__title">Peu de transactions comparables</p>' +
+              "<p>Le secteur compte peu de ventes réellement comparables à votre bien : la " +
+              "fourchette prime sur la valeur centrale. Une visite sur place est " +
+              "recommandée.</p>" +
+              '<a class="btn btn--dark" href="/contact/">Être rappelé par un expert</a>'
+          );
+        }
+
+        if (bannerEl && banners.length) {
+          bannerEl.innerHTML = banners.join('<hr class="report-banner__sep">');
+          bannerEl.hidden = false;
+        }
+
+        // ------------------------------------------------------------------
+        // Avertissements fournis par l'API — affichés tels quels (§5.3
+        // `display.warnings` : messages prêts à afficher, en français).
+        // ------------------------------------------------------------------
+        const warningsEl = el("estimationWarnings");
+        if (
+          warningsEl &&
+          display &&
+          Array.isArray(display.warnings) &&
+          display.warnings.length
+        ) {
+          warningsEl.innerHTML =
+            '<ul class="warning-list">' +
+            display.warnings
+              .map(function (warning) {
+                return "<li>" + escapeHtml(warning) + "</li>";
+              })
+              .join("") +
+            "</ul>";
+          warningsEl.hidden = false;
+        }
+
+        // ------------------------------------------------------------------
+        // Bandeau source, permanent (§8.1). Le texte vient TOUJOURS de la
+        // réponse de l'API : écrit en dur, il se périmerait silencieusement à
+        // chaque nouveau millésime DVF.
+        //
+        // En mode `static-fallback`, il n'y a pas de `dataSource` — et il ne
+        // doit surtout pas y en avoir : le chiffre affiché ne provient ni de
+        // DVF ni de la DGFiP.
+        // ------------------------------------------------------------------
+        const sourceEl = el("dataSourceBanner");
+        if (sourceEl && dataSource && !isStaticFallback) {
+          let sourceHTML = "";
+          if (dataSource.attributionFr) {
+            sourceHTML += "<p>" + escapeHtml(dataSource.attributionFr) + "</p>";
+          }
+          if (dataSource.disclaimerFr) {
+            sourceHTML += "<p>" + escapeHtml(dataSource.disclaimerFr) + "</p>";
+          }
+          if (sourceHTML) {
+            sourceEl.innerHTML = sourceHTML;
+            sourceEl.hidden = false;
+          }
+        } else if (sourceEl && isStaticFallback) {
+          sourceEl.innerHTML =
+            "<p>Estimation indicative produite hors base de transactions. " +
+            "Elle ne constitue ni une expertise immobilière, ni un avis de valeur " +
+            "engageant. Aucune donnée publique de transaction n'a été mobilisée pour " +
+            "la produire.</p>";
+          sourceEl.hidden = false;
+        }
+
+        // ------------------------------------------------------------------
+        // Jauge de confiance (§7.2 point 2). Aucune animation de remplissage :
+        // la largeur est posée d'emblée, `prefers-reduced-motion` est donc
+        // respecté par construction.
+        // ------------------------------------------------------------------
+        const confidenceCardEl = el("confidenceCard");
+        const confidenceContentEl = el("confidenceContent");
+
+        /** Plafond d'affichage du mode dégradé : une convention, pas une mesure. */
+        const STATIC_FALLBACK_CONFIDENCE = 30;
+
+        function renderConfidenceGauge(score, level, labelFr, note, breakdown) {
+          const clamped = Math.max(0, Math.min(100, Math.round(Number(score) || 0)));
+          let html =
+            '<div class="confidence-head">' +
+            '<span class="confidence-label">' +
+            escapeHtml(labelFr) +
+            "</span>" +
+            '<span class="confidence-score">' +
+            clamped +
+            " / 100</span>" +
+            "</div>" +
+            '<div class="confidence-gauge" role="img" aria-label="Indice de confiance : ' +
+            clamped +
+            ' sur 100, ' +
+            escapeHtml(labelFr) +
+            '">' +
+            '<span class="confidence-gauge__fill" data-level="' +
+            escapeHtml(level) +
+            '" style="width:' +
+            clamped +
+            '%"></span>' +
+            "</div>" +
+            '<div class="confidence-scale"><span>0</span><span>50</span><span>100</span></div>';
+
+          if (note) html += "<p>" + escapeHtml(note) + "</p>";
+
+          if (breakdown) {
+            html +=
+              '<details class="report-details">' +
+              "<summary>Comment est-elle calculée ?</summary>" +
+              "<p>L'indice additionne quatre composantes, puis retranche les pénalités " +
+              "liées aux informations manquantes ou à un bien atypique.</p>" +
+              '<dl class="breakdown-list">' +
+              '<div><dt>Nombre de ventes comparables (sur 40)</dt><dd>' +
+              formatBreakdownValue(breakdown.count) +
+              "</dd></div>" +
+              '<div><dt>Proximité géographique (sur 25)</dt><dd>' +
+              formatBreakdownValue(breakdown.proximity) +
+              "</dd></div>" +
+              '<div><dt>Fraîcheur des transactions (sur 15)</dt><dd>' +
+              formatBreakdownValue(breakdown.freshness) +
+              "</dd></div>" +
+              '<div><dt>Homogénéité des prix observés (sur 20)</dt><dd>' +
+              formatBreakdownValue(breakdown.dispersion) +
+              "</dd></div>" +
+              '<div><dt>Pénalités</dt><dd>' +
+              (Number(breakdown.penalties) > 0 ? "−" : "") +
+              formatBreakdownValue(breakdown.penalties) +
+              "</dd></div>" +
+              "</dl>" +
+              "</details>";
+          }
+
+          return html;
+        }
+
+        function formatBreakdownValue(value) {
+          const number = Number(value);
+          if (!isFinite(number)) return "—";
+          return String(Math.round(number * 10) / 10).replace(".", ",") + " pts";
+        }
+
+        if (confidenceCardEl && confidenceContentEl) {
+          if (confidence && typeof confidence.score === "number" && !isStaticFallback) {
+            confidenceContentEl.innerHTML = renderConfidenceGauge(
+              confidence.score,
+              confidence.label || "medium",
+              (display && display.confidenceLabelFr) || "Indice de confiance",
+              confidence.label === "medium"
+                ? "La fourchette reflète la dispersion observée sur votre secteur."
+                : "",
+              confidence.breakdown || null
+            );
+            confidenceCardEl.hidden = false;
+          } else if (isStaticFallback) {
+            // Confiance plafonnée et explicitement libellée « indicatif » : on
+            // n'affiche pas un score qui n'a pas été mesuré.
+            confidenceContentEl.innerHTML = renderConfidenceGauge(
+              STATIC_FALLBACK_CONFIDENCE,
+              "insufficient",
+              "Indicatif",
+              "Aucune transaction comparable n'a pu être analysée : cet indice est plafonné " +
+                "par convention et ne mesure pas la fiabilité réelle du montant affiché.",
+              null
+            );
+            confidenceCardEl.hidden = false;
+          }
+        }
+
+        // ------------------------------------------------------------------
+        // Transactions comparables (§7.2 point 3) — 5 plus proches.
+        //
+        // US-6 / §8.2 : le titre « Ventes réelles enregistrées par la DGFiP »
+        // ne doit apparaître QUE si le chiffre vient effectivement de ventes
+        // DVF. En `method.kind === 'reference-table'` (territoires du Livre
+        // foncier : Bas-Rhin, Haut-Rhin, Moselle, Mayotte), il n'y a par
+        // construction aucune transaction — `comparables` est vide et le
+        // niveau vaut « Références départementales (hors base DVF) ». Afficher
+        // ce titre au-dessus d'un état vide laissait croire que la DGFiP
+        // cautionne le montant : la carte entière est donc masquée, le bandeau
+        // « Territoire relevant du Livre foncier » (plus haut) portant seul
+        // l'explication.
+        // ------------------------------------------------------------------
+        const comparablesCardEl = el("comparablesCard");
+        const comparablesContentEl = el("comparablesContent");
+        const comparablesTitleEl = el("comparablesTitle");
+        const isReferenceTable = !!method && method.kind === "reference-table";
+
+        if (
+          comparablesCardEl &&
+          comparablesContentEl &&
+          method &&
+          !isStaticFallback &&
+          !isReferenceTable
+        ) {
+          if (comparablesTitleEl) {
+            comparablesTitleEl.textContent = "Ventes réelles enregistrées par la DGFiP";
+          }
+
+          if (comparables.length) {
+            const rows = comparables
+              .slice(0, 5)
+              .map(function (item) {
+                return (
+                  "<tr>" +
+                  "<td>" +
+                  escapeHtml(capitalizeWords(item.street || "")) +
+                  "</td>" +
+                  "<td>" +
+                  escapeHtml(formatDistance(item.distanceM)) +
+                  "</td>" +
+                  "<td>" +
+                  escapeHtml(formatMonth(item.date)) +
+                  "</td>" +
+                  "<td>" +
+                  escapeHtml(capitalizeFirst(item.propertyType || "")) +
+                  "</td>" +
+                  "<td>" +
+                  escapeHtml(String(item.surface)) +
+                  " m²</td>" +
+                  "<td>" +
+                  escapeHtml(formatPrice(item.pricePerSqm)) +
+                  "/m²</td>" +
+                  "</tr>"
+                );
+              })
+              .join("");
+
+            comparablesContentEl.innerHTML =
+              '<div class="comparables-table-wrap">' +
+              '<table class="comparables-table">' +
+              "<caption>Les " +
+              Math.min(5, comparables.length) +
+              " ventes les plus proches parmi les " +
+              (method.comparablesCount || comparables.length) +
+              " analysées. Numéros de voie et jours exacts volontairement omis.</caption>" +
+              "<thead><tr><th>Voie</th><th>Distance</th><th>Date</th><th>Type</th>" +
+              "<th>Surface</th><th>Prix au m²</th></tr></thead>" +
+              "<tbody>" +
+              rows +
+              "</tbody></table></div>";
+          } else {
+            const levelText = describeLevel(method);
+            comparablesContentEl.innerHTML =
+              '<p class="empty-state">Aucune vente comparable n\'a pu être affichée pour ce ' +
+              "bien. " +
+              (levelText
+                ? "L'estimation s'appuie sur le niveau géographique suivant : " +
+                  escapeHtml(levelText.toLowerCase()) +
+                  "."
+                : "L'estimation s'appuie sur des références plus larges que votre voisinage " +
+                  "immédiat.") +
+              "</p>";
+          }
+          comparablesCardEl.hidden = false;
+        }
+
+        // ------------------------------------------------------------------
+        // Méthodologie (§7.2 point 4) — repliée par défaut, chaque coefficient
+        // avec son origine.
+        // ------------------------------------------------------------------
+        const methodologyCardEl = el("methodologyCard");
+        const methodologyContentEl = el("methodologyContent");
+
+        if (methodologyCardEl && methodologyContentEl && method && !isStaticFallback) {
+          const coefficients = method.coefficients || {};
+          const coefficientRows = [
+            {
+              key: "surface",
+              label: "Surface du bien",
+              value: coefficients.surface,
+              origin: "Dégressivité du prix au m² selon l'écart à la surface médiane des ventes retenues.",
+            },
+            {
+              key: "floor",
+              label: "Étage et ascenseur",
+              value: coefficients.floor,
+              origin: "Coefficients de référence en base, appliqués aux appartements uniquement.",
+            },
+            {
+              key: "outdoor",
+              label: "Extérieur",
+              value: coefficients.outdoor,
+              origin: "Coefficients de référence en base (balcon, terrasse, jardin privatif).",
+            },
+            {
+              key: "condition",
+              label: "État général",
+              value: coefficients.condition,
+              origin: "Coefficients de référence en base (à rénover, correct, bon, refait à neuf).",
+            },
+            {
+              key: "dpe",
+              label: "Diagnostic énergétique",
+              value: coefficients.dpe,
+              origin:
+                "Coefficients de valeur verte de référence, différenciés appartement / maison.",
+            },
+          ];
+
+          // `method.coefficientSources` (à venir côté API) : chaque coefficient
+          // porte alors sa propre origine — dont la mention honnête « valeur
+          // provisoire de la spécification produit, à calibrer au Lot 5 », qui
+          // n'atteignait jamais l'écran tant que ces libellés étaient écrits en
+          // dur ici. Lecture DÉFENSIVE : le champ peut être absent (backend
+          // livré après ce front, ou `lastEstimation` d'une version
+          // antérieure), auquel cas on retombe sur les libellés ci-dessus.
+          const coefficientSourceByKey = {};
+          if (Array.isArray(method.coefficientSources)) {
+            method.coefficientSources.forEach(function (source) {
+              if (source && source.key) coefficientSourceByKey[source.key] = source;
+            });
+          }
+
+          /** Origine affichée pour un coefficient : celle de l'API si fournie. */
+          function coefficientOriginHTML(row) {
+            const source = coefficientSourceByKey[row.key];
+            if (!source || !source.sourceLabel) return escapeHtml(row.origin);
+
+            let html = escapeHtml(source.sourceLabel);
+            if (source.dateSource) {
+              html += " (" + escapeHtml(source.dateSource) + ")";
+            }
+            // Lien seulement si l'URL est bien http(s) : on ne relaie pas un
+            // `javascript:` venu d'une réponse malformée.
+            if (source.sourceUrl && /^https?:\/\//i.test(String(source.sourceUrl))) {
+              html =
+                '<a href="' +
+                escapeHtml(source.sourceUrl) +
+                '" target="_blank" rel="noopener noreferrer">' +
+                html +
+                "</a>";
+            }
+            return html;
+          }
+
+          /** Libellé affiché : celui de l'API si fourni, sinon celui d'origine. */
+          function coefficientLabel(row) {
+            const source = coefficientSourceByKey[row.key];
+            return source && source.label ? source.label : row.label;
+          }
+
+          let methodologyHTML =
+            "<p>" +
+            escapeHtml(
+              describeLevel(method) ||
+                "Estimation fondée sur des ventes comparables sélectionnées autour de votre bien."
+            ) +
+            (method.windowMonths
+              ? ", sur les " + method.windowMonths + " derniers mois"
+              : "") +
+            (method.surfaceTolerancePct
+              ? ", avec une tolérance de surface de ± " + method.surfaceTolerancePct + " %"
+              : "") +
+            ".</p>";
+
+          methodologyHTML +=
+            '<dl class="breakdown-list">' +
+            "<div><dt>Transactions analysées</dt><dd>" +
+            (method.comparablesCount || 0) +
+            "</dd></div>" +
+            (method.medianPriceM2Raw
+              ? "<div><dt>Prix médian observé (avant ajustements)</dt><dd>" +
+                escapeHtml(formatPrice(method.medianPriceM2Raw)) +
+                "/m²</dd></div>"
+              : "") +
+            // L'ajustement temporel n'est affiché que si un trimestre d'indice
+            // INSEE-Notaires a réellement servi au calcul (`dataSource
+            // .priceIndexQuarter`). Tant que le Lot 4 n'est pas livré, l'API
+            // renvoie un facteur câblé à 1 : afficher « ×1,00 » laisserait
+            // croire à une correction mesurée qui n'a pas eu lieu.
+            (typeof method.timeAdjustmentFactor === "number" &&
+            dataSource &&
+            dataSource.priceIndexQuarter
+              ? "<div><dt>Ajustement temporel médian</dt><dd>×" +
+                method.timeAdjustmentFactor.toFixed(2).replace(".", ",") +
+                " <small>(indice INSEE-Notaires " +
+                escapeHtml(dataSource.priceIndexQuarter) +
+                ")</small></dd></div>"
+              : "") +
+            (method.landValue
+              ? "<div><dt>Valorisation du terrain</dt><dd>" +
+                escapeHtml(formatPrice(method.landValue)) +
+                "</dd></div>"
+              : "") +
+            "</dl>";
+
+          methodologyHTML +=
+            '<details class="report-details">' +
+            "<summary>Coefficients appliqués à votre bien</summary>" +
+            '<dl class="breakdown-list">' +
+            coefficientRows
+              .map(function (row) {
+                if (typeof row.value !== "number") return "";
+                return (
+                  "<div><dt>" +
+                  escapeHtml(coefficientLabel(row)) +
+                  "<br><small>" +
+                  coefficientOriginHTML(row) +
+                  "</small></dt><dd>" +
+                  escapeHtml(formatCoefficient(row.value)) +
+                  "</dd></div>"
+                );
+              })
+              .join("") +
+            (typeof coefficients.total === "number"
+              ? "<div><dt>Coefficient global</dt><dd>" +
+                escapeHtml(formatCoefficient(coefficients.total)) +
+                "</dd></div>"
+              : "") +
+            "</dl>" +
+            (coefficients.clamped
+              ? "<p>Le coefficient global a été ramené à sa borne : votre bien présente une " +
+                "combinaison de caractéristiques atypique pour son secteur, ce qui rend " +
+                "l'estimation par comparaison moins fiable. Ce plafonnement coûte des points " +
+                "d'indice de confiance.</p>"
+              : "") +
+            "</details>";
+
+          methodologyContentEl.innerHTML = methodologyHTML;
+          methodologyCardEl.hidden = false;
+        } else if (methodologyCardEl && methodologyContentEl && isStaticFallback) {
+          methodologyContentEl.innerHTML =
+            "<p>Le calcul de repli applique un prix moyen au m² par commune, ajusté du type " +
+            "de bien, de la classe DPE et du nombre de pièces. Il n'exploite aucune " +
+            "transaction réelle et ne comporte donc ni comparables, ni indice de dispersion. " +
+            "Relancez le calcul pour obtenir une estimation fondée sur des ventes réelles.</p>";
+          methodologyCardEl.hidden = false;
+        }
+
+        // ------------------------------------------------------------------
+        // Marché local (§7.2 point 5). Ne subsiste QUE ce qui est sourçable :
+        // le prix médian réellement observé, le volume de ventes, le périmètre
+        // et la période. Délai de vente, marge de négociation, évolution sur
+        // 12 mois et « prix maisons = prix au m² × 0,85 » sont supprimés — ils
+        // étaient inventés et absents de DVF.
+        // ------------------------------------------------------------------
         const cityAnalysis = document.getElementById("cityAnalysis");
-        const cityName = capitalizeFirst(lastEstimation.city);
-        const prixM2 = lastEstimation.estimation.prixM2;
+        const cityName = capitalizeWords(lastEstimation.city);
 
-        let cityDescription = "";
-        let marketTrend = "";
+        if (cityAnalysis && method && method.comparablesCount && !isStaticFallback) {
+          const stats = [
+            method.medianPriceM2Raw
+              ? {
+                  value: formatPrice(method.medianPriceM2Raw) + "/m²",
+                  label: "Prix médian observé",
+                }
+              : null,
+            {
+              value: String(method.comparablesCount),
+              label: "Ventes analysées",
+            },
+            method.windowMonths
+              ? { value: method.windowMonths + " mois", label: "Période analysée" }
+              : null,
+          ].filter(Boolean);
 
-        // Descriptions personnalisées par ville
-        if (prixM2 >= 8000) {
-          cityDescription = `${cityName} fait partie des villes les plus prisées de France avec un marché immobilier très dynamique. La forte demande maintient les prix à un niveau élevé, particulièrement dans les quartiers centraux et bien desservis.`;
-          marketTrend = "Marché très tendu";
-        } else if (prixM2 >= 5000) {
-          cityDescription = `${cityName} bénéficie d'un marché immobilier attractif avec une demande soutenue. La ville offre un bon équilibre entre qualité de vie et accessibilité, ce qui explique la valorisation des biens immobiliers.`;
-          marketTrend = "Marché dynamique";
-        } else if (prixM2 >= 3500) {
-          cityDescription = `${cityName} présente un marché immobilier équilibré avec des prix modérés. La ville attire de nouveaux habitants grâce à son cadre de vie agréable et ses infrastructures en développement.`;
-          marketTrend = "Marché équilibré";
-        } else {
-          cityDescription = `${cityName} offre des opportunités intéressantes avec un marché immobilier accessible. Les prix attractifs permettent aux primo-accédants et investisseurs de réaliser leurs projets dans de bonnes conditions.`;
-          marketTrend = "Marché accessible";
+          cityAnalysis.innerHTML +=
+            "<p>Ces chiffres proviennent des ventes réellement enregistrées autour de votre " +
+            "bien à " +
+            escapeHtml(cityName) +
+            ". Aucun indicateur de marché estimé ou modélisé (délai de vente, marge de " +
+            "négociation) n'est affiché : ces données ne figurent pas dans la base publique " +
+            "des transactions.</p>" +
+            '<div class="stats-grid" style="margin: 25px 0;">' +
+            stats
+              .map(function (stat) {
+                return (
+                  '<div class="stat-item"><div class="stat-value">' +
+                  escapeHtml(stat.value) +
+                  '</div><div class="stat-label">' +
+                  escapeHtml(stat.label) +
+                  "</div></div>"
+                );
+              })
+              .join("") +
+            "</div>" +
+            '<div class="info-box"><p>' +
+            escapeHtml(describeLevel(method)) +
+            ". Le prix médian ci-dessus est celui de l'échantillon retenu, avant application " +
+            "des coefficients propres à votre bien : il diffère donc du prix au m² estimé." +
+            "</p></div>";
+
+          cityAnalysis.hidden = false;
         }
 
-        // Calculer des données dynamiques basées sur le prix au m²
-        const delaiVenteMoyen =
-          prixM2 >= 8000 ? 45 : prixM2 >= 5000 ? 65 : prixM2 >= 3500 ? 85 : 110;
-        const evolutionAnnuelle =
-          prixM2 >= 8000
-            ? -1.2
-            : prixM2 >= 5000
-            ? 0.8
-            : prixM2 >= 3500
-            ? 2.1
-            : 3.5;
-        const tauxNegociation =
-          prixM2 >= 8000
-            ? 3.2
-            : prixM2 >= 5000
-            ? 4.5
-            : prixM2 >= 3500
-            ? 5.8
-            : 7.2;
-        const prixMaisonM2 = Math.round(prixM2 * 0.85);
-        const prixAppartM2 = Math.round(prixM2 * 1.12);
+        // ------------------------------------------------------------------
+        // « Relancer le calcul » (mode dégradé). Rejoue l'appel API à partir
+        // du `lastEstimation` déjà validé, puis recharge la page.
+        // ------------------------------------------------------------------
+        const retryBtn = el("retryEstimationBtn");
+        if (retryBtn && typeof requestEstimation === "function") {
+          retryBtn.addEventListener("click", function () {
+            const statusEl = el("retryEstimationStatus");
+            retryBtn.disabled = true;
+            if (statusEl) {
+              statusEl.hidden = false;
+              statusEl.textContent = "Nouvelle tentative en cours…";
+            }
 
-        // Déterminer le profil de l'acquéreur type
-        let profilAcquereur = "";
-        if (lastEstimation.rooms >= 4) {
-          profilAcquereur = "familles avec enfants recherchant de l'espace";
-        } else if (lastEstimation.rooms >= 2) {
-          profilAcquereur = "couples et jeunes actifs en quête de confort";
-        } else {
-          profilAcquereur = "investisseurs et primo-accédants";
+            const apiConfig = typeof CONFIG !== "undefined" && CONFIG.API ? CONFIG.API : {};
+            requestEstimation(
+              buildEstimationApiPayload(lastEstimation),
+              { baseUrl: apiConfig.BASE_URL },
+              function (response) {
+                const mapped =
+                  response.status === "ok"
+                    ? mapApiResultToLegacyEstimation(response.result)
+                    : null;
+
+                if (!mapped) {
+                  retryBtn.disabled = false;
+                  if (statusEl) {
+                    statusEl.textContent =
+                      "Nos données de transactions restent indisponibles. Réessayez dans " +
+                      "quelques minutes ou contactez un conseiller.";
+                  }
+                  return;
+                }
+
+                const updated = Object.assign({}, lastEstimation, {
+                  estimation: mapped,
+                  estimationStatus: "ok",
+                });
+                try {
+                  localStorage.setItem("lastEstimation", JSON.stringify(updated));
+                } catch (error) {
+                  console.error("Impossible d'enregistrer l'estimation :", error);
+                }
+                window.location.reload();
+              }
+            );
+          });
+        } else if (retryBtn) {
+          // `estimation-api.js` absent : mieux vaut masquer un bouton qui ne
+          // peut rien faire que d'afficher une action morte.
+          retryBtn.hidden = true;
         }
-
-        // Points forts selon le type de bien
-        let pointsForts = "";
-        if (lastEstimation.propertyType === "maison") {
-          pointsForts =
-            lastEstimation.hasTerrain === "yes"
-              ? "La présence d'un terrain est un atout majeur, très recherché par les acquéreurs souhaitant profiter d'un espace extérieur privatif."
-              : "Les maisons sans terrain restent attractives pour leur indépendance et l'absence de charges de copropriété.";
-        } else if (lastEstimation.propertyType === "appartement") {
-          pointsForts =
-            "Les appartements bénéficient généralement d'une meilleure liquidité sur le marché et attirent un public plus large d'acquéreurs.";
-        } else {
-          pointsForts =
-            "Ce type de bien présente des caractéristiques spécifiques qui peuvent attirer des acquéreurs ciblés.";
-        }
-
-        cityAnalysis.innerHTML += `
-                <p>${cityDescription}</p>
-
-                <div class="stats-grid" style="margin: 25px 0;">
-                    <div class="stat-item">
-                        <div class="stat-value">${formatPrice(prixM2)}</div>
-                        <div class="stat-label">Prix moyen au m²</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">${delaiVenteMoyen} j</div>
-                        <div class="stat-label">Délai de vente moyen</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" style="color: ${
-                          evolutionAnnuelle >= 0 ? "#446f28" : "#c33228"
-                        };">${
-          evolutionAnnuelle >= 0 ? "+" : ""
-        }${evolutionAnnuelle}%</div>
-                        <div class="stat-label">Évolution sur 12 mois</div>
-                    </div>
-                </div>
-
-                <div class="info-box">
-                    <p><strong>Tendance du marché :</strong> ${marketTrend}</p>
-                    <p><strong>Marge de négociation moyenne :</strong> ${tauxNegociation}%</p>
-                    <p><strong>Prix maisons :</strong> ${formatPrice(
-                      prixMaisonM2
-                    )}/m² | <strong>Prix appartements :</strong> ${formatPrice(
-          prixAppartM2
-        )}/m²</p>
-                </div>
-
-                <h4 style="margin-top: 32px; margin-bottom: 12px; color: #1d0c1b;">Analyse de votre bien</h4>
-                <p>Les biens de type <strong>${
-                  lastEstimation.propertyType
-                }</strong> sont ${
-          lastEstimation.propertyType === "appartement"
-            ? "particulièrement recherchés en centre-ville"
-            : "très appréciés pour leur espace et leur confort"
-        }. Avec <strong>${lastEstimation.rooms} pièce${
-          lastEstimation.rooms > 1 ? "s" : ""
-        }</strong> et une surface de <strong>${
-          lastEstimation.surface
-        } m²</strong>, votre bien correspond à un profil <strong>${
-          lastEstimation.rooms >= 4
-            ? "familial"
-            : lastEstimation.rooms >= 2
-            ? "intermédiaire"
-            : "compact"
-        }</strong> très demandé sur le marché.</p>
-
-                <p style="margin-top: 15px;">${pointsForts}</p>
-
-                <h4 style="margin-top: 32px; margin-bottom: 12px; color: #1d0c1b;">Profil des acquéreurs potentiels</h4>
-                <p>À ${cityName}, les biens similaires au vôtre attirent principalement les <strong>${profilAcquereur}</strong>. Le délai de vente moyen de ${delaiVenteMoyen} jours indique ${
-          delaiVenteMoyen <= 60
-            ? "un marché très réactif où les biens de qualité se vendent rapidement"
-            : delaiVenteMoyen <= 90
-            ? "un marché équilibré avec des délais raisonnables"
-            : "un marché où il est important de bien positionner son prix pour attirer les acquéreurs"
-        }.</p>
-
-                <div class="info-box info-box--tip">
-                    <p><strong>Conseil :</strong> ${
-                      prixM2 >= 5000
-                        ? "Dans un marché tendu, une mise en valeur soignée de votre bien (photos professionnelles, home staging) peut accélérer significativement la vente."
-                        : "Pour optimiser votre vente, nous vous recommandons de mettre en avant les atouts de votre bien et de rester flexible sur les visites."
-                    }</p>
-                </div>
-            `;
       }
 
-      function capitalizeFirst(str) {
-        return str.charAt(0).toUpperCase() + str.slice(1);
-      }
-
-      function formatPrice(price) {
-        return price.toLocaleString("fr-FR") + " €";
-      }
-
-      // Fonction pour télécharger le rapport en PDF
+      // Téléchargement du rapport PDF. La mise en page vit dans
+      // `pdf-report.js` (chargé avant ce script), partagée avec la page de
+      // preview `/pdf-preview/`.
       function downloadPDF() {
         const downloadButton = document.getElementById("downloadPdfBtn");
         const originalText = downloadButton.innerHTML;
@@ -267,1041 +929,8 @@
         downloadButton.disabled = true;
 
         try {
-          const { jsPDF } = window.jspdf;
-          const doc = new jsPDF("p", "mm", "a4");
-          const pageWidth = 210;
-          const pageHeight = 297;
-          const margin = 18;
-          const contentWidth = pageWidth - 2 * margin;
-          let y = 0;
-
-          // Palette de couleurs raffinée
-          const brandOrange = [255, 110, 52];
-          const brandDark = [29, 12, 27];
-          const darkText = [29, 12, 27];
-          const grayText = [110, 72, 105];
-          const lightGray = [247, 245, 242];
-          const mediumGray = [235, 230, 235];
-          const greenColor = [68, 111, 40];
-          const redColor = [195, 50, 40];
-          const orangeColor = [255, 124, 72];
-          const brandAccent = [255, 186, 158];
-
-          // ========== PAGE 1 ==========
-
-          // Bandeau d'en-tête, en aplat
-          const headerHeight = 65;
-          doc.setFillColor(...brandDark);
-          doc.rect(0, 0, pageWidth, headerHeight, "F");
-
-          // Motif décoratif (cercles subtils)
-          doc.setDrawColor(255, 255, 255);
-          doc.setLineWidth(0.15);
-          doc.setGState(new doc.GState({ opacity: 0.12 }));
-          doc.circle(pageWidth - 25, 32, 45, "S");
-          doc.circle(pageWidth - 25, 32, 35, "S");
-          doc.circle(pageWidth - 25, 32, 25, "S");
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          // Logo maison élaboré
-          const logoX = pageWidth / 2;
-          const logoY = 18;
-          doc.setFillColor(255, 255, 255);
-          // Toit
-          doc.triangle(
-            logoX - 12,
-            logoY + 8,
-            logoX,
-            logoY - 4,
-            logoX + 12,
-            logoY + 8,
-            "F"
-          );
-          // Corps de la maison
-          doc.rect(logoX - 9, logoY + 8, 18, 14, "F");
-          // Porte
-          doc.setFillColor(...brandOrange);
-          doc.rect(logoX - 3, logoY + 13, 6, 9, "F");
-          // Fenêtres
-          doc.rect(logoX - 7, logoY + 11, 3, 3, "F");
-          doc.rect(logoX + 4, logoY + 11, 3, 3, "F");
-          // Cheminée
-          doc.setFillColor(255, 255, 255);
-          doc.rect(logoX + 5, logoY, 3, 6, "F");
-
-          // Titre principal avec style
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(26);
-          doc.setFont("helvetica", "bold");
-          doc.text("RAPPORT D'ESTIMATION", pageWidth / 2, 44, {
-            align: "center",
-          });
-
-          // Séparateur doré
-          doc.setDrawColor(...brandAccent);
-          doc.setLineWidth(1);
-          doc.line(pageWidth / 2 - 35, 49, pageWidth / 2 + 35, 49);
-
-          // Sous-titre
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(11);
-          doc.setFont("helvetica", "normal");
-          doc.setGState(new doc.GState({ opacity: 0.95 }));
-          doc.text("Estimer mon bien", pageWidth / 2, 57, { align: "center" });
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          // Date du rapport (coin droit)
-          doc.setFontSize(8);
-          doc.setGState(new doc.GState({ opacity: 0.8 }));
-          doc.text(
-            new Date().toLocaleDateString("fr-FR", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            }),
-            pageWidth - margin,
-            10,
-            { align: "right" }
-          );
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          y = headerHeight + 8;
-
-          // === BANDEAU ADRESSE DU BIEN ===
-          doc.setFillColor(255, 255, 255);
-          doc.rect(margin, y, contentWidth, 20, "F");
-
-          // Icône localisation
-          doc.setFillColor(...brandOrange);
-          doc.circle(margin + 12, y + 10, 5, "F");
-          doc.setFillColor(255, 255, 255);
-          doc.circle(margin + 12, y + 9, 1.5, "F");
-
-          doc.setTextColor(...grayText);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "bold");
-          doc.text("ADRESSE DU BIEN", margin + 22, y + 7);
-          doc.setTextColor(...darkText);
-          doc.setFontSize(11);
-          doc.setFont("helvetica", "normal");
-          const fullAddress =
-            lastEstimation.address +
-            ", " +
-            lastEstimation.postalCode +
-            " " +
-            capitalizeFirst(lastEstimation.city);
-          doc.text(fullAddress, margin + 22, y + 15);
-
-          y += 28;
-
-          // === ENCADRÉ ESTIMATION PRINCIPALE ===
-
-          // Fond en aplat
-          doc.setFillColor(...brandDark);
-          doc.rect(margin, y, contentWidth, 60, "F");
-
-          // Badge "Estimation"
-          doc.setFillColor(255, 255, 255);
-          doc.setGState(new doc.GState({ opacity: 0.2 }));
-          doc.rect(margin + contentWidth / 2 - 35, y + 5, 70, 8, "F");
-          doc.setGState(new doc.GState({ opacity: 1 }));
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "bold");
-          doc.text("ESTIMATION MOYENNE", pageWidth / 2, y + 11, {
-            align: "center",
-          });
-
-          // Prix principal
-          doc.setFontSize(38);
-          doc.setFont("helvetica", "bold");
-          doc.text(
-            formatPrice(lastEstimation.estimation.estimationMoyenne),
-            pageWidth / 2,
-            y + 32,
-            { align: "center" }
-          );
-
-          // Ligne séparatrice
-          doc.setDrawColor(255, 255, 255);
-          doc.setLineWidth(0.3);
-          doc.setGState(new doc.GState({ opacity: 0.4 }));
-          doc.line(margin + 30, y + 38, pageWidth - margin - 30, y + 38);
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          // Fourchette de prix
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          const minPrice = formatPrice(lastEstimation.estimation.estimationMin);
-          const maxPrice = formatPrice(lastEstimation.estimation.estimationMax);
-          doc.text("Fourchette estimée", pageWidth / 2, y + 46, {
-            align: "center",
-          });
-          doc.setFontSize(12);
-          doc.setFont("helvetica", "bold");
-          doc.text(minPrice + "  —  " + maxPrice, pageWidth / 2, y + 54, {
-            align: "center",
-          });
-
-          y += 68;
-
-          // === Prix au m² ===
-          doc.setFillColor(...lightGray);
-          doc.rect(margin, y, contentWidth, 14, "F");
-          doc.setTextColor(...darkText);
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          doc.text("Prix au m² estimé : ", margin + 10, y + 9);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(...brandOrange);
-          doc.text(
-            formatPrice(lastEstimation.estimation.prixM2) + " /m²",
-            margin + 52,
-            y + 9
-          );
-
-          y += 22;
-
-          // === CARACTÉRISTIQUES DU BIEN ===
-          doc.setTextColor(...darkText);
-          doc.setFontSize(13);
-          doc.setFont("helvetica", "bold");
-          doc.text("Caractéristiques du bien", margin, y);
-
-          // Ligne de soulignement stylisée
-          doc.setFillColor(...brandOrange);
-          doc.rect(margin, y + 3, 45, 1.5, "F");
-          doc.setFillColor(...brandAccent);
-          doc.rect(margin + 45, y + 3, 8, 1.5, "F");
-
-          y += 12;
-
-          // Grille de 4 cards améliorée
-          const cardWidth = (contentWidth - 8) / 2;
-          const cardHeight = 24;
-          const cardData = [
-            {
-              label: "Type de bien",
-              value: capitalizeFirst(lastEstimation.propertyType),
-              color: brandOrange,
-            },
-            {
-              label: "Surface habitable",
-              value: lastEstimation.surface + " m²",
-              color: [16, 185, 129],
-            },
-            {
-              label: "Nombre de pièces",
-              value:
-                lastEstimation.rooms +
-                " pièce" +
-                (lastEstimation.rooms > 1 ? "s" : ""),
-              color: [139, 92, 246],
-            },
-            {
-              label: "Classe DPE",
-              value:
-                lastEstimation.dpe === "unknown"
-                  ? "Non renseigné"
-                  : "Classe " + lastEstimation.dpe.toUpperCase(),
-              color: orangeColor,
-            },
-          ];
-
-          cardData.forEach((card, index) => {
-            const col = index % 2;
-            const row = Math.floor(index / 2);
-            const cardX = margin + col * (cardWidth + 8);
-            const cardY = y + row * (cardHeight + 6);
-
-            // Ombre de la card
-            doc.setFillColor(0, 0, 0);
-            doc.setGState(new doc.GState({ opacity: 0.06 }));
-            doc.rect(cardX + 0.5, cardY + 0.5, cardWidth, cardHeight, "F");
-            doc.setGState(new doc.GState({ opacity: 1 }));
-
-            // Fond de la card
-            doc.setFillColor(255, 255, 255);
-            doc.rect(cardX, cardY, cardWidth, cardHeight, "F");
-
-            // Bordure gauche colorée (plus épaisse)
-            doc.setFillColor(...card.color);
-            doc.rect(cardX, cardY, 3, cardHeight, "F");
-            doc.rect(cardX + 1.5, cardY, 1.5, cardHeight, "F");
-
-            // Label
-            doc.setTextColor(...grayText);
-            doc.setFontSize(8);
-            doc.setFont("helvetica", "normal");
-            doc.text(card.label.toUpperCase(), cardX + 10, cardY + 8);
-
-            // Valeur
-            doc.setTextColor(...darkText);
-            doc.setFontSize(13);
-            doc.setFont("helvetica", "bold");
-            doc.text(card.value, cardX + 10, cardY + 18);
-          });
-
-          y += 2 * (cardHeight + 6) + 6;
-
-          // Infos supplémentaires (terrain, propriétaire)
-          let extraInfo = [];
-          if (
-            lastEstimation.propertyType === "maison" &&
-            lastEstimation.hasTerrain
-          ) {
-            const terrainText =
-              lastEstimation.hasTerrain === "yes"
-                ? "Oui" +
-                  (lastEstimation.terrainSize
-                    ? " (" + lastEstimation.terrainSize + " m²)"
-                    : "")
-                : "Non";
-            extraInfo.push({ label: "Terrain", value: terrainText });
-          }
-          if (lastEstimation.isOwner) {
-            extraInfo.push({
-              label: "Propriétaire",
-              value: lastEstimation.isOwner === "yes" ? "Oui" : "Non",
-            });
-          }
-          if (lastEstimation.wantToSell) {
-            let wantText =
-              lastEstimation.wantToSell === "yes"
-                ? "Oui"
-                : lastEstimation.wantToSell === "maybe"
-                ? "Peut-être"
-                : "Non";
-            extraInfo.push({ label: "Projet de vente", value: wantText });
-          }
-
-          if (extraInfo.length > 0) {
-            doc.setFillColor(255, 248, 245);
-            doc.setDrawColor(...orangeColor);
-            doc.setLineWidth(0.5);
-            doc.rect(margin, y, contentWidth, 14, "FD");
-
-            // Icône info
-            doc.setFillColor(...orangeColor);
-            doc.circle(margin + 8, y + 7, 3.5, "F");
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(7);
-            doc.setFont("helvetica", "bold");
-            doc.text("i", margin + 8, y + 9, { align: "center" });
-
-            doc.setTextColor(...darkText);
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "normal");
-            const infoText = extraInfo
-              .map((i) => i.label + " : " + i.value)
-              .join("   |   ");
-            doc.text(infoText, margin + 18, y + 9);
-            y += 20;
-          } else {
-            y += 4;
-          }
-
-          // === ANALYSE DU MARCHÉ LOCAL ===
-          doc.setTextColor(...darkText);
-          doc.setFontSize(13);
-          doc.setFont("helvetica", "bold");
-          doc.text(
-            "Analyse du marché à " + capitalizeFirst(lastEstimation.city),
-            margin,
-            y
-          );
-
-          doc.setFillColor(...brandOrange);
-          doc.rect(margin, y + 3, 55, 1.5, "F");
-          doc.setFillColor(...brandAccent);
-          doc.rect(margin + 55, y + 3, 8, 1.5, "F");
-
-          y += 12;
-
-          const prixM2 = lastEstimation.estimation.prixM2;
-          const cityName = capitalizeFirst(lastEstimation.city);
-          const delaiVente =
-            prixM2 >= 8000
-              ? 45
-              : prixM2 >= 5000
-              ? 65
-              : prixM2 >= 3500
-              ? 85
-              : 110;
-          const evolution =
-            prixM2 >= 8000
-              ? -1.2
-              : prixM2 >= 5000
-              ? 0.8
-              : prixM2 >= 3500
-              ? 2.1
-              : 3.5;
-          const negociation =
-            prixM2 >= 8000
-              ? 3.2
-              : prixM2 >= 5000
-              ? 4.5
-              : prixM2 >= 3500
-              ? 5.8
-              : 7.2;
-          const prixMaisons = Math.round(prixM2 * 0.85);
-          const prixApparts = Math.round(prixM2 * 1.12);
-
-          // 3 colonnes de stats avec design amélioré
-          const statColWidth = (contentWidth - 12) / 3;
-          const statHeight = 32;
-
-          // Stats cards
-          const statsData = [
-            {
-              value: (evolution >= 0 ? "+" : "") + evolution + "%",
-              label: "Évolution",
-              sublabel: "12 mois",
-              color: evolution >= 0 ? greenColor : redColor,
-            },
-            {
-              value: delaiVente + " j",
-              label: "Délai de",
-              sublabel: "vente moyen",
-              color: brandOrange,
-            },
-            {
-              value: negociation + "%",
-              label: "Marge",
-              sublabel: "négociation",
-              color: orangeColor,
-            },
-          ];
-
-          statsData.forEach((stat, index) => {
-            const statX = margin + index * (statColWidth + 6);
-
-            // Fond avec ombre
-            doc.setFillColor(0, 0, 0);
-            doc.setGState(new doc.GState({ opacity: 0.05 }));
-            doc.rect(statX + 0.5, y + 0.5, statColWidth, statHeight, "F");
-            doc.setGState(new doc.GState({ opacity: 1 }));
-
-            doc.setFillColor(255, 255, 255);
-            doc.rect(statX, y, statColWidth, statHeight, "F");
-
-            // Barre de couleur en haut
-            doc.setFillColor(...stat.color);
-            doc.rect(statX, y, statColWidth, 3, "F");
-            doc.rect(statX, y + 1.5, statColWidth, 1.5, "F");
-
-            // Valeur
-            doc.setTextColor(...stat.color);
-            doc.setFontSize(16);
-            doc.setFont("helvetica", "bold");
-            doc.text(stat.value, statX + statColWidth / 2, y + 16, {
-              align: "center",
-            });
-
-            // Labels
-            doc.setTextColor(...grayText);
-            doc.setFontSize(7);
-            doc.setFont("helvetica", "normal");
-            doc.text(stat.label, statX + statColWidth / 2, y + 24, {
-              align: "center",
-            });
-            doc.text(stat.sublabel, statX + statColWidth / 2, y + 29, {
-              align: "center",
-            });
-          });
-
-          y += statHeight + 8;
-
-          // Prix par type avec icônes
-          doc.setFillColor(...lightGray);
-          doc.rect(margin, y, contentWidth, 16, "F");
-
-          // Maison
-          doc.setFillColor(...grayText);
-          doc.setFontSize(8);
-          doc.text("Maisons :", margin + 8, y + 10);
-          doc.setTextColor(...darkText);
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(10);
-          doc.text(formatPrice(prixMaisons) + "/m²", margin + 30, y + 10);
-
-          // Séparateur
-          doc.setDrawColor(...mediumGray);
-          doc.setLineWidth(0.3);
-          doc.line(
-            margin + contentWidth / 2,
-            y + 4,
-            margin + contentWidth / 2,
-            y + 12
-          );
-
-          // Appartements
-          doc.setTextColor(...grayText);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.text("Appartements :", margin + contentWidth / 2 + 8, y + 10);
-          doc.setTextColor(...darkText);
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(10);
-          doc.text(
-            formatPrice(prixApparts) + "/m²",
-            margin + contentWidth / 2 + 42,
-            y + 10
-          );
-
-          y += 22;
-
-          // === PROFIL ACQUÉREURS ===
-          let profilBien =
-            lastEstimation.rooms >= 4
-              ? "familial"
-              : lastEstimation.rooms >= 2
-              ? "intermédiaire"
-              : "compact";
-          let profilAcq =
-            lastEstimation.rooms >= 4
-              ? "Familles avec enfants"
-              : lastEstimation.rooms >= 2
-              ? "Couples et jeunes actifs"
-              : "Investisseurs et primo-accédants";
-
-          doc.setFillColor(247, 245, 242);
-          doc.rect(margin, y, contentWidth, 22, "F");
-
-          // Icône utilisateur
-          doc.setFillColor(...brandOrange);
-          doc.circle(margin + 14, y + 11, 7, "F");
-          doc.setFillColor(255, 255, 255);
-          doc.circle(margin + 14, y + 9, 2.5, "F");
-          doc.ellipse(margin + 14, y + 15, 4, 2.5, "F");
-
-          doc.setTextColor(...darkText);
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "bold");
-          doc.text(
-            "Profil " + profilBien + " — Acquéreurs cibles",
-            margin + 28,
-            y + 9
-          );
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(9);
-          doc.setTextColor(...grayText);
-          doc.text(
-            profilAcq + " • Délai estimé : " + delaiVente + " jours",
-            margin + 28,
-            y + 17
-          );
-
-          y += 28;
-
-          // Points forts avec check
-          let pointsForts = "";
-          if (lastEstimation.propertyType === "maison") {
-            pointsForts =
-              lastEstimation.hasTerrain === "yes"
-                ? "Terrain privatif — Atout majeur très recherché par les acquéreurs"
-                : "Maison individuelle — Indépendance et absence de charges de copropriété";
-          } else {
-            pointsForts =
-              "Appartement — Excellente liquidité sur le marché immobilier";
-          }
-
-          doc.setFillColor(234, 250, 223);
-          doc.setDrawColor(...greenColor);
-          doc.setLineWidth(0.5);
-          doc.rect(margin, y, contentWidth, 14, "FD");
-
-          // Check icon
-          doc.setFillColor(...greenColor);
-          doc.circle(margin + 10, y + 7, 4, "F");
-          doc.setDrawColor(255, 255, 255);
-          doc.setLineWidth(0.8);
-          doc.line(margin + 8, y + 7, margin + 9.5, y + 9);
-          doc.line(margin + 9.5, y + 9, margin + 13, y + 5);
-
-          doc.setTextColor(...greenColor);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          doc.text(pointsForts, margin + 20, y + 9);
-
-          // ========== PAGE 2 ==========
-          doc.addPage();
-
-          // En-tête page 2 avec dégradé
-          const header2Height = 28;
-          doc.setFillColor(...brandDark);
-          doc.rect(0, 0, pageWidth, header2Height, "F");
-
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(14);
-          doc.setFont("helvetica", "bold");
-          doc.text("ANALYSE DÉTAILLÉE", pageWidth / 2, 18, { align: "center" });
-
-          // Numéro de page discret
-          doc.setFontSize(8);
-          doc.setGState(new doc.GState({ opacity: 0.7 }));
-          doc.text("2/2", pageWidth - margin, 10, { align: "right" });
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          y = header2Height + 12;
-
-          // === MARCHÉ IMMOBILIER 2025 ===
-          doc.setTextColor(...darkText);
-          doc.setFontSize(13);
-          doc.setFont("helvetica", "bold");
-          doc.text("Le marché immobilier français en 2025", margin, y);
-
-          doc.setFillColor(...brandOrange);
-          doc.rect(margin, y + 3, 65, 1.5, "F");
-          doc.setFillColor(...brandAccent);
-          doc.rect(margin + 65, y + 3, 8, 1.5, "F");
-
-          y += 14;
-
-          doc.setTextColor(...darkText);
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          const infoText =
-            "Le marché immobilier français connaît une dynamique contrastée selon les régions. Les grandes métropoles maintiennent des prix élevés avec une demande soutenue, tandis que les villes moyennes offrent des opportunités plus accessibles.";
-          const splitInfo = doc.splitTextToSize(infoText, contentWidth);
-          doc.text(splitInfo, margin, y);
-          y += splitInfo.length * 4.5 + 6;
-
-          // Stats nationales avec nouveau design
-
-          // Fond en aplat
-          doc.setFillColor(...brandDark);
-          doc.rect(margin, y, contentWidth, 38, "F");
-
-          const natStatWidth = contentWidth / 3;
-          doc.setTextColor(255, 255, 255);
-
-          // Stat nationale 1
-          doc.setFontSize(22);
-          doc.setFont("helvetica", "bold");
-          doc.text("+3.2%", margin + natStatWidth / 2, y + 16, {
-            align: "center",
-          });
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.setGState(new doc.GState({ opacity: 0.85 }));
-          doc.text("Évolution annuelle", margin + natStatWidth / 2, y + 26, {
-            align: "center",
-          });
-          doc.text("moyenne nationale", margin + natStatWidth / 2, y + 32, {
-            align: "center",
-          });
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          // Séparateurs verticaux
-          doc.setDrawColor(255, 255, 255);
-          doc.setLineWidth(0.2);
-          doc.setGState(new doc.GState({ opacity: 0.3 }));
-          doc.line(margin + natStatWidth, y + 8, margin + natStatWidth, y + 32);
-          doc.line(
-            margin + 2 * natStatWidth,
-            y + 8,
-            margin + 2 * natStatWidth,
-            y + 32
-          );
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          // Stat nationale 2
-          doc.setFontSize(22);
-          doc.setFont("helvetica", "bold");
-          doc.text(
-            "3 000 €",
-            margin + natStatWidth + natStatWidth / 2,
-            y + 16,
-            { align: "center" }
-          );
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.setGState(new doc.GState({ opacity: 0.85 }));
-          doc.text(
-            "Prix moyen",
-            margin + natStatWidth + natStatWidth / 2,
-            y + 26,
-            { align: "center" }
-          );
-          doc.text(
-            "national au m²",
-            margin + natStatWidth + natStatWidth / 2,
-            y + 32,
-            { align: "center" }
-          );
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          // Stat nationale 3
-          doc.setFontSize(22);
-          doc.setFont("helvetica", "bold");
-          doc.text(
-            "85 jours",
-            margin + 2 * natStatWidth + natStatWidth / 2,
-            y + 16,
-            { align: "center" }
-          );
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.setGState(new doc.GState({ opacity: 0.85 }));
-          doc.text(
-            "Délai de vente",
-            margin + 2 * natStatWidth + natStatWidth / 2,
-            y + 26,
-            { align: "center" }
-          );
-          doc.text(
-            "moyen en France",
-            margin + 2 * natStatWidth + natStatWidth / 2,
-            y + 32,
-            { align: "center" }
-          );
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          y += 48;
-
-          // === IMPACT DPE ===
-          doc.setTextColor(...darkText);
-          doc.setFontSize(13);
-          doc.setFont("helvetica", "bold");
-          doc.text("Impact du DPE sur la valeur", margin, y);
-
-          doc.setFillColor(...brandOrange);
-          doc.rect(margin, y + 3, 50, 1.5, "F");
-          doc.setFillColor(...brandAccent);
-          doc.rect(margin + 50, y + 3, 8, 1.5, "F");
-
-          y += 14;
-
-          // Explication DPE
-          doc.setTextColor(...darkText);
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          const dpeText =
-            "Le DPE joue un rôle crucial dans la valorisation. Les biens classés A ou B bénéficient d'une surcote jusqu'à 15%, tandis que les passoires thermiques (F et G) subissent une décote de 15 à 25%.";
-          const splitDpe = doc.splitTextToSize(dpeText, contentWidth);
-          doc.text(splitDpe, margin, y);
-          y += splitDpe.length * 4.5 + 6;
-
-          // Échelle DPE visuelle améliorée
-          const dpeColors = {
-            A: [34, 139, 34],
-            B: [50, 205, 50],
-            C: [173, 255, 47],
-            D: [255, 255, 0],
-            E: [255, 200, 0],
-            F: [255, 120, 0],
-            G: [220, 20, 60],
-          };
-          const dpeLabels = ["A", "B", "C", "D", "E", "F", "G"];
-          const dpeWidth = contentWidth / 7;
-
-          // Fond de l'échelle
-          doc.setFillColor(...lightGray);
-          doc.rect(margin - 2, y - 2, contentWidth + 4, 22, "F");
-
-          dpeLabels.forEach((label, index) => {
-            const x = margin + index * dpeWidth;
-
-            // Case DPE, en aplat
-            doc.setFillColor(...dpeColors[label]);
-            doc.rect(x + 1, y, dpeWidth - 2, 16, "F");
-
-            // Lettre
-            doc.setTextColor(255, 255, 255);
-            if (label === "C" || label === "D") {
-              doc.setTextColor(29, 12, 27);
-            }
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "bold");
-            doc.text(label, x + dpeWidth / 2, y + 11, { align: "center" });
-
-            // Indicateur si c'est le DPE du bien
-            if (
-              lastEstimation.dpe &&
-              lastEstimation.dpe.toUpperCase() === label
-            ) {
-              doc.setFillColor(...darkText);
-              doc.triangle(
-                x + dpeWidth / 2 - 4,
-                y + 21,
-                x + dpeWidth / 2 + 4,
-                y + 21,
-                x + dpeWidth / 2,
-                y + 17,
-                "F"
-              );
-              doc.setTextColor(...darkText);
-              doc.setFontSize(7);
-              doc.setFont("helvetica", "bold");
-              doc.text("VOTRE BIEN", x + dpeWidth / 2, y + 27, {
-                align: "center",
-              });
-            }
-          });
-
-          y += 34;
-
-          // Impact personnalisé
-          let dpeImpact = "";
-          let dpeImpactColor = grayText;
-          let dpeIcon = "i";
-          const dpe = lastEstimation.dpe;
-          if (dpe === "A" || dpe === "B") {
-            dpeImpact =
-              "Votre bien classé " +
-              dpe.toUpperCase() +
-              " bénéficie d'une surcote de 10-15%. C'est un atout majeur !";
-            dpeImpactColor = greenColor;
-            dpeIcon = "✓";
-          } else if (dpe === "C" || dpe === "D") {
-            dpeImpact =
-              "Votre bien classé " +
-              dpe.toUpperCase() +
-              " est dans la moyenne du marché actuel.";
-            dpeImpactColor = orangeColor;
-            dpeIcon = "○";
-          } else if (dpe === "E") {
-            dpeImpact =
-              "Votre bien classé E subit une légère décote (5-10%). Rénovation énergétique conseillée.";
-            dpeImpactColor = orangeColor;
-            dpeIcon = "!";
-          } else if (dpe === "F" || dpe === "G") {
-            dpeImpact =
-              "Votre bien classé " +
-              dpe.toUpperCase() +
-              " (passoire thermique) subit une décote de 15-25%.";
-            dpeImpactColor = redColor;
-            dpeIcon = "!";
-          } else {
-            dpeImpact =
-              "Sans DPE renseigné, nous recommandons de réaliser un diagnostic énergétique.";
-            dpeImpactColor = grayText;
-            dpeIcon = "i";
-          }
-
-          // Box d'impact DPE
-          const impactBgColor =
-            dpeImpactColor === greenColor
-              ? [236, 253, 245]
-              : dpeImpactColor === redColor
-              ? [254, 242, 242]
-              : dpeImpactColor === orangeColor
-              ? [255, 251, 235]
-              : [248, 249, 250];
-          doc.setFillColor(...impactBgColor);
-          doc.setDrawColor(...dpeImpactColor);
-          doc.setLineWidth(0.5);
-          doc.rect(margin, y, contentWidth, 16, "FD");
-
-          // Icône
-          doc.setFillColor(...dpeImpactColor);
-          doc.circle(margin + 10, y + 8, 4, "F");
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "bold");
-          doc.text(dpeIcon, margin + 10, y + 10, { align: "center" });
-
-          doc.setTextColor(...dpeImpactColor);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          doc.text(dpeImpact, margin + 20, y + 10);
-
-          y += 24;
-
-          // === BON À SAVOIR ===
-          doc.setFillColor(247, 245, 242);
-          doc.setDrawColor(...brandOrange);
-          doc.setLineWidth(0.5);
-          doc.rect(margin, y, contentWidth, 22, "FD");
-
-          // Icône ampoule
-          doc.setFillColor(...brandOrange);
-          doc.circle(margin + 12, y + 11, 6, "F");
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "bold");
-          doc.text("i", margin + 12, y + 14, { align: "center" });
-
-          doc.setTextColor(...brandOrange);
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "bold");
-          doc.text("Bon à savoir", margin + 24, y + 9);
-          doc.setTextColor(...darkText);
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(9);
-          doc.text(
-            "Les biens avec un bon DPE se vendent en moyenne 30% plus rapidement.",
-            margin + 24,
-            y + 17
-          );
-
-          y += 28;
-
-          // === MÉTHODOLOGIE ===
-          doc.setTextColor(...darkText);
-          doc.setFontSize(13);
-          doc.setFont("helvetica", "bold");
-          doc.text("Notre méthodologie", margin, y);
-
-          doc.setFillColor(...brandOrange);
-          doc.rect(margin, y + 3, 40, 1.5, "F");
-          doc.setFillColor(...brandAccent);
-          doc.rect(margin + 40, y + 3, 8, 1.5, "F");
-
-          y += 14;
-
-          doc.setTextColor(...darkText);
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          const methodoText =
-            "Cette estimation est calculée à partir des données du marché actuel : localisation précise, surface habitable, type de bien, nombre de pièces, performance énergétique et état général du marché local.";
-          const splitMethodo = doc.splitTextToSize(methodoText, contentWidth);
-          doc.text(splitMethodo, margin, y);
-          y += splitMethodo.length * 4.5 + 8;
-
-          // === CONSEIL PERSONNALISÉ ===
-          doc.setFillColor(255, 248, 245);
-          doc.setDrawColor(...orangeColor);
-          doc.setLineWidth(0.5);
-          doc.rect(margin, y, contentWidth, 26, "FD");
-
-          // Icône ampoule
-          doc.setFillColor(...orangeColor);
-          doc.circle(margin + 12, y + 13, 6, "F");
-          doc.setFillColor(255, 255, 255);
-          doc.circle(margin + 12, y + 11, 2, "F");
-          doc.rect(margin + 10.5, y + 13, 3, 4, "F");
-
-          const conseilText =
-            prixM2 >= 5000
-              ? "Dans un marché tendu, une mise en valeur soignée (photos pro, home staging) accélère la vente."
-              : "Pour optimiser votre vente, mettez en avant les atouts de votre bien et restez flexible sur les visites.";
-
-          doc.setTextColor(...darkText);
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "bold");
-          doc.text("Conseil personnalisé", margin + 24, y + 10);
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(9);
-          const splitConseil = doc.splitTextToSize(
-            conseilText,
-            contentWidth - 32
-          );
-          doc.text(splitConseil, margin + 24, y + 18);
-
-          y += 34;
-
-          // === CONTACT CTA ===
-
-          // Fond en aplat
-          doc.setFillColor(...brandDark);
-          doc.rect(margin, y, contentWidth, 28, "F");
-
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(11);
-          doc.setFont("helvetica", "bold");
-          doc.text(
-            "Besoin d'un accompagnement personnalisé ?",
-            pageWidth / 2,
-            y + 11,
-            { align: "center" }
-          );
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          doc.setGState(new doc.GState({ opacity: 0.95 }));
-          doc.text(
-            "Contactez nos experts : estimermb@gmail.com",
-            pageWidth / 2,
-            y + 21,
-            { align: "center" }
-          );
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          // ========== FOOTERS ==========
-
-          // Footer page 2
-          doc.setFillColor(...darkText);
-          doc.rect(0, pageHeight - 16, pageWidth, 16, "F");
-
-          // Logo mini dans le footer
-          doc.setFillColor(255, 255, 255);
-          doc.setGState(new doc.GState({ opacity: 0.9 }));
-          doc.triangle(
-            margin + 3,
-            pageHeight - 6,
-            margin + 7,
-            pageHeight - 12,
-            margin + 11,
-            pageHeight - 6,
-            "F"
-          );
-          doc.rect(margin + 4, pageHeight - 6, 6, 4, "F");
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.setGState(new doc.GState({ opacity: 0.85 }));
-          doc.text("Estimer mon bien", margin + 18, pageHeight - 6);
-          doc.text(
-            "© 2025 - Tous droits réservés",
-            pageWidth / 2,
-            pageHeight - 6,
-            { align: "center" }
-          );
-          doc.text(
-            "Généré le " + new Date().toLocaleDateString("fr-FR"),
-            pageWidth - margin,
-            pageHeight - 6,
-            { align: "right" }
-          );
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          // Footer page 1
-          doc.setPage(1);
-          doc.setFillColor(...darkText);
-          doc.rect(0, pageHeight - 16, pageWidth, 16, "F");
-
-          // Logo mini
-          doc.setFillColor(255, 255, 255);
-          doc.setGState(new doc.GState({ opacity: 0.9 }));
-          doc.triangle(
-            margin + 3,
-            pageHeight - 6,
-            margin + 7,
-            pageHeight - 12,
-            margin + 11,
-            pageHeight - 6,
-            "F"
-          );
-          doc.rect(margin + 4, pageHeight - 6, 6, 4, "F");
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.setGState(new doc.GState({ opacity: 0.85 }));
-          doc.text("Estimer mon bien", margin + 18, pageHeight - 6);
-          doc.text(
-            "© 2025 - Tous droits réservés",
-            pageWidth / 2,
-            pageHeight - 6,
-            { align: "center" }
-          );
-          doc.text("Page 1/2", pageWidth - margin, pageHeight - 6, {
-            align: "right",
-          });
-          doc.setGState(new doc.GState({ opacity: 1 }));
-
-          // Télécharger le PDF
-          const fileName =
-            "Rapport_Estimation_" +
-            capitalizeFirst(lastEstimation.city).replace(/\s+/g, "_") +
-            "_" +
-            new Date().toISOString().split("T")[0] +
-            ".pdf";
-          doc.save(fileName);
+          const doc = buildEstimationPdf(lastEstimation);
+          doc.save(buildEstimationPdfFileName(lastEstimation));
         } catch (error) {
           console.error("Erreur PDF:", error);
           alert("Une erreur est survenue. Veuillez réessayer.");

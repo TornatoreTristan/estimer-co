@@ -1,7 +1,7 @@
 ---
 slug: allier-03
 nom: Allier
-title: Prix immobilier au m² — Allier
+title: Prix immobilier au m², Allier
 codeInsee: "03"
 regionParente: auvergne-rhone-alpes
 prixM2: 1280

@@ -1,7 +1,7 @@
 ---
 slug: finistere-29
 nom: Finistère
-title: Prix immobilier au m² — Finistère
+title: Prix immobilier au m², Finistère
 codeInsee: "29"
 regionParente: bretagne
 prixM2: 2280

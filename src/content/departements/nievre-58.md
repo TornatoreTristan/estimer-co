@@ -1,7 +1,7 @@
 ---
 slug: nievre-58
 nom: Nièvre
-title: Prix immobilier au m² — Nièvre
+title: Prix immobilier au m², Nièvre
 codeInsee: "58"
 regionParente: bourgogne-franche-comte
 prixM2: 1080

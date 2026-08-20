@@ -23,6 +23,13 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # L'API (`api/`) est un service Coolify indépendant, avec sa propre CI
+    # (`.github/workflows/api.yml`) et son propre déploiement. Le site
+    # statique n'a aucune raison d'être reconstruit et redéployé quand seule
+    # l'API change (spec `estimation-donnees-reelles.md` §2.2).
+    paths-ignore:
+      - 'api/**'
+      - '.github/workflows/api.yml'
   workflow_dispatch:
 
 permissions:
@@ -57,6 +64,14 @@ jobs:
       - name: Validate content (CI gate)
         run: node scripts/validate-content.mjs
 
+      # Garde-fou : les tests du front verrouillent des comportements dont la
+      # violation est SILENCIEUSE (double soumission créant deux leads, blocs du
+      # rapport lus sans garde sur un `lastEstimation` d'ancienne génération,
+      # mention DVF sur une estimation qui n'en vient pas). Sans cette étape,
+      # ces garde-fous ne protègent rien sur le chemin de déploiement.
+      - name: Test (CI gate)
+        run: npm test
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
@@ -69,6 +84,13 @@ jobs:
           PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.PUBLIC_GOOGLE_MAPS_API_KEY }}
           PUBLIC_CONTACT_EMAIL: ${{ secrets.PUBLIC_CONTACT_EMAIL }}
           PUBLIC_GA4_MEASUREMENT_ID: ${{ secrets.PUBLIC_GA4_MEASUREMENT_ID }}
+          # Sans cette variable, `requestEstimation` sort en `no-config` sans le
+          # moindre appel réseau et 100 % des visiteurs reçoivent un prix issu de
+          # l'ancienne table de 35 villes, sans qu'aucun signal ne parvienne à
+          # l'exploitation (cf. specs/estimation-donnees-reelles.md, Annexe B.5).
+          # `astro.config.mjs` fait échouer le build si elle est vide en prod.
+          PUBLIC_API_URL: ${{ secrets.PUBLIC_API_URL }}
+          PUBLIC_ESTIMATION_FALLBACK: ${{ secrets.PUBLIC_ESTIMATION_FALLBACK }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

@@ -1,7 +1,7 @@
 ---
 slug: yvelines-78
 nom: Yvelines
-title: Prix immobilier au m² — Yvelines
+title: Prix immobilier au m², Yvelines
 codeInsee: "78"
 regionParente: ile-de-france
 prixM2: 4680

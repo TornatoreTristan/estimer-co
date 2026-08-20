@@ -67,7 +67,7 @@
                                 }</p>
                                 <p style="margin: 3px 0 0; color: rgba(29,12,27,0.6); font-size: 12px;">${
                                   lastEstimation.postalCode
-                                } ${capitalizeFirst(lastEstimation.city)}</p>
+                                } ${capitalizeWords(lastEstimation.city)}</p>
                             </div>
                         `,
             });

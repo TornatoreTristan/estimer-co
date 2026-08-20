@@ -1,7 +1,7 @@
 ---
 slug: lot-et-garonne-47
 nom: Lot-et-Garonne
-title: Prix immobilier au m² — Lot-et-Garonne
+title: Prix immobilier au m², Lot-et-Garonne
 codeInsee: "47"
 regionParente: nouvelle-aquitaine
 prixM2: 1480

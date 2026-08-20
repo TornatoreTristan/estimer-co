@@ -1,7 +1,7 @@
 ---
 slug: bretagne
 nom: Bretagne
-title: Prix immobilier au m² — Bretagne
+title: Prix immobilier au m², Bretagne
 prixM2: 2450
 prixMaisons: 2280
 prixAppartements: 2850

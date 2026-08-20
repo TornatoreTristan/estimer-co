@@ -1,7 +1,7 @@
 ---
 slug: cotes-d-armor-22
 nom: Côtes-d'Armor
-title: Prix immobilier au m² — Côtes-d'Armor
+title: Prix immobilier au m², Côtes-d'Armor
 codeInsee: "22"
 regionParente: bretagne
 prixM2: 2080

@@ -1,7 +1,7 @@
 ---
 slug: somme-80
 nom: Somme
-title: Prix immobilier au m² — Somme
+title: Prix immobilier au m², Somme
 codeInsee: "80"
 regionParente: hauts-de-france
 prixM2: 1780

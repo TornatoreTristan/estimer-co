@@ -1,7 +1,7 @@
 ---
 slug: pyrenees-atlantiques-64
 nom: Pyrénées-Atlantiques
-title: Prix immobilier au m² — Pyrénées-Atlantiques
+title: Prix immobilier au m², Pyrénées-Atlantiques
 codeInsee: "64"
 regionParente: nouvelle-aquitaine
 prixM2: 2880

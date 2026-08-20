@@ -1,7 +1,7 @@
 ---
 slug: hauts-de-seine-92
 nom: Hauts-de-Seine
-title: Prix immobilier au m² — Hauts-de-Seine
+title: Prix immobilier au m², Hauts-de-Seine
 codeInsee: "92"
 regionParente: ile-de-france
 prixM2: 6420

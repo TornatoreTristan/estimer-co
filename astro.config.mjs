@@ -1,6 +1,36 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import { loadEnv } from 'vite';
 import sitemap from '@astrojs/sitemap';
+
+// Garde-fou de déploiement (specs/estimation-donnees-reelles.md, Annexe B.5).
+//
+// Le client a tranché pour un repli qui affiche quand même un prix quand l'API
+// d'estimation est injoignable (Annexe B.2). La conséquence non voulue est que
+// `PUBLIC_API_URL` vide n'est PAS une panne visible : `requestEstimation` sort
+// en `no-config` sans même tenter d'appel réseau, et 100 % des visiteurs
+// reçoivent un prix issu de l'ancienne table de 35 villes — exactement la
+// dégradation silencieuse que toute cette refonte visait à supprimer.
+//
+// On fait donc échouer le build plutôt que de déployer un site muet sur son
+// propre mode dégradé. Un repli doit être un incident, jamais un état par
+// défaut. Le dev (`astro dev`) et une construction explicitement marquée
+// `ESTIMATION_ALLOW_NO_API=1` restent libres de s'en passer.
+// `loadEnv` est indispensable ici : au moment où Astro évalue ce fichier, il n'a
+// pas encore chargé `.env` dans `process.env`. Lire `process.env` seul ferait
+// échouer tout build local alors que la variable est bien renseignée — le
+// garde-fou punirait le développeur au lieu de protéger la production.
+if (process.argv.includes('build')) {
+  const env = { ...loadEnv('production', process.cwd(), ''), ...process.env };
+  if (!env.ESTIMATION_ALLOW_NO_API && !(env.PUBLIC_API_URL || '').trim()) {
+    throw new Error(
+      "PUBLIC_API_URL est vide : le site serait déployé en repli statique permanent,\n" +
+        "sans aucun signal côté exploitation (cf. Annexe B.5 de la spec).\n" +
+        "Renseignez PUBLIC_API_URL (ex. https://api.estimer.co), ou construisez avec\n" +
+        "ESTIMATION_ALLOW_NO_API=1 si l'absence d'API est délibérée (démo hors ligne)."
+    );
+  }
+}
 
 export default defineConfig({
   site: 'https://estimer.co',
@@ -22,7 +52,9 @@ export default defineConfig({
   // réellement générés dans `dist/` : une page non générée (statut brouillon,
   // filtrée dans les routes du Lot 2/3) n'y figure jamais — pas de filtre
   // supplémentaire à faire ici, la garantie vient de l'absence de route.
-  integrations: [sitemap()],
+  // `/pdf-preview/` est un outil de travail interne (aperçu du rapport PDF) :
+  // il est généré comme les autres pages mais n'a rien à faire dans le sitemap.
+  integrations: [sitemap({ filter: (page) => !page.includes('/pdf-preview/') })],
   // Port figé : la clé Google Maps est restreinte par référent HTTP, l'origine
   // de dev doit donc rester stable pour correspondre à l'autorisation déclarée
   // dans la console Google Cloud.

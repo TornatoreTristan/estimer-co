@@ -1,7 +1,7 @@
 ---
 slug: val-d-oise-95
 nom: Val-d'Oise
-title: Prix immobilier au m² — Val-d'Oise
+title: Prix immobilier au m², Val-d'Oise
 codeInsee: "95"
 regionParente: ile-de-france
 prixM2: 3380

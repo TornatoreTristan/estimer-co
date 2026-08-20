@@ -1,7 +1,7 @@
 ---
 slug: seine-saint-denis-93
 nom: Seine-Saint-Denis
-title: Prix immobilier au m² — Seine-Saint-Denis
+title: Prix immobilier au m², Seine-Saint-Denis
 codeInsee: "93"
 regionParente: ile-de-france
 prixM2: 4180

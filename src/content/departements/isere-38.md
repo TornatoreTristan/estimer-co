@@ -1,7 +1,7 @@
 ---
 slug: isere-38
 nom: Isère
-title: Prix immobilier au m² — Isère
+title: Prix immobilier au m², Isère
 codeInsee: "38"
 regionParente: auvergne-rhone-alpes
 prixM2: 2680

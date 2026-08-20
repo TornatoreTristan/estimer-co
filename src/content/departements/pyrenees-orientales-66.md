@@ -1,7 +1,7 @@
 ---
 slug: pyrenees-orientales-66
 nom: Pyrénées-Orientales
-title: Prix immobilier au m² — Pyrénées-Orientales
+title: Prix immobilier au m², Pyrénées-Orientales
 codeInsee: "66"
 regionParente: occitanie
 prixM2: 2280

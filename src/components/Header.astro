@@ -1,24 +1,31 @@
 ---
 const NAV = [
   { href: '/', label: 'Accueil' },
-  { href: '/estimation', label: 'Estimation' },
-  { href: '/carte', label: "Prix de l'immobilier" },
-  { href: '/partenaires', label: 'Partenaires' },
-  { href: '/contact', label: 'Contact' },
+  { href: '/estimation/', label: 'Estimation' },
+  { href: '/carte/', label: "Prix de l'immobilier" },
+  { href: '/partenaires/', label: 'Partenaires' },
+  { href: '/contact/', label: 'Contact' },
 ] as const;
 
-const { pathname } = Astro.url;
-const current = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+// `trailingSlash: 'always'` (astro.config.mjs) : les liens internes s'écrivent
+// avec la barre finale, comme `Astro.url.pathname`. On normalise quand même
+// les deux côtés de la comparaison plutôt que de dépendre de cette égalité de
+// forme — un href écrit sans barre perdrait sinon son état "page courante"
+// sans que rien ne le signale.
+const stripTrailingSlash = (value: string) =>
+  value !== '/' && value.endsWith('/') ? value.slice(0, -1) : value;
+
+const current = stripTrailingSlash(Astro.url.pathname);
 ---
 
 <div class="announce">
-  Estimation gratuite, rapport complet sous 24 h. <a href="/estimation">Commencer &rarr;</a>
+  Estimation gratuite, rapport complet immédiat. <a href="/estimation/">Commencer &rarr;</a>
 </div>
 
 <header class="site-header" id="siteHeader">
   <div class="container">
     <div class="site-header__inner">
-      <a href="/" class="brand" aria-label="Estimer mon bien — accueil">
+      <a href="/" class="brand" aria-label="Estimer mon bien, accueil">
         <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <rect width="32" height="32" fill="#1d0c1b"></rect>
           <path d="M9 15.5 16 9.5l7 6" stroke="#ff6e34" stroke-width="2.2" stroke-linecap="square"
@@ -37,16 +44,16 @@ const current = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -
       <nav class="site-nav" id="siteNav" aria-label="Navigation principale">
         {
           NAV.map(({ href, label }) => (
-            <a href={href} aria-current={current === href ? 'page' : undefined}>
+            <a href={href} aria-current={current === stripTrailingSlash(href) ? 'page' : undefined}>
               {label}
             </a>
           ))
         }
-        <a href="/estimation" class="btn btn--primary">Estimer mon bien</a>
+        <a href="/estimation/" class="btn btn--primary">Estimer mon bien</a>
       </nav>
 
       <div class="site-header__actions">
-        <a href="/estimation" class="btn btn--primary">Estimer mon bien</a>
+        <a href="/estimation/" class="btn btn--primary">Estimer mon bien</a>
         <button
           type="button"
           class="nav-toggle"
