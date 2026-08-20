@@ -65,7 +65,7 @@
               "Une erreur est survenue lors de l'envoi. Veuillez réessayer ou nous contacter directement à " +
                 (typeof CONFIG !== "undefined" && CONFIG.EMAIL && CONFIG.EMAIL.TO
                   ? CONFIG.EMAIL.TO
-                  : "estimermb@gmail.com")
+                  : "contact@estimer.co")
             );
             releaseButton();
           }
