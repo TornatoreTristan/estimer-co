@@ -1,0 +1,17 @@
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Estimer mon bien">
+  <rect width="32" height="32" fill="#1d0c1b" />
+  <path
+    d="M9 15.5 16 9.5l7 6"
+    stroke="#ff6e34"
+    stroke-width="2.6"
+    stroke-linecap="square"
+    stroke-linejoin="miter"
+    fill="none" />
+  <path
+    d="M10.75 15v7.5h10.5V15"
+    stroke="#ffffff"
+    stroke-width="2.6"
+    stroke-linecap="square"
+    stroke-linejoin="miter"
+    fill="none" />
+</svg>

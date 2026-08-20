@@ -21,6 +21,13 @@ const { title, description } = Astro.props;
     {description && <meta name="description" content={description} />}
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
     <meta name="theme-color" content="#fcfbfa" />
+    {/* Le `.ico` d'abord : les navigateurs qui comprennent le SVG prennent
+        quand même ce dernier (règle du format le plus riche), les autres et les
+        crawlers gardent le repli matriciel. */}
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
