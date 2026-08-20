@@ -1,4 +1,6 @@
 ---
+import Analytics from '../components/Analytics.astro';
+import ConsentBanner from '../components/ConsentBanner.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import StickyCta from '../components/StickyCta.astro';
@@ -17,6 +19,10 @@ const { title, description } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {/* Avant tout le reste, et ce n'est pas une préférence de rangement : le
+        `gtag('consent','default', denied)` posé par ce composant ne vaut que
+        s'il précède le moindre tag. Ne rien insérer au-dessus. */}
+    <Analytics />
     <meta name="generator" content={Astro.generator} />
     {description && <meta name="description" content={description} />}
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
@@ -45,6 +51,10 @@ const { title, description } = Astro.props;
         volée et a besoin de trouver `.site-footer` déjà dans le document — la
         barre s'efface dès que le pied de page entre à l'écran. */}
     <StickyCta />
+    {/* En dernier : le bandeau se superpose au reste de la page, et son script
+        est le seul du site qui doive pouvoir s'exécuter même si tout ce qui
+        précède a échoué. */}
+    <ConsentBanner />
     <slot name="body-end" />
   </body>
 </html>

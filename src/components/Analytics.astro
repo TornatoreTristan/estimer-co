@@ -1,0 +1,101 @@
+---
+import { GTM_CONTAINER_ID, GTM_SERVER_URL, TRACKING_ACTIF } from '../lib/analytics';
+
+/**
+ * Socle Consent Mode v2 + conteneur Google Tag Manager.
+ *
+ * À placer EN TOUT PREMIER dans le `<head>`, avant tout autre script : le
+ * signal de consentement par défaut n'a de valeur que s'il est posé avant que
+ * le moindre tag ait pu s'exécuter. Un `gtag('consent','default')` qui arrive
+ * après le conteneur ne protège rien.
+ *
+ * ---------------------------------------------------------------------------
+ * IMPLÉMENTATION « ADVANCED » — CE QUE ÇA VEUT DIRE, ET CE QUE ÇA NE VEUT PAS
+ * ---------------------------------------------------------------------------
+ * Deux façons de câbler le Consent Mode existent, et le choix est un arbitrage
+ * assumé, pas un détail technique :
+ *
+ *   - « Basic » : aucun script Google n'est chargé tant que le visiteur n'a
+ *     pas accepté. Posture la plus stricte, mais les visiteurs qui refusent
+ *     deviennent totalement invisibles — Google Ads ne peut plus modéliser
+ *     leurs conversions, et le pilotage des campagnes se fait à l'aveugle sur
+ *     une part majoritaire du trafic.
+ *
+ *   - « Advanced » (retenu ici, décision client du 20/08/2026, et déjà en
+ *     place sur ritmodiag.com) : le conteneur est chargé dès l'arrivée, mais
+ *     avec TOUS les signaux de stockage sur `denied`. Concrètement : Google
+ *     n'écrit **aucun cookie**, ne lit **aucun identifiant**, et n'envoie que
+ *     des pings dépourvus de donnée personnelle. Dès que le visiteur tranche,
+ *     `ConsentBanner.astro` émet un `consent update` et les tags ajustent leur
+ *     comportement sans rechargement.
+ *
+ * Ce que « Advanced » ne veut PAS dire : ce n'est pas du dépôt de traceur sans
+ * consentement. `denied` est un ordre, pas une préférence — la bibliothèque
+ * Google s'interdit l'accès au stockage tant qu'elle n'a pas reçu `granted`.
+ * L'article 82 de la loi Informatique et Libertés vise la lecture et
+ * l'écriture sur le terminal : aucune des deux n'a lieu ici avant le choix.
+ *
+ * ---------------------------------------------------------------------------
+ * POURQUOI PAS DE `<noscript>` GTM
+ * ---------------------------------------------------------------------------
+ * Le snippet officiel prévoit une `<iframe>` de repli pour les navigateurs
+ * sans JavaScript. Elle est volontairement absente : sans JavaScript, le
+ * bandeau ne peut pas s'afficher, donc aucun consentement ne peut être
+ * recueilli — cette iframe serait exactement le seul cas où un traceur
+ * partirait sans que le visiteur ait jamais eu la possibilité de refuser.
+ * Perdre la mesure d'une population résiduelle est le prix correct.
+ */
+
+// `wait_for_update` : délai (ms) pendant lequel les tags patientent avant de
+// s'exécuter avec les valeurs par défaut, le temps que le bandeau ait pu
+// remonter un choix déjà mémorisé. Sans lui, un visiteur revenant sur le site
+// verrait ses premiers événements partir en `denied` alors qu'il avait accepté.
+const socle = `
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+
+gtag('consent', 'default', {
+  'ad_storage': 'denied',
+  'ad_user_data': 'denied',
+  'ad_personalization': 'denied',
+  'analytics_storage': 'denied',
+  'personalization_storage': 'denied',
+  // Strictement nécessaires au fonctionnement et à la sécurité : hors champ du
+  // consentement (art. 82, exemption des traceurs indispensables au service).
+  'functionality_storage': 'granted',
+  'security_storage': 'granted',
+  'wait_for_update': 500
+});
+
+// Tant que la publicité est refusée, Google retire des pings les identifiants
+// publicitaires qu'ils pourraient encore porter (notamment le \`gclid\`).
+gtag('set', 'ads_data_redaction', true);
+
+// L'attribution Google Ads sans cookie : le \`gclid\` est propagé d'une page à
+// l'autre par l'URL plutôt que par un traceur. C'est ce qui permet de mesurer
+// une conversion issue d'une annonce chez un visiteur ayant refusé, sans rien
+// écrire sur son terminal.
+gtag('set', 'url_passthrough', true);
+`.trim();
+
+const conteneur = `
+(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'${GTM_SERVER_URL}/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${GTM_CONTAINER_ID}');
+`.trim();
+---
+
+{
+  TRACKING_ACTIF && (
+    <Fragment>
+      {/* `is:inline` est indispensable : ces scripts doivent s'exécuter dans
+          l'ordre du document, avant tout le reste. Un script traité par Astro
+          serait transformé en module différé et arriverait trop tard. */}
+      <script is:inline set:html={socle} />
+      <link rel="preconnect" href={GTM_SERVER_URL} />
+      <script is:inline set:html={conteneur} />
+    </Fragment>
+  )
+}

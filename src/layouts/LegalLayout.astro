@@ -299,6 +299,30 @@ const dateMajLisible = new Intl.DateTimeFormat('fr-FR', {
     font-size: var(--text-sm);
   }
 
+  /* Bouton de réouverture du panneau de consentement — `<button
+     class="legal-cc-button">` dans la politique de confidentialité.
+     Dessiné comme un bouton secondaire du site : le retrait du consentement
+     doit sauter aux yeux dans un mur de texte légal, pas s'y fondre. */
+  .legal__body :global(.legal-cc-button) {
+    display: inline-block;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--text);
+    background: var(--white);
+    color: var(--text);
+    font: inherit;
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition:
+      background 0.2s var(--ease),
+      color 0.2s var(--ease);
+  }
+
+  .legal__body :global(.legal-cc-button:hover) {
+    background: var(--text);
+    color: var(--white);
+  }
+
   /* Tableaux — `<div class="legal-table">` autour du `<table>` côté page :
      le défilement horizontal vit sur l'enveloppe, jamais sur la page. */
   .legal__body :global(.legal-table) {

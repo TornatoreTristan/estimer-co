@@ -1,4 +1,6 @@
 ---
+import { TRACKING_ACTIF } from '../lib/analytics';
+
 const annee = new Date().getFullYear();
 
 const COLONNES = [
@@ -83,6 +85,22 @@ const LIENS_LEGAUX = [
         <p>&copy; {annee} Estimer mon bien. Tous droits réservés.</p>
         <nav class="site-footer__legal" aria-label="Informations légales">
           {LIENS_LEGAUX.map((lien) => <a href={lien.href}>{lien.label}</a>)}
+          {/*
+            Le retrait du consentement doit être aussi accessible que son
+            recueil : c'est une exigence de l'article 7.3 du RGPD, pas une
+            commodité. `data-cc="show-preferencesModal"` est reconnu par
+            vanilla-cookieconsent sans qu'on ait à câbler d'écouteur.
+
+            Un `<button>` et non un `<a>` : il n'y a pas de destination, et un
+            lien sans href n'est pas atteignable au clavier. Conditionné à
+            `TRACKING_ACTIF` pour la même raison que le bandeau lui-même — sans
+            traceur, ce bouton ouvrirait un panneau qui ne pilote rien.
+          */}
+          {TRACKING_ACTIF && (
+            <button type="button" data-cc="show-preferencesModal">
+              Gestion des cookies
+            </button>
+          )}
         </nav>
       </div>
       <p>Estimation indicative, sans valeur d'expertise réglementaire.</p>

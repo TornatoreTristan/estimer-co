@@ -951,12 +951,29 @@ p {
   gap: 0.5rem 1.25rem;
 }
 
-.site-footer__legal a {
+/*
+ * Le bouton « Gestion des cookies » est traité exactement comme les liens qui
+ * l'entourent : le visiteur lit une rangée d'accès légaux, la nature technique
+ * de chaque élément ne le regarde pas. D'où la remise à zéro de l'apparence
+ * native du `<button>` — il reste un bouton pour le clavier et les lecteurs
+ * d'écran, ce qui est le seul point qui compte.
+ */
+.site-footer__legal a,
+.site-footer__legal button {
   color: rgba(255, 255, 255, 0.65);
   transition: color 0.2s var(--ease);
 }
 
-.site-footer__legal a:hover {
+.site-footer__legal button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.site-footer__legal a:hover,
+.site-footer__legal button:hover {
   color: var(--orange-75);
 }
 
@@ -1073,6 +1090,156 @@ p {
   fill: none;
   stroke-width: 2;
   stroke-linecap: round;
+}
+
+/* ------------------------------------------------ Bandeau de consentement */
+
+/*
+ * Mise à la charte de vanilla-cookieconsent (`ConsentBanner.astro`).
+ *
+ * La bibliothèque expose tout son habillage en variables CSS : on ne surcharge
+ * donc aucune de ses classes, on remplit ses variables avec nos tokens. La
+ * différence n'est pas cosmétique — une surcharge de classe casserait à la
+ * première mise à jour de la bibliothèque, une variable est un contrat.
+ *
+ * Deux valeurs à zéro méritent leur ligne : `--cc-btn-border-radius` et
+ * `--cc-modal-border-radius`. Tout est à angle droit dans cette charte (cf.
+ * l'absence assumée de tokens `--radius-*` en tête de fichier) ; un bandeau
+ * aux coins arrondis se verrait immédiatement comme une pièce rapportée.
+ *
+ * `html:root` et non `:root` : la bibliothèque pose ses propres valeurs sur
+ * `:root`, et sa feuille est chargée dynamiquement — donc APRÈS celle-ci. À
+ * spécificité égale, c'est l'ordre qui tranche, et l'ordre nous est
+ * défavorable. Le `html` en tête fait passer le sélecteur à (0,1,1) et rend le
+ * résultat indépendant du moment où la feuille de la bibliothèque arrive.
+ * Constaté à l'écran avant correction : des boutons gris ardoise au lieu de
+ * l'orange de la charte.
+ */
+html:root {
+  --cc-font-family: var(--font);
+  --cc-bg: var(--white);
+  --cc-primary-color: var(--text);
+  --cc-secondary-color: var(--text-soft);
+  --cc-link-color: var(--text);
+
+  --cc-btn-border-radius: 0;
+  --cc-modal-border-radius: 0;
+  --cc-pm-toggle-border-radius: 0;
+
+  /* « Tout accepter » : l'orange d'accent, comme tous les CTA du site. */
+  --cc-btn-primary-bg: var(--orange);
+  --cc-btn-primary-color: var(--white);
+  --cc-btn-primary-border-color: var(--orange);
+  --cc-btn-primary-hover-bg: var(--orange-95);
+  --cc-btn-primary-hover-color: var(--white);
+  --cc-btn-primary-hover-border-color: var(--orange-95);
+
+  /*
+   * « Tout refuser » : un contour franc sur fond clair, pas un gris effacé.
+   * `equalWeightButtons` (côté configuration) leur donne déjà la même taille ;
+   * ces couleurs achèvent de mettre les deux options au même niveau de
+   * lisibilité, ce que la CNIL exige et ce que la plupart des bandeaux
+   * contournent en délavant le refus.
+   */
+  --cc-btn-secondary-bg: var(--white);
+  --cc-btn-secondary-color: var(--text);
+  --cc-btn-secondary-border-color: var(--border-strong);
+  --cc-btn-secondary-hover-bg: var(--beige-25);
+  --cc-btn-secondary-hover-color: var(--text);
+  --cc-btn-secondary-hover-border-color: var(--text);
+
+  --cc-separator-border-color: var(--border);
+  --cc-section-category-border: var(--border);
+  --cc-cookie-category-block-bg: var(--beige-25);
+  --cc-cookie-category-block-border: var(--border);
+  --cc-cookie-category-block-hover-bg: var(--beige-50);
+  --cc-cookie-category-block-hover-border: var(--border-strong);
+  --cc-cookie-category-expanded-block-bg: transparent;
+  --cc-cookie-category-expanded-block-hover-bg: var(--beige-50);
+
+  --cc-toggle-on-bg: var(--orange);
+  /* Un gris tiré du noir de la charte, et non `--aubergine-4` : ce mauve
+     saturé attirait l'œil plus que l'état actif lui-même, alors qu'un
+     interrupteur fermé n'a rien à revendiquer. */
+  --cc-toggle-off-bg: rgba(29, 12, 27, 0.32);
+  --cc-toggle-on-knob-bg: var(--white);
+  --cc-toggle-off-knob-bg: var(--white);
+  --cc-toggle-readonly-bg: var(--aubergine-6);
+  --cc-toggle-readonly-knob-bg: var(--white);
+  --cc-toggle-readonly-knob-icon-color: var(--aubergine-4);
+  --cc-toggle-enabled-icon-color: var(--white);
+  --cc-toggle-disabled-icon-color: var(--white);
+
+  --cc-footer-bg: var(--beige-25);
+  --cc-footer-color: var(--text-soft);
+  --cc-footer-border-color: var(--border);
+
+  --cc-overlay-bg: rgba(29, 12, 27, 0.65);
+
+  /* Au-dessus de l'en-tête collant (50) et de l'appel à l'action (45) : un
+     bandeau de consentement partiellement recouvert n'est pas un consentement
+     éclairé. */
+  --cc-z-index: 60;
+}
+
+/*
+ * Le filet de 1 px qui remplace l'ombre, ici comme partout dans la charte.
+ */
+#cc-main .cm,
+#cc-main .pm {
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+
+/*
+ * « Tout refuser » : même boîte, autre couleur.
+ *
+ * `equalWeightButtons` donne aux deux boutons la même classe, donc le même
+ * aplat orange — deux boutons rigoureusement identiques côte à côte, où plus
+ * rien ne distingue accepter de refuser, et où l'orange (la couleur des
+ * actions engageantes du site) se retrouve à signifier « non ». Constaté à
+ * l'écran, et corrigé ici.
+ *
+ * Ce que la CNIL exige, c'est une présentation ÉQUIVALENTE : même taille, même
+ * typographie, même niveau de mise en avant, aucun des deux relégué dans un
+ * gris délavé ou caché derrière un second clic. Tout cela reste vrai — seul
+ * l'aplat change, remplacé par un contour franc de la même dimension. C'est la
+ * forme qu'on retrouve dans les bandeaux jugés conformes, et elle rend le
+ * choix lisible au lieu de le rendre ambigu.
+ *
+ * Le ciblage passe par `data-role`, l'attribut que la bibliothèque pose
+ * elle-même sur le bouton de refus, plutôt que par une position dans le DOM
+ * qui changerait au premier réglage de `flipButtons`.
+ */
+#cc-main .cm__btn[data-role='necessary'],
+#cc-main .pm__btn[data-role='necessary'] {
+  background: var(--cc-btn-secondary-bg);
+  color: var(--cc-btn-secondary-color);
+  border-color: var(--cc-btn-secondary-border-color);
+}
+
+#cc-main .cm__btn[data-role='necessary']:hover,
+#cc-main .pm__btn[data-role='necessary']:hover {
+  background: var(--cc-btn-secondary-hover-bg);
+  color: var(--cc-btn-secondary-hover-color);
+  border-color: var(--cc-btn-secondary-hover-border-color);
+}
+
+/*
+ * Cohabitation avec l'appel à l'action collant : les deux visent le bas de
+ * l'écran, et sur mobile ils se recouvriraient. Tant que le bandeau attend une
+ * réponse, l'appel à l'action s'efface — il aura tout le reste de la visite
+ * pour se montrer, alors que le consentement, lui, se recueille maintenant.
+ *
+ * `show--consent` est posée sur `<html>` par la bibliothèque. Le sélecteur
+ * reprend le `translateY` de l'état masqué de `.sticky-cta` au lieu d'un
+ * `display: none`, pour que la barre glisse hors champ plutôt que de
+ * disparaître d'un coup lorsque le visiteur tranche.
+ */
+html.show--consent .sticky-cta,
+html.show--preferences .sticky-cta {
+  transform: translateY(calc(100% + 1.25rem));
+  visibility: hidden;
 }
 
 /* --------------------------------------------------------- Responsive */

@@ -1,7 +1,7 @@
 ---
 import LegalLayout from '../layouts/LegalLayout.astro';
 import { EDITEUR, HEBERGEUR } from '../data/legal';
-import { CONFIG } from '../lib/config';
+import { CONSENT_EXPIRE_JOURS, TRACKING_ACTIF } from '../lib/analytics';
 
 /**
  * Politique de confidentialité.
@@ -23,13 +23,18 @@ import { CONFIG } from '../lib/config';
  * fausse, ce qui est un manquement, pas une coquille.
  *
  * Le statut de la mesure d'audience est déduit de la configuration réelle
- * (`PUBLIC_GA4_MEASUREMENT_ID`) plutôt qu'écrit en dur : tant que la variable
- * est vide, aucun script GA4 n'est chargé et la page le dit ; le jour où elle
- * est renseignée, le texte bascule tout seul. Une politique qui annonce un
- * traceur inexistant est aussi fautive qu'une qui en cache un.
+ * (`TRACKING_ACTIF`, c'est-à-dire `PUBLIC_GTM_CONTAINER_ID`) plutôt qu'écrit en
+ * dur : tant que la variable est vide, aucun script Google n'est chargé et la
+ * page le dit ; le jour où elle est renseignée, le texte bascule tout seul, en
+ * même temps qu'apparaissent le bandeau et le conteneur de tags. Une politique
+ * qui annonce un traceur inexistant est aussi fautive qu'une qui en cache un —
+ * c'est tout l'objet de l'interrupteur unique décrit dans `lib/analytics.ts`.
  */
 
-const mesureAudienceActive = Boolean((CONFIG.ANALYTICS.GA4_MEASUREMENT_ID || '').trim());
+const mesureAudienceActive = TRACKING_ACTIF;
+
+/** Formulation en mois de la durée effectivement appliquée par le bandeau. */
+const dureeConsentementMois = Math.round(CONSENT_EXPIRE_JOURS / 30.44);
 
 const SECTIONS = [
   { id: 'responsable', titre: 'Responsable du traitement' },
@@ -364,7 +369,9 @@ const TRAITEMENTS = [
         <strong>Traceurs de mesure d'audience et publicitaires</strong>&nbsp;: 13 mois maximum, et
         25 mois pour les statistiques agrégées qui en sont issues.
       </li>
-      <li><strong>Preuve du choix exprimé sur les cookies</strong>&nbsp;: 6 mois.</li>
+      <li>
+        <strong>Preuve du choix exprimé sur les cookies</strong>&nbsp;: {dureeConsentementMois} mois.
+      </li>
     </ul>
   </Fragment>
 
@@ -382,6 +389,17 @@ const TRAITEMENTS = [
       pas soumis à consentement, et il n'est pas possible de les refuser sans rendre le site
       inutilisable.
     </p>
+    {
+      mesureAudienceActive && (
+        <p>
+          Le seul cookie déposé à ce titre s'appelle <code>emb_consentement</code>. Il ne contient
+          que le choix que vous avez exprimé ci-dessous et la date à laquelle vous l'avez fait
+          &mdash; aucun identifiant, aucune donnée de navigation. Il est conservé{' '}
+          {dureeConsentementMois} mois, et sans lui nous serions contraints de vous reposer la
+          question à chaque page.
+        </p>
+      )
+    }
 
     <h3>Mesure d'audience et publicité</h3>
     <p>
@@ -399,7 +417,19 @@ const TRAITEMENTS = [
           <p>
             Refuser est aussi simple qu'accepter, et n'a aucune conséquence sur l'accès au
             service&nbsp;: l'estimation, le rapport et le formulaire de contact restent pleinement
-            disponibles. Votre choix est conservé 6 mois, puis vous est redemandé.
+            disponibles. Votre choix est conservé {dureeConsentementMois} mois, puis vous est
+            redemandé. Il l'est également plus tôt si nous ajoutons une finalité ou un
+            destinataire&nbsp;: un consentement porte sur ce qui vous a été présenté, il ne se
+            transporte pas sur autre chose.
+          </p>
+          <p>
+            <button type="button" data-cc="show-preferencesModal" class="legal-cc-button">
+              Modifier mes préférences de cookies
+            </button>
+            <br />
+            Ce réglage est également accessible à tout moment depuis le lien «&nbsp;Gestion des
+            cookies&nbsp;» en bas de chaque page. Retirer votre consentement efface immédiatement
+            les traceurs correspondants.
           </p>
         </Fragment>
       ) : (
