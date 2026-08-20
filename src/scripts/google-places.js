@@ -72,13 +72,50 @@ function parseGooglePlace(place) {
 // ============================================================================
 
 /**
+ * Clé Google Maps telle qu'elle a été injectée AU BUILD
+ * (`PUBLIC_GOOGLE_MAPS_API_KEY` -> `src/lib/config.ts` -> `ClientConfig.astro`).
+ *
+ * Une variable d'environnement absente vaut `undefined` et DISPARAÎT du JSON
+ * sérialisé : `CONFIG.GOOGLE` vaut alors `{}`, pas une erreur. C'est
+ * exactement le cas d'un build lancé sans la variable (Dockerfile Coolify sans
+ * build arg, preview, dev sans `.env`) — d'où la lecture entièrement
+ * défensive, et le `.trim()` qui traite `"  "` comme une absence.
+ *
+ * @returns {string} la clé, ou "" si aucune clé exploitable n'est configurée.
+ */
+function readGoogleMapsApiKey() {
+  if (typeof CONFIG === "undefined" || !CONFIG || !CONFIG.GOOGLE) return "";
+  return String(CONFIG.GOOGLE.API_KEY || "").trim();
+}
+
+/**
+ * Diagnostic explicite d'un build sans clé. Sans ce message, le symptôme
+ * observé est « l'autocomplétion d'adresse ne marche pas », sans la moindre
+ * trace en console : le script Google n'étant jamais injecté, aucune erreur
+ * réseau n'apparaît, et le bug se confond avec une panne côté Google.
+ */
+function warnMissingGoogleMapsApiKey(feature) {
+  if (typeof console === "undefined" || typeof console.warn !== "function") return;
+  console.warn(
+    "[estimer.co] " +
+      feature +
+      " desactive : PUBLIC_GOOGLE_MAPS_API_KEY est absente du build " +
+      "(variable d'environnement a definir sur l'hebergeur AU MOMENT DU BUILD, " +
+      "pas seulement a l'execution)."
+  );
+}
+
+/**
  * Injecte le `<script>` de l'API Google Maps (librairie `places`) et demande
  * l'appel de `callbackName` une fois chargée. Le callback doit être publié sur
  * `window` par l'appelant AVANT cet appel.
  *
- * Ne fait rien si aucune clé n'est configurée (preview, dev sans `.env`) : à
- * l'appelant de prévoir son repli (bloc CP/ville manuel côté wizard, saisie
- * libre côté accueil).
+ * Ne tente RIEN si aucune clé n'est configurée (preview, dev sans `.env`,
+ * build sans la variable) : injecter une URL `key=undefined` ne ferait que
+ * consommer un aller-retour réseau pour une erreur `InvalidKeyMapError`
+ * opaque. Le `false` renvoyé est le signal attendu par l'appelant pour
+ * basculer TOUT DE SUITE sur son repli (bloc CP/ville manuel côté wizard,
+ * saisie libre côté accueil) plutôt que d'attendre un minuteur.
  *
  * @param {string} callbackName nom global du callback (`window[callbackName]`)
  * @param {() => void} [onError] appelé si le script ne charge pas (bloqueur, réseau)
@@ -86,14 +123,17 @@ function parseGooglePlace(place) {
  */
 function loadGoogleMapsScript(callbackName, onError) {
   if (typeof document === "undefined") return false;
-  if (typeof CONFIG === "undefined" || !CONFIG.GOOGLE || !CONFIG.GOOGLE.API_KEY) {
+
+  var apiKey = readGoogleMapsApiKey();
+  if (!apiKey) {
+    warnMissingGoogleMapsApiKey("Autocompletion d'adresse Google Places");
     return false;
   }
 
   var script = document.createElement("script");
   script.src =
     "https://maps.googleapis.com/maps/api/js?key=" +
-    CONFIG.GOOGLE.API_KEY +
+    encodeURIComponent(apiKey) +
     "&libraries=places&callback=" +
     encodeURIComponent(callbackName);
   script.async = true;

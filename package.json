@@ -11,12 +11,14 @@
     "astro": "astro",
     "validate-content": "node scripts/validate-content.mjs",
     "migrate-legacy-data": "node scripts/migrate-legacy-data.mjs",
-    "test": "node --test scripts/test-estimation-wizard.mjs scripts/test-estimation-api.mjs scripts/test-estimation-ui.mjs scripts/test-google-places.mjs scripts/test-rapport-report.mjs",
+    "test": "node --test scripts/test-estimation-wizard.mjs scripts/test-estimation-api.mjs scripts/test-estimation-ui.mjs scripts/test-google-places.mjs scripts/test-rapport-map.mjs scripts/test-rapport-report.mjs scripts/test-wizard-nav-visibility.mjs",
     "test:wizard": "node --test scripts/test-estimation-wizard.mjs",
     "test:estimation-api": "node --test scripts/test-estimation-api.mjs",
     "test:estimation-ui": "node --test scripts/test-estimation-ui.mjs",
     "test:google-places": "node --test scripts/test-google-places.mjs",
-    "test:rapport-report": "node --test scripts/test-rapport-report.mjs"
+    "test:rapport-map": "node --test scripts/test-rapport-map.mjs",
+    "test:rapport-report": "node --test scripts/test-rapport-report.mjs",
+    "test:wizard-nav": "node --test scripts/test-wizard-nav-visibility.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",

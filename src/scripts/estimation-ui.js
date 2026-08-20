@@ -660,10 +660,15 @@ if (estimationFormEl) {
     }
   }, 3000);
 
-  // Pas de clé configurée (preview, dev sans .env...) : `loadGoogleMapsScript`
-  // renvoie false sans rien tenter, le minuteur de repli ci-dessus prend alors
-  // le relais.
-  loadGoogleMapsScript("initAutocomplete", ensureAddressManualFallback);
+  // Pas de clé configurée (preview, dev sans .env, build sans la variable
+  // d'environnement) : `loadGoogleMapsScript` renvoie false sans rien tenter.
+  // On bascule ALORS TOUT DE SUITE sur le bloc CP/ville manuel — attendre les
+  // 3 s du minuteur ci-dessus laisserait l'utilisateur devant un champ
+  // d'adresse qui ne proposera jamais la moindre suggestion, sans lui dire
+  // qu'il doit compléter code postal et ville lui-même.
+  if (!loadGoogleMapsScript("initAutocomplete", ensureAddressManualFallback)) {
+    ensureAddressManualFallback();
+  }
 
   // --------------------------------------------------------------------
   // Champs simples — synchronisation DOM -> wizard.updateField
