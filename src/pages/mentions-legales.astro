@@ -1,0 +1,320 @@
+---
+import LegalLayout from '../layouts/LegalLayout.astro';
+import { EDITEUR, HEBERGEUR, REALISATION, SOURCES_DONNEES } from '../data/legal';
+
+// Ordre = ordre d'affichage ET numérotation du sommaire (cf. LegalLayout).
+const SECTIONS = [
+  { id: 'editeur', titre: 'Éditeur du site' },
+  { id: 'hebergeur', titre: 'Hébergement' },
+  { id: 'realisation', titre: 'Conception et réalisation' },
+  { id: 'objet', titre: 'Objet du service' },
+  { id: 'estimation', titre: "Nature et portée de l'estimation" },
+  { id: 'sources', titre: 'Sources des données' },
+  { id: 'propriete', titre: 'Propriété intellectuelle' },
+  { id: 'liens', titre: 'Liens et partenaires' },
+  { id: 'responsabilite', titre: 'Limitation de responsabilité' },
+  { id: 'donnees', titre: 'Données personnelles et cookies' },
+  { id: 'signalement', titre: 'Signaler un contenu' },
+  { id: 'droit', titre: 'Droit applicable' },
+] as const;
+
+const DATE_MAJ = new Date('2026-08-20');
+---
+
+<LegalLayout
+  title="Mentions légales. Estimer mon bien"
+  description="Mentions légales du site Estimer mon bien : éditeur, directeur de la publication, hébergeur, sources des données publiques et limites de l'estimation en ligne."
+  eyebrow="Informations légales"
+  heading="Mentions légales"
+  lead="Qui édite ce site, qui l'héberge, d'où viennent les données affichées et ce que vaut — ou ne vaut pas — l'estimation que vous y obtenez."
+  dateMaj={DATE_MAJ}
+  sections={SECTIONS}
+>
+  <Fragment slot="editeur">
+    <p>
+      Le site <strong>estimer.co</strong>, exploité sous la marque «&nbsp;{EDITEUR.marque}&nbsp;»,
+      est édité par&nbsp;:
+    </p>
+    <dl>
+      <dt>Éditeur et directeur de la publication</dt>
+      <dd>{EDITEUR.responsable}</dd>
+
+      {
+        EDITEUR.formeJuridique && (
+          <Fragment>
+            <dt>Forme juridique</dt>
+            <dd>
+              {EDITEUR.formeJuridique}
+              {EDITEUR.capital && ` au capital de ${EDITEUR.capital}`}
+            </dd>
+          </Fragment>
+        )
+      }
+
+      {
+        EDITEUR.adresse && (
+          <Fragment>
+            <dt>Siège</dt>
+            <dd>{EDITEUR.adresse}</dd>
+          </Fragment>
+        )
+      }
+
+      {
+        EDITEUR.siren && (
+          <Fragment>
+            <dt>Identification</dt>
+            <dd>
+              SIREN {EDITEUR.siren}
+              {EDITEUR.rcs && ` — RCS ${EDITEUR.rcs}`}
+              {EDITEUR.tvaIntracom && ` — TVA intracommunautaire ${EDITEUR.tvaIntracom}`}
+            </dd>
+          </Fragment>
+        )
+      }
+
+      <dt>Courriel</dt>
+      <dd><a href={`mailto:${EDITEUR.email}`}>{EDITEUR.email}</a></dd>
+
+      <dt>Téléphone</dt>
+      <dd><a href={`tel:${EDITEUR.telephoneLien}`}>{EDITEUR.telephone}</a></dd>
+    </dl>
+
+    <p>
+      Le directeur de la publication est responsable du contenu éditorial mis en ligne, au sens de
+      l'article 6 de la loi n°&nbsp;2004-575 du 21 juin 2004 pour la confiance dans l'économie
+      numérique.
+    </p>
+
+    {
+      EDITEUR.mediateur && (
+        <Fragment>
+          <h3>Médiation de la consommation</h3>
+          <p>
+            Conformément à l'article L.&nbsp;612-1 du code de la consommation, vous pouvez recourir
+            gratuitement au médiateur <a
+              href={EDITEUR.mediateur.url}
+              target="_blank"
+              rel="noopener noreferrer">{EDITEUR.mediateur.nom}</a
+            >{EDITEUR.mediateur.adresse && ` — ${EDITEUR.mediateur.adresse}`}, après avoir tenté de
+            résoudre le litige directement auprès de nous.
+          </p>
+        </Fragment>
+      )
+    }
+  </Fragment>
+
+  <Fragment slot="hebergeur">
+    <p>Le site est hébergé par&nbsp;:</p>
+    <dl>
+      <dt>Hébergeur</dt>
+      <dd>{HEBERGEUR.nom}</dd>
+
+      <dt>Adresse</dt>
+      <dd>{HEBERGEUR.adresse}</dd>
+
+      <dt>Site</dt>
+      <dd>
+        <a href={HEBERGEUR.url} target="_blank" rel="noopener noreferrer">
+          {HEBERGEUR.url.replace('https://', '')}
+        </a>
+      </dd>
+    </dl>
+    <p>
+      Le service d'estimation (calcul et envoi des messages) repose sur une interface de
+      programmation distincte, également exploitée par l'éditeur. Les infrastructures et
+      prestataires qui la font fonctionner sont détaillés dans la <a
+        href="/politique-de-confidentialite/#destinataires">politique de confidentialité</a
+      >.
+    </p>
+  </Fragment>
+
+  <Fragment slot="realisation">
+    <p>
+      Conception graphique et réalisation technique&nbsp;: <strong>{REALISATION.nom}</strong>.
+    </p>
+  </Fragment>
+
+  <Fragment slot="objet">
+    <p>
+      {EDITEUR.marque} propose une <strong>estimation immobilière en ligne gratuite</strong>, un
+      rapport détaillé consultable et téléchargeable, des repères de prix par région et par
+      département, ainsi qu'une mise en relation facultative avec des professionnels partenaires
+      (agences, banques, notaires, diagnostiqueurs).
+    </p>
+    <p>
+      L'accès au service est gratuit et ne nécessite pas la création d'un compte. Les frais de
+      connexion et d'équipement restent à la charge de l'utilisateur.
+    </p>
+  </Fragment>
+
+  <Fragment slot="estimation">
+    <p>
+      L'estimation délivrée est produite par un traitement automatisé à partir de transactions
+      comparables et d'indices publics. Elle est fournie <strong>à titre indicatif</strong>.
+    </p>
+    <aside class="legal-note">
+      <p>
+        <strong>
+          Cette estimation automatisée ne constitue ni une expertise immobilière, ni un avis de
+          valeur au sens de la Charte de l'expertise en évaluation immobilière.
+        </strong> Elle ne tient compte ni de l'état intérieur réel du bien, ni de ses spécificités (vue,
+        exposition, nuisances, servitudes, travaux votés en copropriété). Seule une visite sur
+        place permet une évaluation engageante.
+      </p>
+    </aside>
+    <p>
+      L'éditeur n'exerce aucune activité d'entremise ou de gestion immobilière soumise à la loi
+      n°&nbsp;70-9 du 2 janvier 1970 dite «&nbsp;loi Hoguet&nbsp;»&nbsp;: il n'intervient dans
+      aucune transaction, ne détient aucun mandat et ne perçoit aucune commission sur une vente.
+    </p>
+    <p>
+      Lorsque les données publiques ne permettent pas de calculer un prix pour une adresse donnée,
+      ou lorsque le service de calcul est momentanément indisponible, le site peut afficher une
+      valeur de repli explicitement signalée comme telle. Cette valeur ne s'appuie alors ni sur les
+      données DVF, ni sur les travaux de la DGFiP.
+    </p>
+  </Fragment>
+
+  <Fragment slot="sources">
+    <p>
+      Les prix et indicateurs affichés sont calculés <strong>à partir de</strong> jeux de données
+      publics. Les organismes producteurs ne cautionnent en aucune manière les estimations
+      produites par ce site&nbsp;:
+    </p>
+    <div class="legal-table">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Source</th>
+            <th scope="col">Producteur</th>
+            <th scope="col">Usage sur le site</th>
+            <th scope="col">Licence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            SOURCES_DONNEES.map((source) => (
+              <tr>
+                <th scope="row">
+                  <a href={source.url} target="_blank" rel="noopener noreferrer">
+                    {source.nom}
+                  </a>
+                </th>
+                <td>{source.editeur}</td>
+                <td>{source.role}</td>
+                <td>{source.licence}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Ces données sont réutilisées dans le respect de leurs licences respectives, en particulier de
+      l'obligation de paternité de la Licence Ouverte Etalab 2.0. La date du millésime effectivement
+      utilisé est indiquée sur le rapport d'estimation lui-même, au plus près du chiffre affiché.
+    </p>
+    <p>
+      Les fonctions de cartographie et de saisie assistée d'adresse s'appuient sur les services
+      Google Maps Platform, soumis aux <a
+        href="https://cloud.google.com/maps-platform/terms"
+        target="_blank"
+        rel="noopener noreferrer">conditions d'utilisation de Google Maps Platform</a
+      >.
+    </p>
+  </Fragment>
+
+  <Fragment slot="propriete">
+    <p>
+      La structure du site, sa charte graphique, ses textes rédactionnels, sa méthode de
+      présentation des résultats et le format du rapport d'estimation sont protégés par le droit
+      d'auteur. Toute reproduction, représentation, adaptation ou exploitation, totale ou
+      partielle, par quelque procédé que ce soit, sans autorisation écrite préalable de l'éditeur,
+      est interdite.
+    </p>
+    <p>
+      Cette protection ne s'étend pas aux données publiques sous-jacentes, librement réutilisables
+      selon les conditions de leurs licences respectives (section&nbsp;6).
+    </p>
+    <p>
+      Les marques, dénominations sociales et logos des sociétés partenaires cités sur le site
+      demeurent la propriété exclusive de leurs titulaires. Ils sont affichés à des fins
+      d'identification, avec l'accord de leurs titulaires lorsque cet accord est requis. Toute
+      demande de retrait peut être adressée à <a href={`mailto:${EDITEUR.email}`}>{EDITEUR.email}</a> et sera traitée sans délai.
+    </p>
+    <p>
+      Le rapport d'estimation généré à votre demande vous est destiné&nbsp;: vous pouvez le
+      conserver, l'imprimer et le transmettre à un professionnel de votre choix.
+    </p>
+  </Fragment>
+
+  <Fragment slot="liens">
+    <p>
+      Le site renvoie vers des sites tiers, notamment ceux des professionnels référencés sur la
+      page <a href="/partenaires/">Partenaires</a>. Ces liens sont proposés à titre informatif.
+      L'éditeur n'exerce aucun contrôle sur le contenu, les pratiques commerciales ou la politique
+      de confidentialité de ces sites, et décline toute responsabilité à leur égard.
+    </p>
+    <p>
+      Le référencement d'un partenaire ne constitue ni une recommandation personnalisée, ni une
+      garantie de la qualité de ses prestations. Certaines mises en avant peuvent faire l'objet
+      d'un accord commercial entre l'éditeur et le professionnel concerné.
+    </p>
+    <p>
+      La création d'un lien hypertexte vers le site est libre, dès lors qu'elle ne porte pas
+      atteinte à l'image de l'éditeur et n'induit pas le public en erreur sur l'origine du contenu.
+    </p>
+  </Fragment>
+
+  <Fragment slot="responsabilite">
+    <p>
+      L'éditeur met en œuvre les moyens raisonnables pour assurer l'exactitude et l'actualité des
+      informations diffusées. Il ne peut toutefois garantir que ces informations sont exhaustives,
+      exemptes d'erreur ou à jour à tout instant, les données publiques exploitées étant
+      elles-mêmes publiées avec une latence de plusieurs mois.
+    </p>
+    <p>
+      Toute décision prise sur la seule base d'une estimation obtenue sur ce site — prix de mise en
+      vente, offre d'achat, arbitrage patrimonial — relève de la responsabilité exclusive de son
+      auteur. L'éditeur ne saurait être tenu responsable d'un préjudice financier qui en
+      résulterait.
+    </p>
+    <p>
+      L'éditeur ne garantit pas une disponibilité ininterrompue du site et peut en suspendre
+      l'accès, notamment pour maintenance, sans préavis ni indemnité.
+    </p>
+  </Fragment>
+
+  <Fragment slot="donnees">
+    <p>
+      Le traitement des données personnelles, les destinataires de ces données, les durées de
+      conservation, les cookies et traceurs ainsi que les modalités d'exercice de vos droits sont
+      décrits en détail dans la <a href="/politique-de-confidentialite/">politique de confidentialité</a>.
+    </p>
+    <p>
+      Pour toute question relative à vos données&nbsp;:
+      <a href={`mailto:${EDITEUR.email}`}>{EDITEUR.email}</a>.
+    </p>
+  </Fragment>
+
+  <Fragment slot="signalement">
+    <p>
+      Si un contenu publié sur ce site vous paraît illicite, inexact ou porte atteinte à vos
+      droits, signalez-le à <a href={`mailto:${EDITEUR.email}`}>{EDITEUR.email}</a> ou via le <a href="/contact/">formulaire de contact</a>, en précisant l'adresse de la page concernée et
+      le motif du signalement. Chaque signalement est examiné et le contenu retiré s'il y a lieu.
+    </p>
+  </Fragment>
+
+  <Fragment slot="droit">
+    <p>
+      Les présentes mentions légales sont régies par le droit français. En cas de litige, et à
+      défaut de résolution amiable, les tribunaux français sont compétents dans les conditions
+      prévues par les règles de procédure applicables.
+    </p>
+    <p>
+      L'éditeur peut modifier ces mentions à tout moment&nbsp;; la version applicable est celle
+      publiée sur cette page à la date de votre consultation.
+    </p>
+  </Fragment>
+</LegalLayout>

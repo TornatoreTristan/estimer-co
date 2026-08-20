@@ -1,0 +1,352 @@
+---
+import BaseLayout from './BaseLayout.astro';
+
+/**
+ * Gabarit commun aux pages légales (`/mentions-legales/`,
+ * `/politique-de-confidentialite/`).
+ *
+ * ---------------------------------------------------------------------------
+ * POURQUOI LE SOMMAIRE EST PILOTÉ PAR UNE DONNÉE, PAS ÉCRIT À LA MAIN
+ * ---------------------------------------------------------------------------
+ * Ces pages sont longues, rarement relues, et modifiées section par section au
+ * fil des évolutions du produit (nouveau sous-traitant, nouvelle finalité). Un
+ * sommaire écrit en dur à côté du contenu se désynchronise à la première
+ * édition, et le lien mort qui en résulte est exactement le genre de détail
+ * qu'on ne voit jamais sur une page qu'on ne lit pas.
+ *
+ * `sections` est donc l'unique source : elle produit à la fois les entrées du
+ * sommaire ET les titres `<h2 id>` du corps. Le contenu de chaque section
+ * arrive par un slot nommé d'après son `id` (slots dynamiques Astro). Ajouter
+ * une section = une ligne dans `sections` + un `<Fragment slot="...">` ; en
+ * oublier un laisse une section visiblement vide, pas un lien cassé.
+ *
+ * Conséquence sur les styles : le contenu slotté appartient à la portée de la
+ * PAGE, pas à celle de ce composant. Les règles de mise en forme du corps
+ * doivent donc passer par `:global()` (voir le bloc <style> en bas), sans quoi
+ * elles ne s'appliqueraient à rien.
+ */
+
+interface Section {
+  id: string;
+  titre: string;
+}
+
+interface Props {
+  title: string;
+  description: string;
+  eyebrow: string;
+  heading: string;
+  lead: string;
+  /** Date de dernière révision du texte, affichée au lecteur. */
+  dateMaj: Date;
+  sections: readonly Section[];
+}
+
+const { title, description, eyebrow, heading, lead, dateMaj, sections } = Astro.props;
+
+const dateMajLisible = new Intl.DateTimeFormat('fr-FR', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+}).format(dateMaj);
+---
+
+<BaseLayout title={title} description={description}>
+  <section class="legal">
+    <div class="container">
+      <header class="legal__head">
+        <span class="eyebrow">{eyebrow}</span>
+        <h1>{heading}</h1>
+        <p class="lead">{lead}</p>
+        <p class="legal__date">
+          Dernière mise à jour : <time datetime={dateMaj.toISOString().slice(0, 10)}>
+            {dateMajLisible}
+          </time>
+        </p>
+      </header>
+
+      <div class="legal__grid">
+        <nav class="legal__toc" aria-label="Sommaire">
+          <h2 class="legal__toc-title">Sommaire</h2>
+          <ol>
+            {
+              sections.map((section, index) => (
+                <li>
+                  <a href={`#${section.id}`}>
+                    <span class="legal__toc-num">{String(index + 1).padStart(2, '0')}</span>
+                    {section.titre}
+                  </a>
+                </li>
+              ))
+            }
+          </ol>
+        </nav>
+
+        <div class="legal__body">
+          {
+            sections.map((section, index) => (
+              <section class="legal__section" id={section.id}>
+                <h2>
+                  <span class="legal__section-num">{String(index + 1).padStart(2, '0')}</span>
+                  {section.titre}
+                </h2>
+                <slot name={section.id} />
+              </section>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .legal {
+    padding: clamp(2.5rem, 1.5rem + 4vw, 5rem) 0 clamp(3.5rem, 2rem + 5vw, 6rem);
+    background:
+      radial-gradient(55rem 30rem at 85% -10%, var(--orange-10) 0%, transparent 60%),
+      linear-gradient(180deg, var(--beige-25) 0%, var(--beige-10) 100%);
+  }
+
+  .legal__head {
+    max-width: 46rem;
+    padding-bottom: clamp(2rem, 1rem + 3vw, 3rem);
+    margin-bottom: clamp(2rem, 1rem + 3vw, 3rem);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legal__head h1 {
+    margin-bottom: 1rem;
+  }
+
+  .legal__date {
+    margin-top: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+  }
+
+  .legal__grid {
+    display: grid;
+    grid-template-columns: 17rem minmax(0, 1fr);
+    gap: clamp(2rem, 1rem + 4vw, 4.5rem);
+    align-items: start;
+  }
+
+  /* ------------------------------------------------------------ Sommaire */
+
+  .legal__toc {
+    position: sticky;
+    top: 6rem;
+    /* Un sommaire de 12 entrées dépasse la hauteur d'écran d'un portable en
+       paysage : sans ce défilement propre, les dernières entrées deviennent
+       inatteignables une fois l'élément collé. */
+    max-height: calc(100vh - 8rem);
+    overflow-y: auto;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    background: var(--white);
+  }
+
+  .legal__toc-title {
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--aubergine-3);
+    margin-bottom: 1rem;
+  }
+
+  .legal__toc ol {
+    list-style: none;
+    display: grid;
+    gap: 0.125rem;
+  }
+
+  .legal__toc a {
+    display: flex;
+    gap: 0.625rem;
+    padding: 0.4375rem 0;
+    font-size: var(--text-sm);
+    line-height: 1.4;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: color 0.2s var(--ease);
+  }
+
+  .legal__toc a:hover {
+    color: var(--orange);
+  }
+
+  .legal__toc-num {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    color: var(--aubergine-4);
+  }
+
+  /* ---------------------------------------------------------------- Corps */
+
+  .legal__section {
+    /* Compense la hauteur de l'en-tête collant : sans cela, une ancre du
+       sommaire place le titre visé sous le header, donc hors de vue. */
+    scroll-margin-top: 6rem;
+  }
+
+  .legal__section + .legal__section {
+    margin-top: clamp(2.5rem, 1.5rem + 2vw, 3.5rem);
+    padding-top: clamp(2.5rem, 1.5rem + 2vw, 3.5rem);
+    border-top: 1px solid var(--border);
+  }
+
+  .legal__section > h2 {
+    display: flex;
+    gap: 0.875rem;
+    align-items: baseline;
+    font-size: var(--h4);
+    margin-bottom: 1.25rem;
+  }
+
+  .legal__section-num {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--orange);
+  }
+
+  /* Mise en forme du contenu slotté — `:global` obligatoire, voir l'en-tête. */
+
+  .legal__body :global(p),
+  .legal__body :global(li) {
+    font-size: var(--text-base);
+    line-height: 1.65;
+    color: var(--text-soft);
+  }
+
+  .legal__body :global(p + p) {
+    margin-top: 0.875rem;
+  }
+
+  .legal__body :global(h3) {
+    font-size: var(--text-md);
+    color: var(--text);
+    margin: 2rem 0 0.625rem;
+  }
+
+  .legal__body :global(ul),
+  .legal__body :global(ol) {
+    margin: 0.875rem 0 0;
+    padding-left: 1.125rem;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .legal__body :global(li)::marker {
+    color: var(--orange-75);
+  }
+
+  .legal__body :global(a) {
+    color: var(--text);
+    text-decoration: underline;
+    text-decoration-color: var(--orange-50);
+    text-underline-offset: 0.2em;
+    transition: color 0.2s var(--ease);
+  }
+
+  .legal__body :global(a:hover) {
+    color: var(--orange);
+  }
+
+  .legal__body :global(strong) {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .legal__body :global(dl) {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .legal__body :global(dt) {
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--aubergine-3);
+  }
+
+  .legal__body :global(dd) {
+    font-size: var(--text-base);
+    line-height: 1.6;
+    color: var(--text-soft);
+    margin-bottom: 0.75rem;
+  }
+
+  /* Encadré d'appel — `<aside class="legal-note">` côté page. */
+  .legal__body :global(.legal-note) {
+    margin-top: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border-left: 2px solid var(--orange);
+    background: var(--orange-5);
+  }
+
+  .legal__body :global(.legal-note p) {
+    font-size: var(--text-sm);
+  }
+
+  /* Tableaux — `<div class="legal-table">` autour du `<table>` côté page :
+     le défilement horizontal vit sur l'enveloppe, jamais sur la page. */
+  .legal__body :global(.legal-table) {
+    margin-top: 1.25rem;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    background: var(--white);
+  }
+
+  .legal__body :global(.legal-table table) {
+    width: 100%;
+    min-width: 34rem;
+    border-collapse: collapse;
+  }
+
+  .legal__body :global(.legal-table th),
+  .legal__body :global(.legal-table td) {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    vertical-align: top;
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--text-soft);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legal__body :global(.legal-table th) {
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--aubergine-3);
+    background: var(--beige-25);
+  }
+
+  .legal__body :global(.legal-table tr:last-child td) {
+    border-bottom: 0;
+  }
+
+  @media (max-width: 900px) {
+    .legal__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .legal__toc {
+      position: static;
+      max-height: none;
+    }
+  }
+</style>

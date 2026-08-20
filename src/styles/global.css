@@ -935,6 +935,31 @@ p {
   color: rgba(255, 255, 255, 0.45);
 }
 
+/* Copyright et liens légaux voyagent ensemble : sur un écran étroit, le
+   `flex-wrap` du conteneur les garderait groupés plutôt que d'intercaler la
+   mention d'estimation entre les deux. */
+.site-footer__bottom-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+}
+
+.site-footer__legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+.site-footer__legal a {
+  color: rgba(255, 255, 255, 0.65);
+  transition: color 0.2s var(--ease);
+}
+
+.site-footer__legal a:hover {
+  color: var(--orange-75);
+}
+
 /* --------------------------------------------------------- Responsive */
 
 @media (max-width: 992px) {
