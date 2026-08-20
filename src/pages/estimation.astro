@@ -2,29 +2,31 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ClientConfig from '../components/ClientConfig.astro';
 import RawScript from '../components/RawScript.astro';
+import googlePlacesScript from '../scripts/google-places.js?raw';
 import estimationWizardScript from '../scripts/estimation-wizard.js?raw';
+import estimationApiScript from '../scripts/estimation-api.js?raw';
 import estimationUiScript from '../scripts/estimation-ui.js?raw';
 import { partenaires } from '../data/partenaires';
 
 const benefices = [
   'Estimation 100 % gratuite et sans engagement',
-  'Rapport complet sous 24 heures',
+  'Rapport complet immédiat',
   'Analyse basée sur les transactions réelles de votre secteur',
-  'Vos données ne sont jamais revendues',
+  'Vos données ne sont transmises qu\'avec votre accord',
 ];
 
 const chiffres = [
   { value: '50 000+', label: 'Biens estimés' },
   { value: '98 %', label: 'Clients satisfaits' },
   { value: String(partenaires.length), label: 'Partenaires experts' },
-  { value: '24 h', label: 'Délai de réponse' },
+  { value: 'Immédiat', label: 'Rapport disponible' },
 ];
 
 const raisons = [
   {
     titre: 'Ne sous-évaluez pas votre bien',
     texte:
-      "Un prix trop bas, et vous laissez de l'argent sur la table. Une mauvaise estimation peut coûter jusqu'à 15 % de la valeur d'un bien — sur 300 000 €, cela représente 45 000 €.",
+      "Un prix trop bas, et vous laissez de l'argent sur la table. Une mauvaise estimation peut coûter jusqu'à 15 % de la valeur d'un bien. Sur 300 000 €, cela représente 45 000 €.",
   },
   {
     titre: 'Vendez deux fois plus vite',
@@ -52,7 +54,7 @@ const temoignages = [
   },
   {
     quote:
-      "J'ai reçu mon estimation en moins de 24 h et elle correspondait parfaitement au prix auquel j'ai finalement vendu ma maison.",
+      "J'ai reçu mon estimation immédiatement et elle correspondait parfaitement au prix auquel j'ai finalement vendu ma maison.",
     nom: 'Philippe D.',
     detail: 'Maison vendue à Bordeaux',
   },
@@ -111,14 +113,14 @@ const wizardSteps = [
     shortLabel: 'Coordonnées',
     eyebrow: 'Étape 5 sur 5',
     title: 'Vos coordonnées',
-    description: 'Dernière étape : nous vous envoyons votre rapport détaillé sous 24 h.',
+    description: 'Dernière étape : votre rapport détaillé est disponible immédiatement.',
   },
 ];
 ---
 
 <BaseLayout
-  title="Estimation gratuite de votre bien immobilier — Estimer mon bien"
-  description="Estimez votre bien immobilier gratuitement et recevez un rapport détaillé sous 24 heures : fourchette de prix, marché local et impact du DPE."
+  title="Estimation gratuite de votre bien immobilier. Estimer mon bien"
+  description="Estimez votre bien immobilier gratuitement et recevez un rapport détaillé immédiat : fourchette de prix, marché local et impact du DPE."
 >
   <Fragment slot="head">
     <ClientConfig />
@@ -357,16 +359,93 @@ const wizardSteps = [
                 <label for="dpe">Diagnostic énergétique (DPE) <span class="required">*</span></label>
                 <select id="dpe" name="dpe" class="select" required aria-describedby="dpe-error">
                   <option value="">Sélectionnez une option</option>
-                  <option value="A">A — Excellent</option>
-                  <option value="B">B — Très bon</option>
-                  <option value="C">C — Bon</option>
-                  <option value="D">D — Moyen</option>
-                  <option value="E">E — Insuffisant</option>
-                  <option value="F">F — Mauvais</option>
-                  <option value="G">G — Très mauvais</option>
+                  <option value="A">A, excellent</option>
+                  <option value="B">B, très bon</option>
+                  <option value="C">C, bon</option>
+                  <option value="D">D, moyen</option>
+                  <option value="E">E, insuffisant</option>
+                  <option value="F">F, mauvais</option>
+                  <option value="G">G, très mauvais</option>
                   <option value="unknown">Je ne connais pas mon DPE</option>
                 </select>
                 <p class="field-error" id="dpe-error" role="alert" hidden></p>
+              </div>
+
+              <!-- Précisions facultatives (specs/estimation-donnees-reelles.md
+                   §7.1). Aucune n'est obligatoire : elles affinent les
+                   coefficients k_etage / k_exterieur / k_etat du calcul, mais
+                   ne doivent jamais bloquer la soumission. La visibilité est
+                   pilotée par `WIZARD_STEPS[].conditionalFields` via
+                   `isFieldVisible()`, jamais par une règle écrite ici. -->
+              <div class="optional-block" id="optionalDetailsGroup">
+                <p class="optional-block__hint muted">
+                  Facultatif, mais chaque précision resserre la fourchette.
+                </p>
+
+                <div class="field-row">
+                  <div class="field" id="floorGroup" hidden>
+                    <label for="floor">Étage</label>
+                    <input
+                      type="number"
+                      id="floor"
+                      name="floor"
+                      class="input"
+                      placeholder="3"
+                      min="0"
+                      max="50"
+                      step="1"
+                      aria-describedby="floor-error"
+                    />
+                    <p class="field-error" id="floor-error" role="alert" hidden></p>
+                  </div>
+
+                  <div class="field" id="hasElevatorGroup" hidden>
+                    <label for="hasElevator">Ascenseur</label>
+                    <select
+                      id="hasElevator"
+                      name="hasElevator"
+                      class="select"
+                      aria-describedby="hasElevator-error"
+                    >
+                      <option value="">Sélectionnez une option</option>
+                      <option value="yes">Oui</option>
+                      <option value="no">Non</option>
+                      <option value="unknown">Je ne sais pas</option>
+                    </select>
+                    <p class="field-error" id="hasElevator-error" role="alert" hidden></p>
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field" id="outdoorGroup" hidden>
+                    <label for="outdoor">Extérieur</label>
+                    <select id="outdoor" name="outdoor" class="select" aria-describedby="outdoor-error">
+                      <option value="">Sélectionnez une option</option>
+                      <option value="none">Aucun</option>
+                      <option value="balcony">Balcon</option>
+                      <option value="terrace">Terrasse</option>
+                      <option value="garden">Jardin privatif</option>
+                    </select>
+                    <p class="field-error" id="outdoor-error" role="alert" hidden></p>
+                  </div>
+
+                  <div class="field" id="conditionGroup" hidden>
+                    <label for="condition">État général</label>
+                    <select
+                      id="condition"
+                      name="condition"
+                      class="select"
+                      aria-describedby="condition-error"
+                    >
+                      <option value="">Sélectionnez une option</option>
+                      <option value="to-renovate">À rénover</option>
+                      <option value="fair">Correct</option>
+                      <option value="good">Bon</option>
+                      <option value="new">Refait à neuf</option>
+                    </select>
+                    <p class="field-error" id="condition-error" role="alert" hidden></p>
+                  </div>
+                </div>
               </div>
 
               <div class="field" id="dpeRequestGroup" hidden>
@@ -489,10 +568,25 @@ const wizardSteps = [
                 <span>Recevoir mon estimation gratuite</span><span>&rarr;</span>
               </button>
             </div>
+
+            <!-- État de la soumission (§7.1) : l'appel API a lieu pendant
+                 l'envoi. `aria-live="polite"` annonce le message primaire puis
+                 le message secondaire au bout de 2,5 s, sans voler le focus. -->
+            <p
+              class="wizard-submit-status"
+              id="wizardSubmitStatus"
+              role="status"
+              aria-live="polite"
+              hidden
+            >
+              <span id="wizardSubmitStatusText"></span>
+              <span class="wizard-submit-status__bar" aria-hidden="true"></span>
+            </p>
           </form>
 
           <p class="form-card__foot">
-            Connexion sécurisée. Vos informations sont protégées et ne sont jamais revendues.
+            Connexion sécurisée. Vos informations ne sont transmises à un partenaire qu'avec votre
+            accord explicite.
           </p>
         </div>
       </div>
@@ -589,7 +683,11 @@ const wizardSteps = [
     </div>
   </section>
 
+  <RawScript slot="body-end" code={googlePlacesScript} />
   <RawScript slot="body-end" code={estimationWizardScript} />
+  <!-- `estimation-api.js` avant `estimation-ui.js` : ce dernier consomme
+       `buildEstimationApiPayload`, `requestEstimation`… (globales). -->
+  <RawScript slot="body-end" code={estimationApiScript} />
   <RawScript slot="body-end" code={estimationUiScript} />
 </BaseLayout>
 
@@ -824,6 +922,76 @@ const wizardSteps = [
   .wizard-nav #wizardSubmit {
     flex: 1 1 100%;
     order: 3;
+  }
+
+  /* Précisions facultatives de l'étape 3 : visuellement en retrait pour que
+     l'utilisateur voie d'un coup d'œil que rien n'y est obligatoire. */
+  .optional-block {
+    margin: 1.25rem 0;
+    padding: 1rem 1.125rem 0.25rem;
+    border: 1px dashed var(--border);
+    background: var(--beige-10);
+  }
+
+  /* Le bloc n'a plus lieu d'être si aucun de ses champs n'est visible (terrain
+     nu, local commercial) : masqué par `syncConditionalVisibility()`. */
+  .optional-block[hidden] {
+    display: none;
+  }
+
+  .optional-block__hint {
+    margin: 0 0 0.75rem;
+    font-size: var(--text-sm);
+  }
+
+  /* Progression de l'appel API pendant la soumission (§7.1, état `loading`). */
+  .wizard-submit-status {
+    margin: 1rem 0 0;
+    padding: 0.75rem 1rem;
+    font-size: var(--text-sm);
+    color: var(--text);
+    background: var(--beige-25);
+    border-left: 3px solid var(--orange);
+  }
+
+  .wizard-submit-status[hidden] {
+    display: none;
+  }
+
+  .wizard-submit-status__bar {
+    display: block;
+    height: 3px;
+    margin-top: 0.6rem;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .wizard-submit-status__bar::after {
+    content: '';
+    display: block;
+    width: 35%;
+    height: 100%;
+    background: var(--orange);
+    animation: wizardIndeterminate 1.2s ease-in-out infinite;
+  }
+
+  @keyframes wizardIndeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(300%);
+    }
+  }
+
+  /* `prefers-reduced-motion` : la règle globale de global.css ramène déjà la
+     durée à 0,01 ms ; on remplace ici l'animation par une barre pleine, qui
+     reste lisible au lieu d'un fragment figé. */
+  @media (prefers-reduced-motion: reduce) {
+    .wizard-submit-status__bar::after {
+      width: 100%;
+      animation: none;
+    }
   }
 
   @media (max-width: 600px) {

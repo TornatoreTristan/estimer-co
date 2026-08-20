@@ -12,8 +12,10 @@
 // script de vérification `scripts/test-estimation-wizard.mjs` qui exécute ce
 // fichier dans un contexte `vm` Node pour tester les fonctions pures.
 //
-// Périmètre : state du wizard, validation par étape, parsing Google Places,
-// persistance sessionStorage (RGPD), calcul d'estimation. Le câblage au DOM
+// Périmètre : state du wizard, validation par étape, persistance
+// sessionStorage (RGPD), calcul d'estimation. Le parsing Google Places
+// (`parseGooglePlace`) est parti dans `google-places.js`, partagé avec le
+// formulaire d'adresse de la page d'accueil. Le câblage au DOM
 // concret (ajout des event listeners sur les boutons, initialisation du
 // widget Google Places, minuterie de repli) reste au frontend-dev — voir les
 // notes d'intégration en bas de fichier.
@@ -35,6 +37,10 @@
 // @property {string} rooms
 // @property {string} dpe            '' | 'A'..'G' | 'unknown'
 // @property {string} dpeRequest     '' | 'yes' | 'no'
+// @property {string} floor          '' | entier en string (appartement, facultatif)
+// @property {string} hasElevator    '' | 'yes' | 'no' | 'unknown' (appartement, facultatif)
+// @property {string} outdoor        '' | 'none' | 'balcony' | 'terrace' | 'garden' (facultatif)
+// @property {string} condition      '' | 'to-renovate' | 'fair' | 'good' | 'new' (facultatif)
 // @property {string} isOwner        '' | 'yes' | 'no'
 // @property {string} wantToSell     '' | 'yes' | 'no' | 'maybe'
 // @property {string} name
@@ -57,7 +63,8 @@
 // @property {(step:number, data:WizardData)=>{valid:boolean, errors:Record<string,string>}} validateStep
 // @property {(fieldName:string)=>boolean} isFieldVisible  source unique de vérité pour la conditionnalité (US-5, US-8) — cf. WIZARD_STEPS[].conditionalFields
 // @property {(name:string, value:string)=>void} updateField
-// @property {()=>object} serializeForSubmit
+// @property {(errors:Record<string,string>)=>boolean} setErrors  erreurs externes (422 de l'API)
+// @property {(estimation?:object|null)=>object} serializeForSubmit
 // @property {()=>void} persist
 // @property {()=>boolean} restore
 // @property {()=>void} clearPersistedState  bonus (cf. US-6 « nettoyage après soumission »)
@@ -116,7 +123,20 @@ var WIZARD_STEPS = [
     key: "characteristics",
     title: "Caractéristiques & DPE",
     shortLabel: "Caractéristiques",
-    fields: ["surface", "rooms", "dpe", "dpeRequest"],
+    fields: [
+      "surface",
+      "rooms",
+      "dpe",
+      "dpeRequest",
+      // Précisions facultatives (specs/estimation-donnees-reelles.md §7.1) :
+      // elles resserrent la fourchette (coefficients k_etage, k_exterieur,
+      // k_etat du §3.6) mais AUCUNE n'est obligatoire — le tunnel convertit
+      // aujourd'hui avec trois champs requis, on n'en ajoute pas un quatrième.
+      "floor",
+      "hasElevator",
+      "outdoor",
+      "condition",
+    ],
     requiredFields: ["surface", "rooms", "dpe"],
     conditionalFields: [
       {
@@ -126,6 +146,44 @@ var WIZARD_STEPS = [
           return value === "unknown";
         },
         required: false, // dpeRequest reste optionnel, comme aujourd'hui.
+      },
+      // Étage et ascenseur n'ont de sens qu'en appartement. La règle vit ICI
+      // et nulle part ailleurs : `estimation-ui.js` interroge
+      // `isFieldVisible()` et ne la redéclare jamais (§7.1, impératif
+      // d'implémentation).
+      {
+        field: "floor",
+        dependsOn: "propertyType",
+        showWhen: function (value) {
+          return value === "appartement";
+        },
+        required: false,
+      },
+      {
+        field: "hasElevator",
+        dependsOn: "propertyType",
+        showWhen: function (value) {
+          return value === "appartement";
+        },
+        required: false,
+      },
+      // Extérieur et état général ne concernent que le bâti : ni un terrain
+      // nu, ni (au Lot 3) un local commercial.
+      {
+        field: "outdoor",
+        dependsOn: "propertyType",
+        showWhen: function (value) {
+          return value === "appartement" || value === "maison";
+        },
+        required: false,
+      },
+      {
+        field: "condition",
+        dependsOn: "propertyType",
+        showWhen: function (value) {
+          return value === "appartement" || value === "maison";
+        },
+        required: false,
       },
     ],
   },
@@ -164,6 +222,10 @@ function createDefaultWizardData() {
     rooms: "",
     dpe: "",
     dpeRequest: "",
+    floor: "",
+    hasElevator: "",
+    outdoor: "",
+    condition: "",
     isOwner: "",
     wantToSell: "",
     name: "",
@@ -303,60 +365,37 @@ function validateStep(step, data) {
 }
 
 // ============================================================================
-// 3. ADAPTER DE GÉOCODAGE — Google PlaceResult -> champs de formulaire
+// 3. ADAPTER DE GÉOCODAGE — déplacé dans `google-places.js`
 // ============================================================================
-
-/**
- * Transforme un `google.maps.places.PlaceResult` en champs de formulaire.
- * Fonction pure : ne touche jamais au DOM, ne modifie JAMAIS la valeur de
- * #address (cf. specs §0 — `rapport-map.js` reconstruit l'adresse complète à
- * partir de la valeur brute déposée dans le champ par le widget Google).
- *
- * Reprend le comportement exact de l'ancien handler `place_changed` :
- * `locality` a toujours priorité sur `administrative_area_level_2`, quel que
- * soit l'ordre des `address_components` dans la réponse.
- *
- * @param {google.maps.places.PlaceResult|null|undefined} place
- * @returns {{postalCode:string, city:string, placeId:string}|null} null si
- *   `address_components` est absent (US-3 : repli manuel).
- */
-function parseGooglePlace(place) {
-  if (!place || !Array.isArray(place.address_components)) {
-    return null;
-  }
-
-  var postalCode = "";
-  var city = "";
-  var cityFallback = ""; // administrative_area_level_2, utilisé seulement si pas de locality.
-
-  for (var i = 0; i < place.address_components.length; i++) {
-    var component = place.address_components[i];
-    var type = component && component.types && component.types[0];
-
-    switch (type) {
-      case "postal_code":
-        postalCode = component.long_name;
-        break;
-      case "locality":
-        city = component.long_name;
-        break;
-      case "administrative_area_level_2":
-        cityFallback = component.long_name;
-        break;
-    }
-  }
-
-  return {
-    postalCode: postalCode,
-    city: city || cityFallback,
-    placeId: place.place_id || "",
-  };
-}
+//
+// `parseGooglePlace(place)` (specs §3) vit désormais dans
+// `src/scripts/google-places.js`, chargé juste avant ce fichier sur
+// `/estimation` : le champ d'adresse du hero de la page d'accueil s'appuie sur
+// le même widget Google et a besoin du même adaptateur, sans pour autant
+// charger tout ce wizard (table de prix comprise). Le contrat de la fonction
+// est inchangé — elle reste une globale disponible ici comme dans
+// `estimation-ui.js`.
 
 // ============================================================================
-// 4. CALCUL D'ESTIMATION — déplacé tel quel (non-régression stricte)
+// 4. CALCUL D'ESTIMATION DE REPLI — plus le chemin nominal
 // ============================================================================
-
+//
+// ATTENTION — depuis le Lot 3 (specs/estimation-donnees-reelles.md §2.4), le
+// calcul nominal est fait par l'API (`POST /v1/estimations`, transactions DVF
+// réelles géolocalisées). `prixMoyenM2` et `calculerEstimation()` ci-dessous
+// ne servent PLUS que de REPLI, quand l'API est injoignable (réseau, timeout,
+// 5xx, 429) et que `PUBLIC_ESTIMATION_FALLBACK` vaut `'static'` — c'est le
+// défaut, par décision client : un prix est toujours affiché.
+//
+// Dans ce mode, `lastEstimation.estimationStatus === 'static-fallback'`, la
+// page et le PDF affichent un bandeau permanent « Estimation indicative » et
+// AUCUNE mention de DVF ni de la DGFiP n'est produite : ce chiffre ne provient
+// pas de ces données, l'annoncer serait faux et contreviendrait à
+// l'attribution Etalab (§8.2).
+//
+// La fonction est conservée telle quelle (coefficients, table, arrondis) : les
+// tests de non-régression de `scripts/test-estimation-wizard.mjs` la gèlent.
+//
 // Base de données des prix moyens au m² par ville (données 2025).
 // NB : cette table duplique partiellement l'esprit de `src/data/prix.ts`
 // (prix par région/département, utilisée par `src/pages/carte.astro`), mais
@@ -406,8 +445,10 @@ var prixMoyenM2 = {
 };
 
 /**
- * Calcule l'estimation d'un bien. Copie exacte de l'algorithme existant
- * (coefficients et logique inchangés) — non-régression pure.
+ * Calcule l'estimation d'un bien à partir de la table statique ci-dessus.
+ * Copie exacte de l'algorithme existant (coefficients et logique inchangés) —
+ * non-régression pure. **Chemin de repli uniquement** (cf. l'avertissement en
+ * tête de section) : le calcul nominal vient de l'API.
  *
  * @param {string} city
  * @param {number} surface
@@ -505,15 +546,29 @@ function calculerEstimation(city, surface, rooms, propertyType, dpe) {
 // ============================================================================
 
 /**
- * Construit le payload exact attendu par `estimationDatabase` /
- * `lastEstimation` (mêmes clés, mêmes types que l'existant). Fonction pure :
- * ne lit rien du DOM, ne stocke rien — c'est à l'appelant de persister le
- * résultat en localStorage.
+ * Construit le payload attendu par `estimationDatabase` / `lastEstimation`
+ * (mêmes clés, mêmes types que l'existant, enrichi des précisions facultatives
+ * de l'étape 3). Fonction pure : ne lit rien du DOM, ne stocke rien — c'est à
+ * l'appelant de persister le résultat en localStorage.
+ *
+ * Le second paramètre porte l'estimation à embarquer (§5.4) :
+ * - un objet          -> résultat de l'API mappé (`mapApiResultToLegacyEstimation`)
+ *                        ou de `calculerEstimation()` en mode repli ;
+ * - `null`            -> mode « estimation différée » assumé, aucun prix ;
+ * - omis (`undefined`) -> repli historique : la fonction calcule elle-même via
+ *                        `calculerEstimation()`. C'est ce qui permet à
+ *                        `serializeForSubmit()` de rester appelable sans
+ *                        argument (et aux tests existants de ne pas mentir sur
+ *                        le contrat).
+ *
+ * Le statut (`estimationStatus`) est posé par l'appelant, qui seul sait
+ * comment l'estimation a été obtenue.
  *
  * @param {WizardData} data
+ * @param {object|null} [estimation]
  * @returns {object}
  */
-function buildSubmitPayload(data) {
+function buildSubmitPayload(data, estimation) {
   var d = data || {};
   var surface = parseFloat(d.surface);
   var rooms = parseInt(d.rooms, 10);
@@ -533,11 +588,37 @@ function buildSubmitPayload(data) {
     wantToSell: d.wantToSell,
     hasTerrain: d.hasTerrain,
     terrainSize: d.terrainSize, // reste une string, comme aujourd'hui
+    // Précisions facultatives de l'étape 3 : conservées brutes (strings), au
+    // même titre que `terrainSize`. Elles alimentent le rapport et l'e-mail
+    // interne ; l'API, elle, reçoit des valeurs typées via
+    // `buildEstimationApiPayload`.
+    floor: d.floor,
+    hasElevator: d.hasElevator,
+    outdoor: d.outdoor,
+    condition: d.condition,
     name: d.name,
     email: d.email,
     phone: d.phone,
-    estimation: calculerEstimation(d.city, surface, rooms, d.propertyType, d.dpe),
+    estimation:
+      estimation === undefined
+        ? calculerEstimation(d.city, surface, rooms, d.propertyType, d.dpe)
+        : estimation,
   };
+}
+
+/**
+ * Numéro de l'étape (1-5) portant `fieldName`, ou `null`. Fonction pure,
+ * dérivée de `WIZARD_STEPS` — utilisée pour ramener l'utilisateur sur l'étape
+ * du premier champ refusé par l'API (422, §7.1 « invalid »).
+ *
+ * @param {string} fieldName
+ * @returns {number|null}
+ */
+function findStepForField(fieldName) {
+  for (var i = 0; i < WIZARD_STEPS.length; i++) {
+    if (WIZARD_STEPS[i].fields.indexOf(fieldName) !== -1) return WIZARD_STEPS[i].id;
+  }
+  return null;
 }
 
 // ============================================================================
@@ -931,8 +1012,48 @@ function createWizard(formEl) {
     safeSessionStorageRemove(WIZARD_STORAGE_KEY);
   }
 
-  function serializeForSubmit() {
-    return buildSubmitPayload(state.data);
+  function serializeForSubmit(estimation) {
+    return buildSubmitPayload(state.data, estimation);
+  }
+
+  /**
+   * Injecte des erreurs venues de l'EXTÉRIEUR du wizard (typiquement la
+   * réponse 422 de l'API, mappée par `mapApiErrorToFieldErrors`) et applique
+   * exactement le même traitement qu'une erreur de validation locale :
+   * repositionnement sur l'étape du premier champ fautif, message sous le
+   * champ, bannière `role="alert"`, focus.
+   *
+   * C'est ce qui permet à la couche API de ne fournir qu'un
+   * `Record<champ, message>` — `renderErrors()` fait le reste, sans table de
+   * correspondance ni duplication de la mécanique d'affichage des erreurs.
+   *
+   * @param {Record<string,string>} errors
+   * @returns {boolean} true si au moins une erreur a été posée
+   */
+  function setErrors(errors) {
+    state.errors = errors || {};
+    var fieldNames = Object.keys(state.errors);
+
+    if (!fieldNames.length) {
+      renderAlertBanner(false);
+      renderErrors();
+      return false;
+    }
+
+    // Étape du premier champ réellement rattaché à une étape (`_form` et les
+    // champs inconnus n'en ont pas : on reste alors sur l'étape courante).
+    for (var i = 0; i < fieldNames.length; i++) {
+      var step = findStepForField(fieldNames[i]);
+      if (step) {
+        if (step !== state.currentStep) goToStep(step);
+        break;
+      }
+    }
+
+    renderErrors();
+    renderAlertBanner(true);
+    focusFirstInvalidField();
+    return true;
   }
 
   // État initial : étape 1 visible, étapes 2-5 masquées. Pas d'annonce
@@ -951,6 +1072,7 @@ function createWizard(formEl) {
       return isFieldVisible(fieldName, state.data);
     },
     updateField: updateField,
+    setErrors: setErrors,
     serializeForSubmit: serializeForSubmit,
     persist: persist,
     restore: restore,

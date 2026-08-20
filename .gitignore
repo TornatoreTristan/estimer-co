@@ -11,6 +11,15 @@ node_modules/
 .env.local
 .env.*.local
 
+# API AdonisJS (dossier api/) — dépendances, build et secrets
+# `api/` a son propre package.json et son propre node_modules.
+api/node_modules/
+api/build/
+api/tmp/
+api/.env
+api/.env.local
+api/.env.*.local
+
 # divers
 .DS_Store
 *.log

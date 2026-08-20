@@ -68,9 +68,9 @@ function loadWizardModule(globals) {
     createDefaultWizardData: globalThis.createDefaultWizardData,
     isFieldVisible: globalThis.isFieldVisible,
     validateStep: globalThis.validateStep,
-    parseGooglePlace: globalThis.parseGooglePlace,
     calculerEstimation: globalThis.calculerEstimation,
     buildSubmitPayload: globalThis.buildSubmitPayload,
+    findStepForField: globalThis.findStepForField,
     getPersistableFieldNames: globalThis.getPersistableFieldNames,
     createWizard: globalThis.createWizard,
   };
@@ -397,63 +397,9 @@ test("validateStep(5) — champs vides => invalide", () => {
   assert.ok(result.errors.phone);
 });
 
-// ============================================================================
-// parseGooglePlace
-// ============================================================================
-
-test("parseGooglePlace — place complète avec locality", () => {
-  const { parseGooglePlace } = loadWizardModule();
-  const place = {
-    place_id: "abc123",
-    address_components: [
-      { long_name: "12", types: ["street_number"] },
-      { long_name: "Rue de la Paix", types: ["route"] },
-      { long_name: "Paris", types: ["locality"] },
-      { long_name: "Paris", types: ["administrative_area_level_2"] },
-      { long_name: "75001", types: ["postal_code"] },
-      { long_name: "France", types: ["country"] },
-    ],
-  };
-  const result = parseGooglePlace(place);
-  assert.deepEqual(result, { postalCode: "75001", city: "Paris", placeId: "abc123" });
-});
-
-test("parseGooglePlace — sans locality => repli sur administrative_area_level_2", () => {
-  const { parseGooglePlace } = loadWizardModule();
-  const place = {
-    place_id: "def456",
-    address_components: [
-      { long_name: "45", types: ["street_number"] },
-      { long_name: "Avenue Foch", types: ["route"] },
-      { long_name: "Corse-du-Sud", types: ["administrative_area_level_2"] },
-      { long_name: "20000", types: ["postal_code"] },
-      { long_name: "France", types: ["country"] },
-    ],
-  };
-  const result = parseGooglePlace(place);
-  assert.deepEqual(result, { postalCode: "20000", city: "Corse-du-Sud", placeId: "def456" });
-});
-
-test("parseGooglePlace — locality présent AVANT administrative_area_level_2 dans le tableau : locality gagne quand même", () => {
-  const { parseGooglePlace } = loadWizardModule();
-  const place = {
-    place_id: "ghi789",
-    address_components: [
-      { long_name: "Lyon", types: ["locality"] },
-      { long_name: "Rhône", types: ["administrative_area_level_2"] },
-      { long_name: "69001", types: ["postal_code"] },
-    ],
-  };
-  const result = parseGooglePlace(place);
-  assert.equal(result.city, "Lyon");
-});
-
-test("parseGooglePlace — sans address_components => null (US-3, repli manuel)", () => {
-  const { parseGooglePlace } = loadWizardModule();
-  assert.equal(parseGooglePlace({ name: "Un lieu sans détails" }), null);
-  assert.equal(parseGooglePlace(null), null);
-  assert.equal(parseGooglePlace(undefined), null);
-});
+// NB : `parseGooglePlace` ne vit plus dans estimation-wizard.js (il est
+// partagé avec le formulaire d'adresse de la page d'accueil) — ses tests ont
+// suivi la fonction dans `scripts/test-google-places.mjs`.
 
 // ============================================================================
 // calculerEstimation — non-régression de l'algorithme existant
@@ -518,6 +464,11 @@ test("buildSubmitPayload — clés et types exacts du payload §3.2", () => {
     "wantToSell",
     "hasTerrain",
     "terrainSize",
+    // Précisions facultatives de l'étape 3 (Lot 3) : brutes, comme terrainSize.
+    "floor",
+    "hasElevator",
+    "outdoor",
+    "condition",
     "name",
     "email",
     "phone",
@@ -550,6 +501,154 @@ test("buildSubmitPayload — terrainSize conserve la valeur brute d'une maison a
   );
   assert.equal(payload.terrainSize, "500");
   assert.equal(typeof payload.terrainSize, "string");
+});
+
+test("buildSubmitPayload — sans 2e argument, le repli calcule toujours l'estimation (rétro-compat)", () => {
+  const { buildSubmitPayload, calculerEstimation } = loadWizardModule();
+  const data = baseWizardData({ surface: "85", rooms: "3", propertyType: "appartement" });
+  const payload = buildSubmitPayload(data);
+
+  assert.deepEqual(
+    payload.estimation,
+    calculerEstimation("Paris", 85, 3, "appartement", data.dpe)
+  );
+});
+
+test("buildSubmitPayload — l'estimation fournie est embarquée telle quelle (résultat API)", () => {
+  const { buildSubmitPayload } = loadWizardModule();
+  const apiEstimation = {
+    prixM2: 1440,
+    estimationMin: 108000,
+    estimationMax: 180000,
+    estimationMoyenne: 144000,
+    confidence: { score: 66, label: "medium" },
+  };
+  const payload = buildSubmitPayload(baseWizardData(), apiEstimation);
+
+  assert.equal(payload.estimation, apiEstimation);
+  // Non-régression US-11 : les quatre clés historiques restent lisibles au
+  // même endroit, avec les mêmes noms et les mêmes types.
+  ["prixM2", "estimationMin", "estimationMax", "estimationMoyenne"].forEach((key) => {
+    assert.equal(typeof payload.estimation[key], "number");
+  });
+});
+
+test("buildSubmitPayload — `null` explicite reste null (mode estimation différée)", () => {
+  const { buildSubmitPayload } = loadWizardModule();
+  const payload = buildSubmitPayload(baseWizardData(), null);
+  assert.equal(payload.estimation, null, "aucun prix ne doit être inventé");
+});
+
+test("serializeForSubmit — transmet l'estimation reçue au payload", () => {
+  const { createWizard } = loadWizardModule();
+  const wizard = createWizard(null);
+  wizard.updateField("city", "Guéret");
+  wizard.updateField("surface", "100");
+  wizard.updateField("rooms", "5");
+
+  const estimation = { prixM2: 1, estimationMin: 2, estimationMax: 3, estimationMoyenne: 4 };
+  assert.equal(wizard.serializeForSubmit(estimation).estimation, estimation);
+  assert.equal(wizard.serializeForSubmit(null).estimation, null);
+});
+
+// ============================================================================
+// Champs facultatifs de l'étape 3 (specs/estimation-donnees-reelles.md §7.1)
+// ============================================================================
+
+test("étape 3 — floor/hasElevator/outdoor/condition ne sont JAMAIS obligatoires", () => {
+  const { WIZARD_STEPS, validateStep } = loadWizardModule();
+  const step3 = WIZARD_STEPS.find((step) => step.id === 3);
+
+  // Aucun des nouveaux champs ne rejoint `requiredFields` : le tunnel convertit
+  // avec trois champs requis, on n'en ajoute pas un quatrième.
+  assert.deepEqual(step3.requiredFields, ["surface", "rooms", "dpe"]);
+  ["floor", "hasElevator", "outdoor", "condition"].forEach((field) => {
+    assert.ok(step3.fields.includes(field), `${field} doit appartenir à l'étape 3`);
+    assert.equal(step3.requiredFields.includes(field), false);
+  });
+
+  // Et la validation passe avec tous ces champs vides.
+  const result = validateStep(
+    3,
+    baseWizardData({ surface: "85", rooms: "3", dpe: "C", floor: "", hasElevator: "", outdoor: "", condition: "" })
+  );
+  assert.equal(result.valid, true);
+});
+
+test("isFieldVisible — la conditionnalité des nouveaux champs vit dans WIZARD_STEPS", () => {
+  const { isFieldVisible } = loadWizardModule();
+
+  assert.equal(isFieldVisible("floor", { propertyType: "appartement" }), true);
+  assert.equal(isFieldVisible("hasElevator", { propertyType: "appartement" }), true);
+  assert.equal(isFieldVisible("floor", { propertyType: "maison" }), false);
+  assert.equal(isFieldVisible("hasElevator", { propertyType: "maison" }), false);
+
+  assert.equal(isFieldVisible("outdoor", { propertyType: "maison" }), true);
+  assert.equal(isFieldVisible("condition", { propertyType: "appartement" }), true);
+  assert.equal(isFieldVisible("outdoor", { propertyType: "terrain" }), false);
+  assert.equal(isFieldVisible("condition", { propertyType: "local-commercial" }), false);
+});
+
+test("updateField — passer d'appartement à maison réinitialise étage et ascenseur", () => {
+  const { createWizard } = loadWizardModule();
+  const wizard = createWizard(null);
+
+  wizard.updateField("propertyType", "appartement");
+  wizard.updateField("floor", "4");
+  wizard.updateField("hasElevator", "yes");
+  assert.equal(wizard.state.data.floor, "4");
+
+  // Cascade US-5 : le champ masqué ne doit pas rester dans l'état, sans quoi
+  // un étage serait transmis à l'API pour une maison.
+  wizard.updateField("propertyType", "maison");
+  assert.equal(wizard.state.data.floor, "");
+  assert.equal(wizard.state.data.hasElevator, "");
+});
+
+// ============================================================================
+// findStepForField / setErrors — erreurs externes (422 de l'API)
+// ============================================================================
+
+test("findStepForField — retrouve l'étape d'un champ, null pour un champ inconnu", () => {
+  const { findStepForField } = loadWizardModule();
+  assert.equal(findStepForField("address"), 1);
+  assert.equal(findStepForField("propertyType"), 2);
+  assert.equal(findStepForField("condition"), 3);
+  assert.equal(findStepForField("wantToSell"), 4);
+  assert.equal(findStepForField("email"), 5);
+  assert.equal(findStepForField("_form"), null);
+  assert.equal(findStepForField("lat"), null);
+});
+
+test("setErrors — pose les erreurs de l'API et repositionne sur l'étape fautive", () => {
+  const { createWizard } = loadWizardModule();
+  const wizard = createWizard(null);
+  wizard.goToStep(5);
+
+  const posed = wizard.setErrors({ surface: "La surface doit être d'au moins 9 m²." });
+
+  assert.equal(posed, true);
+  assert.equal(wizard.state.currentStep, 3, "on revient sur l'étape du champ fautif");
+  assert.equal(wizard.state.errors.surface, "La surface doit être d'au moins 9 m².");
+});
+
+test("setErrors — un objet vide n'affiche rien et ne déplace pas l'utilisateur", () => {
+  const { createWizard } = loadWizardModule();
+  const wizard = createWizard(null);
+  wizard.goToStep(5);
+
+  assert.equal(wizard.setErrors({}), false);
+  assert.equal(wizard.state.currentStep, 5);
+  assert.deepEqual(wizard.state.errors, {});
+});
+
+test("setErrors — une erreur sans champ (_form) laisse l'utilisateur où il est", () => {
+  const { createWizard } = loadWizardModule();
+  const wizard = createWizard(null);
+  wizard.goToStep(5);
+
+  assert.equal(wizard.setErrors({ _form: "Requête refusée." }), true);
+  assert.equal(wizard.state.currentStep, 5);
 });
 
 // ============================================================================

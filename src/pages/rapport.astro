@@ -3,16 +3,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import ClientConfig from '../components/ClientConfig.astro';
 import RawScript from '../components/RawScript.astro';
 import rapportMapScript from '../scripts/rapport-map.js?raw';
+import pdfReportScript from '../scripts/pdf-report.js?raw';
+import estimationApiScript from '../scripts/estimation-api.js?raw';
 import rapportReportScript from '../scripts/rapport-report.js?raw';
-
-const statsMarche = [
-  { value: '+3,2 %', label: 'Évolution annuelle moyenne' },
-  { value: '3 000 €', label: 'Prix moyen national au m²' },
-  { value: '85 jours', label: 'Délai de vente moyen' },
-];
 ---
 
-<BaseLayout title="Votre rapport d'estimation — Estimer mon bien">
+<BaseLayout title="Votre rapport d'estimation. Estimer mon bien">
   <Fragment slot="head">
     <ClientConfig />
     <meta name="robots" content="noindex" />
@@ -31,9 +27,15 @@ const statsMarche = [
       <div class="rapport-container">
         <!-- En-tête visible uniquement dans le PDF -->
         <div class="pdf-header">
-          <h1>Estimer mon bien — Rapport d'estimation</h1>
+          <h1>Estimer mon bien. Rapport d'estimation</h1>
           <p>Analyse détaillée de votre bien immobilier</p>
         </div>
+
+        <!-- Bandeau d'état (mode dégradé, Livre foncier, données
+             insuffisantes). Rempli et révélé par `rapport-report.js` :
+             son contenu dépend de `lastEstimation.estimationStatus` et de
+             `estimation.dataSource`, jamais d'un texte figé ici. -->
+        <div class="report-banner" id="estimationStatusBanner" role="status" hidden></div>
 
         <!-- Estimation -->
         <div class="report-card estimation-card">
@@ -42,7 +44,7 @@ const statsMarche = [
             <!-- Rempli dynamiquement -->
           </div>
 
-          <div class="price-box">
+          <div class="price-box" id="priceBox">
             <div class="price-label">Estimation moyenne</div>
             <div class="price-value" id="estimationMoyenne">-</div>
             <div class="price-range">
@@ -55,15 +57,45 @@ const statsMarche = [
                 <div class="price-range-value" id="estimationMax">-</div>
               </div>
             </div>
+            <!-- Amplitude réelle de la fourchette (halfWidthPct), jamais un
+                 ±10 % écrit en dur. -->
+            <p class="price-range-note" id="rangeNote" hidden></p>
           </div>
 
           <div class="info-box">
             <p><strong>Prix au m² estimé :</strong> <span id="prixM2">-</span></p>
           </div>
+
+          <!-- Avertissements prêts à afficher fournis par l'API
+               (`display.warnings`) — jamais reformulés côté front. -->
+          <div id="estimationWarnings" hidden></div>
+
+          <!-- Attribution + avertissement légal : lus dans la réponse de
+               l'API (`dataSource.attributionFr` / `disclaimerFr`) pour que la
+               date de publication ne se périme pas silencieusement (§8.1). -->
+          <div class="source-banner" id="dataSourceBanner" hidden></div>
+        </div>
+
+        <!-- Indice de confiance -->
+        <div class="report-card" id="confidenceCard" hidden>
+          <h3>Fiabilité de l'estimation</h3>
+          <div id="confidenceContent"></div>
+        </div>
+
+        <!-- Transactions comparables -->
+        <div class="report-card" id="comparablesCard" hidden>
+          <h3 id="comparablesTitle">Transactions comparables</h3>
+          <div id="comparablesContent"></div>
+        </div>
+
+        <!-- Méthodologie -->
+        <div class="report-card" id="methodologyCard" hidden>
+          <h3>Méthodologie</h3>
+          <div id="methodologyContent"></div>
         </div>
 
         <!-- Marché local -->
-        <div class="report-card market-card" id="cityAnalysis">
+        <div class="report-card market-card" id="cityAnalysis" hidden>
           <h3>Analyse du marché local</h3>
           <!-- Rempli dynamiquement -->
         </div>
@@ -82,47 +114,36 @@ const statsMarche = [
           </div>
         </div>
 
-        <!-- Contexte national -->
+        <!-- Contexte national.
+             Les trois chiffres qui figuraient ici (« +3,2 % », « 3 000 €/m² »,
+             « 85 jours ») ainsi que les pourcentages de surcote/décote DPE
+             étaient inventés : aucune source ne les portait, et ils
+             contredisaient les chiffres réels du bloc d'estimation. Ils sont
+             supprimés (§7.2 point 5 et §8.4 : un indicateur non sourçable est
+             retiré, pas remplacé par un autre chiffre inventé). L'effet réel
+             du DPE sur CETTE estimation est affiché dans la méthodologie
+             ci-dessus, avec le coefficient effectivement appliqué. -->
         <div class="report-card market-card">
-          <h3>Le marché immobilier français en 2025</h3>
+          <h3>Comprendre votre estimation</h3>
           <p>
-            Le marché immobilier français connaît une dynamique contrastée selon les régions. Les
-            grandes métropoles comme Paris, Lyon et Bordeaux maintiennent des prix élevés avec une
-            demande soutenue, tandis que les villes moyennes offrent des opportunités plus
-            accessibles.
+            Le marché immobilier français est contrasté selon les régions. Les grandes métropoles
+            maintiennent des prix élevés portés par une demande soutenue, tandis que les villes
+            moyennes et les zones rurales offrent des niveaux de prix plus accessibles. C'est
+            pourquoi cette estimation ne part pas d'une moyenne nationale, mais des ventes
+            réellement enregistrées autour de votre bien.
           </p>
 
-          <div class="stats-grid">
-            {
-              statsMarche.map((stat) => (
-                <div class="stat-item">
-                  <div class="stat-value">{stat.value}</div>
-                  <div class="stat-label">{stat.label}</div>
-                </div>
-              ))
-            }
-          </div>
-
           <p>
-            Le Diagnostic de Performance Énergétique (DPE) joue désormais un rôle crucial dans
-            l'estimation. Les biens classés A ou B bénéficient d'une surcote pouvant atteindre 15 %,
-            tandis que les passoires thermiques (F et G) subissent une décote significative de 15 à
-            25 %.
+            Le diagnostic de performance énergétique pèse sur la valeur : un logement bien classé se
+            négocie au-dessus d'un équivalent énergivore, à secteur et surface comparables. Le
+            coefficient réellement appliqué à votre bien est détaillé dans la section
+            « Méthodologie ».
           </p>
 
-          <div class="info-box info-box--tip">
-            <p>
-              <strong>Bon à savoir :</strong> les biens avec un bon DPE se vendent en moyenne 30 % plus
-              rapidement que les biens énergivores. Investir dans la rénovation énergétique peut donc
-              être très rentable.
-            </p>
-          </div>
-
           <p>
-            Cette estimation est calculée à partir des données du marché actuel et prend en compte de
-            nombreux critères : localisation, surface, type de bien, nombre de pièces et performance
-            énergétique. Pour une évaluation encore plus précise, nos experts peuvent réaliser une
-            visite sur place et affiner cette estimation.
+            Pour une évaluation engageante, seule une visite sur place permet de tenir compte de
+            l'état intérieur, de l'exposition, de la vue, des nuisances et des travaux votés en
+            copropriété.
           </p>
         </div>
 
@@ -131,8 +152,8 @@ const statsMarche = [
           <button id="downloadPdfBtn" onclick="downloadPDF()" class="btn btn--primary btn--lg">
             Télécharger le rapport PDF
           </button>
-          <a href="/contact" class="btn btn--dark btn--lg">Contacter un expert</a>
-          <a href="/estimation" class="btn btn--outline btn--lg">Nouvelle estimation</a>
+          <a href="/contact/" class="btn btn--dark btn--lg">Contacter un expert</a>
+          <a href="/estimation/" class="btn btn--outline btn--lg">Nouvelle estimation</a>
         </div>
 
         <!-- Pied de page visible uniquement dans le PDF -->
@@ -148,7 +169,14 @@ const statsMarche = [
     <script
       is:inline
       src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- `pdf-report.js` vient en premier : il ne fait que déclarer des
+         fonctions, dont les helpers (capitalizeWords, formatPrice) que les
+         deux autres scripts utilisent dès leur exécution. -->
+    <RawScript code={pdfReportScript} />
     <RawScript code={rapportMapScript} />
+    <!-- `estimation-api.js` avant `rapport-report.js` : le bouton « Relancer
+         le calcul » du mode dégradé rejoue `requestEstimation`. -->
+    <RawScript code={estimationApiScript} />
     <RawScript code={rapportReportScript} />
   </Fragment>
 </BaseLayout>
@@ -274,6 +302,280 @@ const statsMarche = [
     font-size: var(--text-lg);
     font-weight: 600;
     letter-spacing: -0.02em;
+  }
+
+  .price-range-note {
+    margin: 1.25rem 0 0;
+    font-size: var(--text-sm);
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .price-range-note[hidden] {
+    display: none;
+  }
+
+  /* La valeur centrale est atténuée quand la confiance est faible, et
+     totalement masquée quand l'API pose `display.showCentralValue = false`
+     (§3.8) — c'est l'API qui décide, jamais le front. */
+  .price-box[data-central='muted'] .price-value {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: clamp(1.9rem, 1.4rem + 2vw, 2.4rem);
+  }
+
+  .price-box[data-central='hidden'] .price-value,
+  .price-box[data-central='hidden'] .price-label {
+    display: none;
+  }
+
+  /* Bandeau d'état : mode dégradé, Livre foncier, données insuffisantes */
+  .report-banner {
+    margin-bottom: 1.5rem;
+    padding: 1.125rem 1.25rem;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--orange);
+    background: var(--orange-5);
+  }
+
+  .report-banner[hidden] {
+    display: none;
+  }
+
+  .report-banner__title {
+    margin: 0 0 0.4rem;
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--black);
+  }
+
+  .report-banner p {
+    margin: 0 0 0.5rem;
+    font-size: var(--text-sm);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  .report-banner p:last-child {
+    margin-bottom: 0;
+  }
+
+  .report-banner .btn {
+    margin-top: 0.75rem;
+  }
+
+  .report-banner__sep {
+    margin: 1rem 0;
+    border: 0;
+    border-top: 1px solid var(--orange-25);
+  }
+
+  .report-banner__retry {
+    margin-top: 0.75rem;
+    font-size: var(--text-sm);
+  }
+
+  .report-banner__retry[hidden] {
+    display: none;
+  }
+
+  /* Attribution + avertissement légal (§8.1) */
+  .source-banner {
+    margin-top: 1.5rem;
+    padding: 1rem 1.125rem;
+    border-top: 1px solid var(--border);
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
+    line-height: 1.6;
+  }
+
+  .source-banner[hidden] {
+    display: none;
+  }
+
+  .source-banner p {
+    margin: 0 0 0.5rem;
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
+  }
+
+  .source-banner p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Avertissements API (display.warnings) */
+  .warning-list {
+    margin: 1.25rem 0 0;
+    padding: 0.875rem 1.125rem;
+    list-style: none;
+    border: 1px solid var(--orange-25);
+    background: var(--orange-5);
+  }
+
+  .warning-list li {
+    font-size: var(--text-sm);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  .warning-list li + li {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--orange-25);
+  }
+
+  /* Jauge de confiance */
+  .confidence-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .confidence-label {
+    font-weight: 600;
+    color: var(--black);
+  }
+
+  .confidence-score {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+  }
+
+  .confidence-gauge {
+    height: 0.75rem;
+    background: var(--beige-50);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  /* Pas d'animation de remplissage : la largeur est posée d'emblée, ce qui
+     respecte `prefers-reduced-motion` par construction (§7.2 point 2). */
+  .confidence-gauge__fill {
+    display: block;
+    height: 100%;
+    background: var(--orange);
+  }
+
+  .confidence-gauge__fill[data-level='high'] {
+    background: var(--success);
+  }
+
+  .confidence-gauge__fill[data-level='low'],
+  .confidence-gauge__fill[data-level='insufficient'] {
+    background: var(--error);
+  }
+
+  .confidence-scale {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
+  }
+
+  /* Détails repliés (breakdown, méthodologie) */
+  .report-details {
+    margin-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.875rem;
+  }
+
+  .report-details > summary {
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--black);
+  }
+
+  .report-details > summary:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+  }
+
+  .breakdown-list {
+    margin: 0.875rem 0 0;
+    display: grid;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .breakdown-list div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem 0.875rem;
+    background: var(--white);
+    font-size: var(--text-sm);
+  }
+
+  .breakdown-list dt {
+    color: var(--text-soft);
+  }
+
+  .breakdown-list dt small {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
+    line-height: 1.5;
+  }
+
+  .breakdown-list dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    color: var(--black);
+  }
+
+  /* Tableau des comparables */
+  .comparables-table-wrap {
+    overflow-x: auto;
+  }
+
+  .comparables-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  .comparables-table caption {
+    text-align: left;
+    padding-bottom: 0.75rem;
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+  }
+
+  .comparables-table th,
+  .comparables-table td {
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .comparables-table th {
+    font-size: var(--text-tiny);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    font-weight: 600;
+  }
+
+  .comparables-table td:last-child,
+  .comparables-table th:last-child {
+    text-align: right;
+    font-family: var(--font-mono);
+  }
+
+  .empty-state {
+    padding: 1.125rem 1.25rem;
+    border: 1px dashed var(--border);
+    background: var(--beige-25);
+    font-size: var(--text-sm);
+    color: var(--text-soft);
   }
 
   /* Grille de chiffres (statique et injectée) */

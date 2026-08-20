@@ -3,9 +3,12 @@
 // ============================================================================
 //
 // Ce fichier est injecté tel quel (voir `RawScript.astro`, `<script
-// is:inline>` à partir d'un import `?raw`) juste après
-// `estimation-wizard.js` : il consomme les globales exposées par ce dernier
-// (`createWizard`, `parseGooglePlace`, `isFieldVisible`...) sans jamais
+// is:inline>` à partir d'un import `?raw`) en dernier, après
+// `google-places.js`, `estimation-wizard.js` puis `estimation-api.js` : il
+// consomme les globales exposées par ces derniers (`parseGooglePlace`,
+// `loadGoogleMapsScript`, `parseAddressQuery`, `createWizard`,
+// `isFieldVisible`, `buildEstimationApiPayload`, `requestEstimation`,
+// `mapApiResultToLegacyEstimation`, `resolveEstimationStatus`...) sans jamais
 // réécrire leur logique — en particulier, la conditionnalité d'affichage
 // (US-5, US-8) n'est PAS redéclarée ici : `computeConditionalVisibility()`
 // délègue à `isFieldVisible()` (unique source de vérité, cf.
@@ -44,15 +47,29 @@
  * côté wizard à dupliquer.
  *
  * @param {object} data `wizard.state.data`
- * @returns {{showTerrainQuestion:boolean, showTerrainSize:boolean, showDpeRequest:boolean, showRitmodiagCta:boolean}}
+ * @returns {{showTerrainQuestion:boolean, showTerrainSize:boolean, showDpeRequest:boolean, showRitmodiagCta:boolean, showFloor:boolean, showElevator:boolean, showOutdoor:boolean, showCondition:boolean, showOptionalDetails:boolean}}
  */
 function computeConditionalVisibility(data) {
   var d = data || {};
+  var showFloor = isFieldVisible("floor", d);
+  var showElevator = isFieldVisible("hasElevator", d);
+  var showOutdoor = isFieldVisible("outdoor", d);
+  var showCondition = isFieldVisible("condition", d);
+
   return {
     showTerrainQuestion: isFieldVisible("hasTerrain", d),
     showTerrainSize: isFieldVisible("terrainSize", d),
     showDpeRequest: isFieldVisible("dpeRequest", d),
     showRitmodiagCta: d.dpeRequest === "yes",
+    // Précisions facultatives de l'étape 3 : mêmes règles, même source unique
+    // de vérité (`WIZARD_STEPS[].conditionalFields`). Rien n'est redéclaré ici.
+    showFloor: showFloor,
+    showElevator: showElevator,
+    showOutdoor: showOutdoor,
+    showCondition: showCondition,
+    // Le conteneur (et sa phrase d'aide) disparaît si aucun de ses champs
+    // n'est affiché — cas d'un terrain nu ou d'un local commercial.
+    showOptionalDetails: showFloor || showElevator || showOutdoor || showCondition,
   };
 }
 
@@ -74,6 +91,10 @@ var HYDRATABLE_FIELD_IDS = [
   "rooms",
   "dpe",
   "dpeRequest",
+  "floor",
+  "hasElevator",
+  "outdoor",
+  "condition",
   "isOwner",
   "wantToSell",
 ];
@@ -132,6 +153,30 @@ function computeHydrationPlan(data) {
 }
 
 /**
+ * Compare deux saisies d'adresse « à l'œil humain » : casse, espaces
+ * multiples et espaces de bord ignorés. Fonction pure.
+ *
+ * Sert à décider, quand une adresse arrive par l'URL (formulaire de la page
+ * d'accueil), si elle poursuit le parcours restauré depuis sessionStorage ou
+ * si elle en démarre un nouveau — auquel cas le wizard doit repartir de
+ * l'étape 1 plutôt que de reprendre à l'étape où l'utilisateur s'était
+ * arrêté pour un AUTRE bien.
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+function isSameAddressInput(a, b) {
+  function normalize(value) {
+    return String(value || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+  }
+  return normalize(a) === normalize(b);
+}
+
+/**
  * Ajoute `payload` à `database` sans muter le tableau d'origine. Utilisée par
  * `persistEstimation()` avant écriture dans `localStorage.estimationDatabase`.
  *
@@ -146,11 +191,42 @@ function appendToDatabase(database, payload) {
 }
 
 /**
+ * Bandeau d'avertissement placé en tête de l'e-mail interne quand
+ * l'estimation n'a PAS été calculée par l'API (§2.4, étape 3). Le lead doit
+ * être traité manuellement : la mention est explicite, en majuscules, et
+ * placée avant tout le reste pour ne pas passer inaperçue.
+ *
+ * @param {string} estimationStatus 'ok' | 'deferred' | 'static-fallback'
+ * @returns {string} bloc de texte (vide si l'estimation est nominale)
+ */
+function buildEmailDegradedNotice(estimationStatus) {
+  if (estimationStatus === "deferred") {
+    return `/!\\ ESTIMATION NON CALCULEE (API indisponible)
+L'API d'estimation n'a pas repondu : aucune valeur n'a ete produite ni
+affichee au client. A traiter manuellement.
+
+`;
+  }
+
+  if (estimationStatus === "static-fallback") {
+    return `/!\\ ESTIMATION NON CALCULEE (API indisponible) - MODE DEGRADE
+L'API d'estimation n'a pas repondu. Le montant ci-dessous provient du calcul
+de repli interne : il n'est PAS fonde sur les transactions reelles (DVF) et
+a ete presente au client comme une estimation indicative. A recalculer.
+
+`;
+  }
+
+  return "";
+}
+
+/**
  * Construit les `templateParams` EmailJS à partir du payload de soumission
- * (`wizard.serializeForSubmit()`, cf. specs §3.2). Le corps du message
- * (`message`) reproduit EXACTEMENT le gabarit de l'ancien `estimation.js` —
- * seules les variables locales deviennent des accès à `payload.*` (non-
- * régression stricte demandée sur le contenu de l'email).
+ * (`wizard.serializeForSubmit(estimation)`, cf. specs §3.2). Le corps du
+ * message (`message`) reproduit le gabarit de l'ancien `estimation.js` —
+ * non-régression stricte du contenu — enrichi de deux ajouts du Lot 3 :
+ * la mention de mode dégradé en tête (§2.4) et les précisions facultatives
+ * de l'étape 3 lorsqu'elles sont renseignées.
  *
  * @param {object} payload cf. `buildSubmitPayload` dans estimation-wizard.js
  * @param {{propertyTypeText?:string, dpeText?:string, toEmail?:string}} [options]
@@ -164,8 +240,49 @@ function buildEmailTemplateParams(payload, options) {
   var propertyTypeText = opts.propertyTypeText || p.propertyType;
   var dpeText = opts.dpeText || p.dpe;
   var estimation = p.estimation || {};
+  var estimationStatus = p.estimationStatus || "ok";
 
-  var message = `NOUVELLE DEMANDE D'ESTIMATION
+  // Précisions facultatives : uniquement celles réellement renseignées, pour
+  // ne pas allonger l'e-mail avec une liste de « non renseigné ».
+  var optionalLines = "";
+  if (p.floor !== undefined && p.floor !== null && String(p.floor) !== "") {
+    optionalLines += `
+- Etage : ${p.floor}`;
+  }
+  if (p.hasElevator) {
+    optionalLines += `
+- Ascenseur : ${
+      p.hasElevator === "yes" ? "Oui" : p.hasElevator === "no" ? "Non" : "Ne sait pas"
+    }`;
+  }
+  if (p.outdoor) {
+    optionalLines += `
+- Exterieur : ${
+      p.outdoor === "balcony"
+        ? "Balcon"
+        : p.outdoor === "terrace"
+        ? "Terrasse"
+        : p.outdoor === "garden"
+        ? "Jardin privatif"
+        : "Aucun"
+    }`;
+  }
+  if (p.condition) {
+    optionalLines += `
+- Etat general : ${
+      p.condition === "to-renovate"
+        ? "A renover"
+        : p.condition === "fair"
+        ? "Correct"
+        : p.condition === "good"
+        ? "Bon"
+        : p.condition === "new"
+        ? "Refait a neuf"
+        : p.condition
+    }`;
+  }
+
+  var message = `${buildEmailDegradedNotice(estimationStatus)}NOUVELLE DEMANDE D'ESTIMATION
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -187,7 +304,7 @@ INFORMATIONS DU BIEN
       : ""
   }
 - DPE : ${dpeText}
-- Souhaite un DPE : ${p.dpeRequest === "yes" ? "Oui" : "Non"}
+- Souhaite un DPE : ${p.dpeRequest === "yes" ? "Oui" : "Non"}${optionalLines}
 
 SITUATION DU DEMANDEUR
 - Proprietaire : ${p.isOwner === "yes" ? "Oui" : "Non"}
@@ -200,6 +317,19 @@ ESTIMATION CALCULEE
 - Estimation basse : ${estimation.estimationMin != null ? estimation.estimationMin.toLocaleString("fr-FR") : ""} €
 - Estimation moyenne : ${estimation.estimationMoyenne != null ? estimation.estimationMoyenne.toLocaleString("fr-FR") : ""} €
 - Estimation haute : ${estimation.estimationMax != null ? estimation.estimationMax.toLocaleString("fr-FR") : ""} €
+- Source du calcul : ${
+    estimationStatus === "ok"
+      ? "API estimer.co (transactions reelles)" +
+        (estimation.confidence && estimation.confidence.score != null
+          ? ", confiance " + estimation.confidence.score + "/100"
+          : "") +
+        (estimation.method && estimation.method.comparablesCount != null
+          ? ", " + estimation.method.comparablesCount + " comparables"
+          : "")
+      : estimationStatus === "static-fallback"
+      ? "REPLI INTERNE (hors DVF) - API indisponible"
+      : "AUCUNE - API indisponible"
+  }
 
 COORDONNEES DU CLIENT
 - Nom : ${p.name}
@@ -264,6 +394,16 @@ if (estimationFormEl) {
   var dpeRequestGroupEl = document.getElementById("dpeRequestGroup");
   var ritmodiagLinkEl = document.getElementById("ritmodiagLink");
 
+  var optionalDetailsGroupEl = document.getElementById("optionalDetailsGroup");
+  var floorGroupEl = document.getElementById("floorGroup");
+  var hasElevatorGroupEl = document.getElementById("hasElevatorGroup");
+  var outdoorGroupEl = document.getElementById("outdoorGroup");
+  var conditionGroupEl = document.getElementById("conditionGroup");
+
+  var submitStatusEl = document.getElementById("wizardSubmitStatus");
+  var submitStatusTextEl = document.getElementById("wizardSubmitStatusText");
+  var wizardAlertEl = document.querySelector(".wizard-alert");
+
   var prevBtn = document.getElementById("wizardPrev");
   var nextBtn = document.getElementById("wizardNext");
 
@@ -279,8 +419,10 @@ if (estimationFormEl) {
     if (postalCodeInputEl) postalCodeInputEl.value = parsed.postalCode;
     if (cityInputEl) cityInputEl.value = parsed.city;
 
-    if (addressRecapPostalEl) addressRecapPostalEl.textContent = parsed.postalCode || "—";
-    if (addressRecapCityEl) addressRecapCityEl.textContent = parsed.city || "—";
+    if (addressRecapPostalEl) {
+      addressRecapPostalEl.textContent = parsed.postalCode || "Non renseigné";
+    }
+    if (addressRecapCityEl) addressRecapCityEl.textContent = parsed.city || "Non renseignée";
     if (addressRecapEl) addressRecapEl.hidden = false;
     if (addressManualEl) addressManualEl.hidden = true;
   }
@@ -329,25 +471,6 @@ if (estimationFormEl) {
 
   window.initAutocomplete = initAutocomplete;
 
-  function loadGoogleMapsAPI() {
-    if (typeof CONFIG === "undefined" || !CONFIG.GOOGLE || !CONFIG.GOOGLE.API_KEY) {
-      // Pas de clé configurée (preview, dev sans .env...) : inutile de tenter
-      // le chargement, le minuteur de repli ci-dessous prendra le relais.
-      return;
-    }
-    var script = document.createElement("script");
-    script.src =
-      "https://maps.googleapis.com/maps/api/js?key=" +
-      CONFIG.GOOGLE.API_KEY +
-      "&libraries=places&callback=initAutocomplete";
-    script.async = true;
-    script.defer = true;
-    script.onerror = function () {
-      ensureAddressManualFallback();
-    };
-    document.head.appendChild(script);
-  }
-
   // --------------------------------------------------------------------
   // Champs conditionnels — étape 2 (terrain) et étape 3 (devis DPE) — US-5/US-8
   // --------------------------------------------------------------------
@@ -369,6 +492,26 @@ if (estimationFormEl) {
 
     var dpeRequestSelect = document.getElementById("dpeRequest");
     if (dpeRequestSelect && !visibility.showDpeRequest) dpeRequestSelect.value = "";
+
+    // Précisions facultatives de l'étape 3 (§7.1).
+    if (floorGroupEl) floorGroupEl.hidden = !visibility.showFloor;
+    if (hasElevatorGroupEl) hasElevatorGroupEl.hidden = !visibility.showElevator;
+    if (outdoorGroupEl) outdoorGroupEl.hidden = !visibility.showOutdoor;
+    if (conditionGroupEl) conditionGroupEl.hidden = !visibility.showCondition;
+    if (optionalDetailsGroupEl) {
+      optionalDetailsGroupEl.hidden = !visibility.showOptionalDetails;
+    }
+
+    ["floor", "hasElevator", "outdoor", "condition"].forEach(function (id) {
+      var visibleKey = {
+        floor: "showFloor",
+        hasElevator: "showElevator",
+        outdoor: "showOutdoor",
+        condition: "showCondition",
+      }[id];
+      var el = document.getElementById(id);
+      if (el && !visibility[visibleKey]) el.value = "";
+    });
   }
 
   // --------------------------------------------------------------------
@@ -403,7 +546,62 @@ if (estimationFormEl) {
   // `getSelectedOptionText`).
   // --------------------------------------------------------------------
   wizard.restore();
+
+  // --------------------------------------------------------------------
+  // Pré-remplissage depuis l'URL — le formulaire d'adresse du hero de la page
+  // d'accueil pointe sur `/estimation/?address=...&postalCode=...&city=...`
+  // (cf. `home-address.js`). Ces valeurs priment sur l'état restauré : elles
+  // traduisent une intention explicite et immédiate de l'utilisateur, là où
+  // sessionStorage ne restitue qu'un parcours interrompu.
+  // --------------------------------------------------------------------
+  var addressPrefill =
+    typeof parseAddressQuery === "function" && typeof window !== "undefined"
+      ? parseAddressQuery(window.location.search)
+      : null;
+  var prefillStartsNewAddress = false;
+
+  if (addressPrefill) {
+    prefillStartsNewAddress = !isSameAddressInput(
+      addressPrefill.address,
+      wizard.state.data.address
+    );
+    wizard.updateField("address", addressPrefill.address);
+    wizard.updateField("postalCode", addressPrefill.postalCode);
+    wizard.updateField("city", addressPrefill.city);
+    wizard.updateField("placeId", ""); // non transmis par l'URL (debug/QA uniquement).
+    wizard.updateField("addressSource", addressPrefill.addressSource);
+  }
+
   hydrateFieldsFromState();
+
+  if (addressPrefill) {
+    // Adresse différente de celle du parcours restauré : c'est un nouveau
+    // bien, on repart de l'étape 1 plutôt que de rouvrir l'étape 4 d'un
+    // parcours qui portait sur autre chose.
+    if (prefillStartsNewAddress) wizard.goToStep(1);
+
+    if (wizard.state.currentStep === 1) {
+      if (wizard.validateStep(1, wizard.state.data).valid) {
+        // Adresse issue d'une suggestion Google : code postal et ville sont
+        // connus, l'étape 1 n'a plus rien à demander. `next()` la valide,
+        // ouvre l'étape 2, met à jour maxStepReached, persiste et pose le
+        // focus sur le titre de la nouvelle étape.
+        wizard.next();
+      } else {
+        // Adresse saisie librement sur l'accueil (pas de suggestion, ou
+        // Google indisponible) : on ouvre tout de suite le bloc CP/ville
+        // plutôt que d'attendre un `blur` sur un champ que l'utilisateur n'a
+        // aucune raison de venir toucher.
+        ensureAddressManualFallback();
+      }
+    }
+
+    // L'URL a joué son rôle : on la nettoie pour qu'un rafraîchissement
+    // ultérieur ne réécrase pas une adresse corrigée entre-temps.
+    if (window.history && typeof window.history.replaceState === "function") {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }
 
   // --------------------------------------------------------------------
   // Câblage des listeners — étape 1 (adresse)
@@ -462,7 +660,10 @@ if (estimationFormEl) {
     }
   }, 3000);
 
-  loadGoogleMapsAPI();
+  // Pas de clé configurée (preview, dev sans .env...) : `loadGoogleMapsScript`
+  // renvoie false sans rien tenter, le minuteur de repli ci-dessus prend alors
+  // le relais.
+  loadGoogleMapsScript("initAutocomplete", ensureAddressManualFallback);
 
   // --------------------------------------------------------------------
   // Champs simples — synchronisation DOM -> wizard.updateField
@@ -475,6 +676,10 @@ if (estimationFormEl) {
     "rooms",
     "dpe",
     "dpeRequest",
+    "floor",
+    "hasElevator",
+    "outdoor",
+    "condition",
     "isOwner",
     "wantToSell",
     "name",
@@ -550,20 +755,208 @@ if (estimationFormEl) {
     }
   }
 
+  // --------------------------------------------------------------------
+  // Écran de soumission (§7.1) : l'appel API a lieu pendant l'envoi. Le
+  // bouton reste désactivé tant que l'API n'a pas répondu, avec un message de
+  // progression indéterminé et un second message au bout de 2,5 s.
+  // --------------------------------------------------------------------
+  var submitStatusTimer = null;
+
+  function showSubmitStatus(message) {
+    if (!submitStatusEl) return;
+    if (submitStatusTextEl) submitStatusTextEl.textContent = message;
+    submitStatusEl.hidden = false;
+  }
+
+  function hideSubmitStatus() {
+    if (submitStatusTimer !== null) {
+      clearTimeout(submitStatusTimer);
+      submitStatusTimer = null;
+    }
+    if (submitStatusEl) submitStatusEl.hidden = true;
+  }
+
+  /** Message d'alerte libre dans la bannière `role="alert"` du wizard. */
+  function showWizardAlert(message) {
+    if (!wizardAlertEl) return;
+    wizardAlertEl.hidden = false;
+    wizardAlertEl.textContent = message;
+  }
+
+  function setSubmitBusy(submitBtn, busy, originalHTML) {
+    if (!submitBtn) return;
+    submitBtn.disabled = busy;
+    if (busy) {
+      submitBtn.innerHTML = "<span>Envoi en cours...</span>";
+      submitBtn.setAttribute("aria-busy", "true");
+    } else {
+      submitBtn.innerHTML = originalHTML;
+      // Retiré plutôt que mis à "false" : `aria-busy` absent est l'état neutre,
+      // et le bouton doit repartir exactement comme au chargement.
+      submitBtn.removeAttribute("aria-busy");
+    }
+  }
+
+  /**
+   * Libellé de repos du bouton d'envoi, capturé une fois pour toutes AVANT la
+   * première soumission. `handleSubmit` travaille avec un `originalHTML` local,
+   * inaccessible depuis un gestionnaire global : c'est cette copie que le
+   * retour bfcache (plus bas) restaure.
+   */
+  var submitIdleHTML = (function () {
+    var btn = document.getElementById("wizardSubmit");
+    return btn ? btn.innerHTML : "";
+  })();
+
+  /**
+   * Drapeau « soumission en vol » (correctif QA B4).
+   *
+   * `submitBtn.disabled` NE SUFFIT PAS : `form.requestSubmit()` sans
+   * soumetteur — ce que fait la navigation clavier US-7 sur Entrée à la
+   * dernière étape — déclenche l'événement `submit` sans consulter l'état
+   * `disabled` d'un quelconque bouton. Depuis que la soumission est
+   * asynchrone (appel API : jusqu'à ~13,5 s avec le retry), deux appuis sur
+   * Entrée produisaient donc deux `POST /v1/estimations`, deux envois EmailJS
+   * (lead dupliqué côté commercial), deux persistances et deux redirections.
+   *
+   * Le drapeau est posé APRÈS la validation (une soumission invalide n'est
+   * pas « en vol ») et relâché sur TOUS les chemins qui laissent
+   * l'utilisateur sur le formulaire (422, 429, exception inattendue). Il
+   * reste volontairement à `true` sur les chemins qui redirigent vers
+   * `/rapport/` : la navigation n'étant pas instantanée, le relâcher
+   * rouvrirait précisément la fenêtre de double soumission qu'on ferme ici.
+   */
+  var submitInFlight = false;
+
+  /** Rend la main à l'utilisateur : bouton réactivé ET drapeau relâché. */
+  function releaseSubmit(submitBtn, originalHTML) {
+    submitInFlight = false;
+    setSubmitBusy(submitBtn, false, originalHTML);
+  }
+
+  /**
+   * Soumission finale. La SEULE partie asynchrone est l'appel à l'API : une
+   * fois la réponse connue, la suite (EmailJS non bloquant, persistance,
+   * redirection) reproduit à l'identique l'ordre de l'existant — US-10 de
+   * `specs/estimation-wizard.md`. Le wizard, lui, reste entièrement
+   * synchrone : il ne connaît pas l'API.
+   */
   function handleSubmit() {
+    // Garde de double soumission (B4) : AVANT toute autre chose, y compris la
+    // validation — rejouer `wizard.next()` pendant un appel en vol
+    // déplacerait le focus sans raison.
+    if (submitInFlight) return;
+
     // Valide l'étape 5 ; comme c'est déjà la dernière étape, `next()` ne fait
     // qu'exécuter la validation (cf. estimation-wizard.js) sans avancer.
     var valid = wizard.next();
     if (!valid) return;
 
-    var payload = wizard.serializeForSubmit();
     var submitBtn = document.getElementById("wizardSubmit");
     var originalHTML = submitBtn ? submitBtn.innerHTML : "";
 
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = "<span>Envoi en cours...</span>";
+    submitInFlight = true;
+    setSubmitBusy(submitBtn, true, originalHTML);
+    if (wizardAlertEl) wizardAlertEl.hidden = true;
+    showSubmitStatus("Analyse des transactions réelles autour de votre bien…");
+    submitStatusTimer = setTimeout(function () {
+      showSubmitStatus("Nous consultons les ventes des 24 derniers mois.");
+    }, 2500);
+
+    var apiPayload = buildEstimationApiPayload(wizard.state.data);
+    var apiConfig = typeof CONFIG !== "undefined" && CONFIG.API ? CONFIG.API : {};
+
+    try {
+      requestEstimation(apiPayload, { baseUrl: apiConfig.BASE_URL }, function (response) {
+        hideSubmitStatus();
+        try {
+          finalizeSubmit(response, submitBtn, originalHTML);
+        } catch (error) {
+          // `requestEstimation` avale les exceptions de son callback : sans ce
+          // filet, une erreur imprévue ici laisserait `submitInFlight` à
+          // `true` et le formulaire définitivement inutilisable.
+          console.error("Erreur pendant la finalisation de la soumission :", error);
+          releaseSubmit(submitBtn, originalHTML);
+          showWizardAlert(
+            "Une erreur inattendue est survenue. Vous pouvez réessayer votre demande."
+          );
+        }
+      });
+    } catch (error) {
+      // `requestEstimation` ne rejette jamais et ne devrait pas lever, mais
+      // une soumission bloquée à vie coûterait un lead : on relâche.
+      console.error("Erreur pendant l'appel d'estimation :", error);
+      hideSubmitStatus();
+      releaseSubmit(submitBtn, originalHTML);
+      showWizardAlert(
+        "Une erreur inattendue est survenue. Vous pouvez réessayer votre demande."
+      );
     }
+  }
+
+  /**
+   * Suite de la soumission, une fois l'API retournée. Trois issues :
+   *  - `invalid` (422 / adresse introuvable) : retour au champ fautif, aucune
+   *    estimation produite, aucun lead envoyé — une donnée invalide ne doit
+   *    pas générer de chiffre ;
+   *  - `rate-limited` (429) : message explicite, bouton réactivé, pas de
+   *    redirection ni de nouvelle tentative (US-8) ;
+   *  - tout le reste : on poursuit le parcours normal, avec un statut
+   *    `ok` / `static-fallback` / `deferred`.
+   */
+  function finalizeSubmit(response, submitBtn, originalHTML) {
+    if (response.status === "invalid") {
+      // L'utilisateur reste sur le formulaire pour corriger : on lui rend la
+      // main (bouton ET drapeau de double soumission).
+      releaseSubmit(submitBtn, originalHTML);
+      // `setErrors` repositionne sur l'étape du premier champ fautif, affiche
+      // le message sous le champ et pose le focus — sans table de
+      // correspondance ici.
+      var hasFieldErrors = wizard.setErrors(response.errors || {});
+      if (response.addressUnresolved) {
+        wizard.goToStep(1);
+        ensureAddressManualFallback();
+      }
+      if (!hasFieldErrors) {
+        showWizardAlert(
+          response.message || "Certaines informations doivent être corrigées."
+        );
+      }
+      return;
+    }
+
+    if (response.status === "rate-limited") {
+      // Pas de retry (US-8) : l'utilisateur réessaiera lui-même, il faut donc
+      // que le drapeau soit relâché — sinon plus aucune soumission possible.
+      releaseSubmit(submitBtn, originalHTML);
+      showWizardAlert(
+        response.message ||
+          "Trop de demandes depuis votre connexion. Réessayez dans quelques instants."
+      );
+      return;
+    }
+
+    var estimationStatus = resolveEstimationStatus(response, apiConfigForStatus());
+    var estimation = null;
+
+    if (estimationStatus === "ok") {
+      estimation = mapApiResultToLegacyEstimation(response.result);
+    } else if (estimationStatus === "static-fallback") {
+      // DÉCISION CLIENT : un prix est toujours affiché. Le calcul de repli
+      // reste `calculerEstimation()`, inchangé — et la page comme le PDF
+      // afficheront un bandeau permanent, sans aucune mention DVF/DGFiP.
+      var data = wizard.state.data;
+      estimation = calculerEstimation(
+        data.city,
+        parseFloat(data.surface),
+        parseInt(data.rooms, 10),
+        data.propertyType,
+        data.dpe
+      );
+    }
+
+    var payload = wizard.serializeForSubmit(estimation);
+    payload.estimationStatus = estimationStatus;
 
     var templateParams = buildEmailTemplateParams(payload, {
       propertyTypeText: getSelectedOptionText("propertyType"),
@@ -579,36 +972,78 @@ if (estimationFormEl) {
     ) {
       emailjs
         .send(CONFIG.EMAILJS.SERVICE_ID, CONFIG.EMAILJS.TEMPLATE_ID, templateParams)
-        .then(function (response) {
-          console.log("Email envoye avec succes!", response.status, response.text);
+        .then(function (emailResponse) {
+          console.log("Email envoye avec succes!", emailResponse.status, emailResponse.text);
         })
         .catch(function (error) {
           console.error("Erreur envoi email:", error);
         })
         .finally(function () {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalHTML;
-          }
+          setSubmitBusy(submitBtn, false, originalHTML);
         });
     } else {
       console.error("EmailJS indisponible : envoi de l'email ignoré.");
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalHTML;
-      }
+      setSubmitBusy(submitBtn, false, originalHTML);
     }
 
     // Comportement identique à l'ancien estimation.js : la persistance et la
     // redirection ne dépendent PAS de la résolution de la promesse EmailJS
     // (US-10, scénario "Échec d'envoi EmailJS" -> redirection quand même).
+    //
+    // `submitInFlight` reste à `true` sur ce chemin : le lead est parti et on
+    // quitte la page. Le relâcher (comme le fait `setSubmitBusy` sur le
+    // bouton, une fois la promesse EmailJS résolue) autoriserait une seconde
+    // soumission pendant le temps de la navigation — soit un lead dupliqué.
     persistEstimation(payload);
     wizard.clearPersistedState();
-    window.location.href = "/rapport";
+    // Barre finale obligatoire : `trailingSlash: 'always'` (astro.config.mjs).
+    window.location.href = "/rapport/";
+  }
+
+  /** `CONFIG.API` défensif (la clé peut manquer sur une preview sans .env). */
+  function apiConfigForStatus() {
+    return typeof CONFIG !== "undefined" && CONFIG.API ? CONFIG.API : {};
   }
 
   estimationFormEl.addEventListener("submit", function (e) {
     e.preventDefault();
     handleSubmit();
   });
+
+  // --------------------------------------------------------------------
+  // Retour arrière depuis /rapport/ (bfcache) — pendant obligatoire de B4.
+  //
+  // `finalizeSubmit` laisse volontairement `submitInFlight` à `true` sur les
+  // chemins qui redirigent (cf. son commentaire) : c'est ce qui empêche une
+  // seconde soumission pendant le temps de la navigation. Mais un clic sur
+  // « Précédent » depuis /rapport/ ne recharge PAS la page : le navigateur la
+  // restaure depuis le bfcache avec ses closures intactes, drapeau compris.
+  // Le formulaire réapparaît alors parfaitement vivant... et ne fait plus
+  // rien, sans le moindre message — un lead perdu en silence, sur un geste
+  // aussi banal que revenir corriger une saisie après avoir vu son
+  // estimation.
+  //
+  // `e.persisted` est ce qui distingue cette restauration d'un `pageshow` de
+  // chargement ordinaire (émis après CHAQUE navigation, y compris celle qui
+  // vient de partir) : relâcher le drapeau sans ce test rouvrirait très
+  // exactement la fenêtre de double soumission que B4 a fermée.
+  // --------------------------------------------------------------------
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("pageshow", function (e) {
+      if (!e || !e.persisted) return;
+
+      submitInFlight = false;
+
+      // L'état visuel doit suivre le drapeau. Au gel de la page, la promesse
+      // EmailJS pouvait être encore en vol : le bouton est alors resté sur
+      // « Envoi en cours... », `disabled` et `aria-busy`. Le restaurer tel
+      // quel remplacerait un blocage silencieux par un affichage mensonger.
+      setSubmitBusy(document.getElementById("wizardSubmit"), false, submitIdleHTML);
+
+      // Même raisonnement pour le message de progression et son minuteur de
+      // 2,5 s, tous deux susceptibles de survivre au gel : ils annonceraient
+      // une analyse en cours sur un formulaire au repos.
+      hideSubmitStatus();
+    });
+  }
 }
