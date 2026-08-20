@@ -1,0 +1,519 @@
+---
+import LegalLayout from '../layouts/LegalLayout.astro';
+import { EDITEUR, HEBERGEUR } from '../data/legal';
+import { CONFIG } from '../lib/config';
+
+/**
+ * Politique de confidentialité.
+ *
+ * ---------------------------------------------------------------------------
+ * RÈGLE DE RÉDACTION : NE DÉCRIRE QUE CE QUE LE CODE FAIT VRAIMENT
+ * ---------------------------------------------------------------------------
+ * Chaque affirmation de cette page est adossée à un comportement observable :
+ *   - `src/scripts/estimation-wizard.js` §6 — sessionStorage limité aux étapes
+ *     1 à 4, jamais nom/e-mail/téléphone ;
+ *   - `src/scripts/estimation-ui.js` / `contact.js` — `estimationDatabase`,
+ *     `lastEstimation`, `contactDatabase` en localStorage, sur l'appareil ;
+ *   - `src/scripts/lead-api.js` — les coordonnées ne partent que par
+ *     `POST /v1/leads`, avec EmailJS en repli ;
+ *   - `specs/estimation-donnees-reelles.md` §8.3 — `ip_hmac`, rétention
+ *     12 mois, cache de géocodage 90 jours ;
+ *   - `api/DEPLOIEMENT.md` §4.6 — `POST /v1/leads` ne persiste rien.
+ * Modifier l'un de ces comportements sans corriger cette page rend la page
+ * fausse, ce qui est un manquement, pas une coquille.
+ *
+ * Le statut de la mesure d'audience est déduit de la configuration réelle
+ * (`PUBLIC_GA4_MEASUREMENT_ID`) plutôt qu'écrit en dur : tant que la variable
+ * est vide, aucun script GA4 n'est chargé et la page le dit ; le jour où elle
+ * est renseignée, le texte bascule tout seul. Une politique qui annonce un
+ * traceur inexistant est aussi fautive qu'une qui en cache un.
+ */
+
+const mesureAudienceActive = Boolean((CONFIG.ANALYTICS.GA4_MEASUREMENT_ID || '').trim());
+
+const SECTIONS = [
+  { id: 'responsable', titre: 'Responsable du traitement' },
+  { id: 'principes', titre: 'Ce qu’il faut retenir' },
+  { id: 'traitements', titre: 'Données traitées, finalités et bases légales' },
+  { id: 'navigateur', titre: 'Données conservées dans votre navigateur' },
+  { id: 'destinataires', titre: 'Destinataires et sous-traitants' },
+  { id: 'transferts', titre: 'Transferts hors Union européenne' },
+  { id: 'durees', titre: 'Durées de conservation' },
+  { id: 'cookies', titre: 'Cookies et traceurs' },
+  { id: 'publicite', titre: 'Publicité et mesure de conversion' },
+  { id: 'securite', titre: 'Sécurité' },
+  { id: 'droits', titre: 'Vos droits' },
+  { id: 'modifications', titre: 'Modifications de cette politique' },
+] as const;
+
+const DATE_MAJ = new Date('2026-08-20');
+
+/** Une ligne = un traitement inscrit au registre. */
+const TRAITEMENTS = [
+  {
+    finalite: 'Calculer une estimation immobilière',
+    donnees:
+      "Adresse du bien, code postal, commune, type de bien, surface, nombre de pièces, année de construction, état, étage, extérieur, stationnement, performance énergétique.",
+    base: "Mesures précontractuelles prises à votre demande (art. 6.1.b du RGPD)",
+    duree: "Le temps du calcul. Aucune de ces données n'est conservée sous une forme identifiante.",
+  },
+  {
+    finalite: 'Vous transmettre votre rapport et vous recontacter',
+    donnees: 'Nom, prénom, adresse e-mail, numéro de téléphone (facultatif), message libre.',
+    base: 'Votre consentement, recueilli au moment où vous validez le formulaire (art. 6.1.a)',
+    duree: "Le temps de l'échange, puis 3 ans à compter du dernier contact de votre part.",
+  },
+  {
+    finalite: 'Répondre à une demande envoyée via le formulaire de contact',
+    donnees: 'Nom, prénom, adresse e-mail, téléphone (facultatif), objet et contenu du message.',
+    base: 'Votre consentement (art. 6.1.a)',
+    duree: "Le temps du traitement de la demande, puis 3 ans à compter du dernier contact.",
+  },
+  {
+    finalite: 'Vous mettre en relation avec un professionnel partenaire',
+    donnees: 'Coordonnées et caractéristiques du bien, uniquement avec votre accord explicite.',
+    base: 'Votre consentement (art. 6.1.a)',
+    duree: "Jusqu'au retrait de votre consentement, et au plus 3 ans après le dernier contact.",
+  },
+  {
+    finalite: 'Sécuriser le service et prévenir les abus',
+    donnees:
+      "Empreinte cryptographique irréversible de votre adresse IP (HMAC-SHA256 avec un sel serveur — l'adresse IP n'est jamais enregistrée en clair), code commune INSEE, horodatage, type de bien.",
+    base: 'Intérêt légitime : maintenir un service disponible et non abusé (art. 6.1.f)',
+    duree: '12 mois, purge automatisée quotidienne.',
+  },
+  {
+    finalite: "Mettre en cache le géocodage des adresses",
+    donnees: "Adresse normalisée et ses coordonnées géographiques, sans lien avec une personne.",
+    base: "Intérêt légitime : performance et respect des limites d'usage d'un service public (art. 6.1.f)",
+    duree: '90 jours, purge automatique.',
+  },
+  {
+    finalite: "Mesurer l'audience et l'efficacité de nos campagnes",
+    donnees:
+      'Pages consultées, provenance, événements de parcours, identifiant de campagne, identifiant technique de mesure.',
+    base: 'Votre consentement, révocable à tout moment (art. 6.1.a)',
+    duree: '13 mois maximum pour les traceurs, 25 mois pour les statistiques agrégées.',
+  },
+] as const;
+---
+
+<LegalLayout
+  title="Politique de confidentialité. Estimer mon bien"
+  description="Quelles données Estimer mon bien collecte, pourquoi, avec qui elles sont partagées, combien de temps elles sont conservées et comment exercer vos droits RGPD."
+  eyebrow="Protection des données"
+  heading="Politique de confidentialité"
+  lead="Estimer un bien suppose de nous confier une adresse, parfois des coordonnées. Voici précisément ce que nous en faisons, ce que nous n'en faisons pas, et comment reprendre la main à tout moment."
+  dateMaj={DATE_MAJ}
+  sections={SECTIONS}
+>
+  <Fragment slot="responsable">
+    <p>
+      Le responsable du traitement des données collectées sur <strong>estimer.co</strong> est <strong>{EDITEUR.responsable}</strong>, éditeur du site.
+    </p>
+    <dl>
+      <dt>Contact données personnelles</dt>
+      <dd><a href={`mailto:${EDITEUR.email}`}>{EDITEUR.email}</a></dd>
+
+      <dt>Téléphone</dt>
+      <dd><a href={`tel:${EDITEUR.telephoneLien}`}>{EDITEUR.telephone}</a></dd>
+    </dl>
+    <p>
+      Compte tenu de la nature et du volume des traitements, la désignation d'un délégué à la
+      protection des données n'est pas obligatoire&nbsp;; les demandes relatives aux données
+      personnelles sont traitées directement par le responsable du traitement.
+    </p>
+  </Fragment>
+
+  <Fragment slot="principes">
+    <p>Trois choix structurent l'ensemble de ce qui suit&nbsp;:</p>
+    <ul>
+      <li>
+        <strong>Vos coordonnées ne sont jamais envoyées au moteur de calcul.</strong> Le service qui
+        calcule votre estimation reçoit l'adresse et les caractéristiques du bien&nbsp;; il rejette
+        techniquement toute requête contenant un nom, un e-mail ou un téléphone.
+      </li>
+      <li>
+        <strong>Aucun fichier de prospects n'est constitué sur nos serveurs.</strong> Lorsque vous
+        demandez à recevoir votre rapport ou nous écrivez, vos coordonnées traversent notre
+        interface, partent par e-mail, et ne sont enregistrées dans aucune base de données ni aucun
+        journal en clair.
+      </li>
+      <li>
+        <strong>Votre adresse IP n'est jamais conservée en clair.</strong> Seule une empreinte
+        irréversible est journalisée, pendant 12 mois, pour détecter les usages abusifs.
+      </li>
+    </ul>
+    <p>
+      Nous ne vendons ni ne louons vos données. Aucune décision produisant des effets juridiques à
+      votre égard n'est prise sur le seul fondement d'un traitement automatisé.
+    </p>
+  </Fragment>
+
+  <Fragment slot="traitements">
+    <p>
+      Nous ne collectons aucune donnée «&nbsp;au cas où&nbsp;»&nbsp;: chaque champ demandé sert à
+      l'une des finalités ci-dessous. Les champs facultatifs sont signalés comme tels dans les
+      formulaires&nbsp;; ne pas les renseigner n'empêche pas d'obtenir une estimation.
+    </p>
+    <div class="legal-table">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Finalité</th>
+            <th scope="col">Données concernées</th>
+            <th scope="col">Base légale</th>
+            <th scope="col">Conservation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            TRAITEMENTS.map((traitement) => (
+              <tr>
+                <th scope="row">{traitement.finalite}</th>
+                <td>{traitement.donnees}</td>
+                <td>{traitement.base}</td>
+                <td>{traitement.duree}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+    <aside class="legal-note">
+      <p>
+        <strong>L'adresse d'un bien est une donnée personnelle</strong> dès lors qu'elle peut être
+        rattachée à une personne. Elle n'est donc jamais inscrite en clair dans nos journaux
+        techniques&nbsp;: ceux-ci ne retiennent que le code de la commune.
+      </p>
+    </aside>
+    <p>
+      Nous ne traitons aucune donnée dite sensible (santé, opinions, appartenance syndicale…) et le
+      service n'est pas destiné aux mineurs de moins de 15 ans.
+    </p>
+  </Fragment>
+
+  <Fragment slot="navigateur">
+    <p>
+      Une partie de vos informations ne quitte jamais votre appareil&nbsp;: elle est stockée par
+      votre navigateur, pour que vous puissiez interrompre puis reprendre votre estimation, et
+      relire votre rapport sans le recalculer.
+    </p>
+    <div class="legal-table">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Emplacement</th>
+            <th scope="col">Contenu</th>
+            <th scope="col">Durée</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Stockage de session</th>
+            <td>
+              Votre progression dans le formulaire d'estimation&nbsp;: adresse et caractéristiques
+              du bien, étapes 1 à 4. <strong>Ni nom, ni e-mail, ni téléphone.</strong>
+            </td>
+            <td>Effacé à la fermeture de l'onglet, et dès l'estimation obtenue.</td>
+          </tr>
+          <tr>
+            <th scope="row">Stockage local</th>
+            <td>
+              Votre dernier rapport d'estimation et l'historique de vos demandes, coordonnées
+              incluses, afin d'afficher le rapport et de générer le PDF.
+            </td>
+            <td>
+              Jusqu'à ce que vous effaciez les données de navigation pour ce site (voir ci-dessous).
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Ces informations restent sur votre appareil&nbsp;: nous n'y avons pas accès. Pour les
+      supprimer, effacez les données de site pour estimer.co depuis les réglages de votre
+      navigateur — la marche à suivre figure dans son aide, à la rubrique «&nbsp;données de
+      navigation&nbsp;» ou «&nbsp;cookies et données de sites&nbsp;». Sur un ordinateur partagé,
+      c'est le geste à faire après avoir consulté votre rapport.
+    </p>
+  </Fragment>
+
+  <Fragment slot="destinataires">
+    <p>
+      Vos données ne sont accessibles qu'au responsable du traitement et aux prestataires
+      strictement nécessaires au fonctionnement du service. Chacun n'intervient que sur
+      instruction, pour la finalité indiquée&nbsp;:
+    </p>
+    <div class="legal-table">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Prestataire</th>
+            <th scope="col">Rôle</th>
+            <th scope="col">Données concernées</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">{HEBERGEUR.nom}</th>
+            <td>Hébergement du site.</td>
+            <td>Journaux techniques de connexion au serveur.</td>
+          </tr>
+          <tr>
+            <th scope="row">Hébergeur de l'interface d'estimation</th>
+            <td>Exécution du calcul et de la base de données associée, au sein de l'Union européenne.</td>
+            <td>Caractéristiques du bien, adresse normalisée mise en cache, journaux anonymisés.</td>
+          </tr>
+          <tr>
+            <th scope="row">Scaleway (Transactional Email)</th>
+            <td>Acheminement des e-mails&nbsp;: votre accusé de réception et notre notification interne.</td>
+            <td>Nom, e-mail, téléphone, message, caractéristiques du bien.</td>
+          </tr>
+          <tr>
+            <th scope="row">EmailJS</th>
+            <td>
+              Acheminement de secours des formulaires, activé uniquement lorsque l'envoi principal
+              n'a pas abouti.
+            </td>
+            <td>Nom, e-mail, téléphone, message, caractéristiques du bien.</td>
+          </tr>
+          <tr>
+            <th scope="row">Google Maps Platform</th>
+            <td>
+              Saisie assistée de l'adresse et affichage de la carte du rapport. Le service est
+              appelé depuis votre navigateur&nbsp;: Google reçoit à ce titre votre adresse IP.
+            </td>
+            <td>Adresse saisie, adresse IP.</td>
+          </tr>
+          <tr>
+            <th scope="row">Base Adresse Nationale (service public)</th>
+            <td>Géocodage de l'adresse, appelé depuis nos serveurs et non depuis votre navigateur.</td>
+            <td>Adresse du bien, sans coordonnées de contact.</td>
+          </tr>
+          <tr>
+            <th scope="row">Google (Analytics, Ads, Tag Manager)</th>
+            <td>Mesure d'audience et mesure de l'efficacité publicitaire, soumises à votre consentement.</td>
+            <td>Données de navigation, identifiants techniques de mesure.</td>
+          </tr>
+          <tr>
+            <th scope="row">Meta Platforms</th>
+            <td>Mesure de l'efficacité de nos campagnes publicitaires, soumise à votre consentement.</td>
+            <td>Données de navigation, identifiants techniques de mesure.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Vos coordonnées ne sont transmises à un professionnel partenaire (agence, banque, notaire,
+      diagnostiqueur) <strong>qu'avec votre accord explicite</strong>, donné au moment de la
+      demande. Ce partenaire devient alors responsable du traitement pour ses propres finalités et
+      applique sa propre politique de confidentialité.
+    </p>
+    <p>
+      Nous pouvons enfin être tenus de communiquer certaines données à une autorité administrative
+      ou judiciaire qui en ferait la demande dans le cadre prévu par la loi.
+    </p>
+  </Fragment>
+
+  <Fragment slot="transferts">
+    <p>
+      L'hébergement du site, le calcul des estimations et l'acheminement des e-mails sont réalisés
+      en Europe. Deux catégories de destinataires impliquent toutefois un transfert hors Union
+      européenne&nbsp;:
+    </p>
+    <ul>
+      <li>
+        <strong>{HEBERGEUR.nom}</strong>, établi en Suisse — pays reconnu par la Commission
+        européenne comme assurant un niveau de protection adéquat.
+      </li>
+      <li>
+        <strong>Google LLC</strong> et <strong>Meta Platforms, Inc.</strong>, établis aux
+        États-Unis — sur le fondement du cadre de protection des données UE&nbsp;–&nbsp;États-Unis
+        (<i>Data Privacy Framework</i>) auquel ces sociétés adhèrent, complété par les clauses
+        contractuelles types de la Commission européenne.
+      </li>
+    </ul>
+    <p>
+      Les traitements liés à la mesure d'audience et à la publicité n'interviennent qu'après votre
+      consentement&nbsp;: le refuser suffit à écarter les transferts correspondants.
+    </p>
+  </Fragment>
+
+  <Fragment slot="durees">
+    <p>
+      Les durées applicables à chaque finalité figurent dans le tableau de la section&nbsp;3. En
+      synthèse&nbsp;:
+    </p>
+    <ul>
+      <li>
+        <strong>Caractéristiques du bien envoyées au calcul</strong>&nbsp;: le temps du calcul,
+        aucune conservation sous forme identifiante.
+      </li>
+      <li>
+        <strong>Coordonnées transmises par les formulaires</strong>&nbsp;: aucune conservation en
+        base de données. Elles subsistent dans notre messagerie le temps de l'échange, puis 3 ans à
+        compter de votre dernier contact.
+      </li>
+      <li>
+        <strong>Journaux techniques anonymisés</strong>&nbsp;: 12 mois, purge automatisée
+        quotidienne.
+      </li>
+      <li><strong>Cache de géocodage des adresses</strong>&nbsp;: 90 jours, purge automatique.</li>
+      <li>
+        <strong>Traceurs de mesure d'audience et publicitaires</strong>&nbsp;: 13 mois maximum, et
+        25 mois pour les statistiques agrégées qui en sont issues.
+      </li>
+      <li><strong>Preuve du choix exprimé sur les cookies</strong>&nbsp;: 6 mois.</li>
+    </ul>
+  </Fragment>
+
+  <Fragment slot="cookies">
+    <p>
+      Un cookie ou traceur est un fichier déposé sur votre appareil lors de la consultation d'un
+      site. Tous ne se valent pas&nbsp;: certains sont indispensables au fonctionnement, d'autres
+      servent à nous mesurer ou à nous faire connaître.
+    </p>
+
+    <h3>Traceurs strictement nécessaires</h3>
+    <p>
+      Ils permettent au service de fonctionner&nbsp;: mémoriser votre progression dans le
+      formulaire, afficher votre rapport, conserver votre choix en matière de cookies. Ils ne sont
+      pas soumis à consentement, et il n'est pas possible de les refuser sans rendre le site
+      inutilisable.
+    </p>
+
+    <h3>Mesure d'audience et publicité</h3>
+    <p>
+      Les outils concernés sont <strong>Google Analytics 4</strong>, déployé via <strong>Google Tag Manager</strong> — dont une partie de la collecte transite par un serveur
+      que nous contrôlons —, ainsi que les outils de mesure de <strong>Google Ads</strong> et de <strong>Meta Ads</strong>. Ils servent à mesurer la fréquentation du site et l'efficacité de
+      nos campagnes publicitaires.
+    </p>
+    {
+      mesureAudienceActive ? (
+        <Fragment>
+          <p>
+            <strong>Ils ne sont déposés qu'après votre consentement</strong>, recueilli par le
+            bandeau affiché lors de votre première visite, et jamais avant.
+          </p>
+          <p>
+            Refuser est aussi simple qu'accepter, et n'a aucune conséquence sur l'accès au
+            service&nbsp;: l'estimation, le rapport et le formulaire de contact restent pleinement
+            disponibles. Votre choix est conservé 6 mois, puis vous est redemandé.
+          </p>
+        </Fragment>
+      ) : (
+        <p>
+          <strong>
+            À ce jour, aucun de ces traceurs n'est actif&nbsp;: ce site ne dépose aucun cookie de
+            mesure d'audience ni de publicité.
+          </strong> Leur mise en service s'accompagnera d'un bandeau recueillant votre consentement préalable,
+          où refuser sera aussi simple qu'accepter et sans conséquence sur l'accès au service. Cette
+          page sera mise à jour à cette occasion.
+        </p>
+      )
+    }
+    <p>
+      Vous pouvez également paramétrer votre navigateur pour bloquer les cookies tiers, ou installer
+      le <a
+        href="https://tools.google.com/dlpage/gaoptout"
+        target="_blank"
+        rel="noopener noreferrer">module de désactivation de Google Analytics</a
+      >. La <a
+        href="https://www.cnil.fr/fr/cookies-et-autres-traceurs/comment-se-proteger"
+        target="_blank"
+        rel="noopener noreferrer">CNIL</a
+      > publie un guide détaillé de ces réglages.
+    </p>
+  </Fragment>
+
+  <Fragment slot="publicite">
+    <p>
+      Nous faisons connaître le service par la publicité en ligne, sur <strong>Google Ads</strong> et <strong>Meta Ads</strong>. Concrètement, cela signifie que&nbsp;:
+    </p>
+    <ul>
+      <li>
+        nous mesurons combien de visiteurs venus d'une annonce demandent effectivement une
+        estimation, afin de ne pas dépenser dans le vide&nbsp;;
+      </li>
+      <li>
+        ces plateformes peuvent vous présenter à nouveau nos annonces après votre visite
+        (<i>remarketing</i>)&nbsp;;
+      </li>
+      <li>
+        nous pouvons transmettre des <strong>événements de conversion</strong> à ces plateformes
+        depuis notre propre serveur, avec les identifiants techniques nécessaires à leur
+        rapprochement.
+      </li>
+    </ul>
+    <p>
+      Ces traitements reposent <strong>exclusivement sur votre consentement</strong>. Sans lui,
+      aucune donnée n'est transmise à Google ni à Meta à des fins publicitaires. Vous pouvez le
+      retirer à tout moment, sans que cela remette en cause la licéité de ce qui a été fait
+      auparavant.
+    </p>
+    <p>
+      Nous ne pratiquons ni la revente de fichiers, ni la prospection téléphonique automatisée, ni
+      l'envoi de messages commerciaux à des personnes qui ne nous ont pas contactés.
+    </p>
+  </Fragment>
+
+  <Fragment slot="securite">
+    <p>
+      Le site et l'interface d'estimation sont servis exclusivement en HTTPS. Les accès aux
+      serveurs sont restreints et journalisés, les secrets techniques (clés d'API, identifiants
+      d'envoi d'e-mails) ne sont jamais exposés dans les pages, et les journaux applicatifs
+      masquent les adresses e-mail qu'ils mentionnent.
+    </p>
+    <p>
+      Ces mesures réduisent le risque sans l'annuler. En cas de violation de données susceptible
+      d'engendrer un risque élevé pour vos droits et libertés, vous en seriez informé conformément à
+      l'article 34 du RGPD.
+    </p>
+  </Fragment>
+
+  <Fragment slot="droits">
+    <p>
+      Vous disposez, sur les données qui vous concernent, des droits d'<strong>accès</strong>, de <strong>rectification</strong>, d'<strong>effacement</strong>, de <strong>limitation</strong>, d'<strong>opposition</strong> et de <strong>portabilité</strong>, ainsi que du droit de retirer votre consentement à tout moment
+      et de définir des directives relatives au sort de vos données après votre décès.
+    </p>
+    <p>
+      Pour les exercer, écrivez à <a href={`mailto:${EDITEUR.email}`}>{EDITEUR.email}</a> ou
+      utilisez le <a href="/contact/">formulaire de contact</a>. Nous répondons dans un délai d'un
+      mois, prolongeable de deux mois pour les demandes complexes&nbsp;; vous en seriez alors
+      informé. Une pièce d'identité ne vous sera demandée qu'en cas de doute raisonnable sur votre
+      identité, et sera détruite aussitôt la vérification faite.
+    </p>
+    <aside class="legal-note">
+      <p>
+        <strong>Deux précisions utiles.</strong> Les données conservées par votre navigateur
+        (section&nbsp;4) sont sous votre seul contrôle&nbsp;: nous ne pouvons pas les supprimer à
+        votre place. Et comme nos serveurs ne conservent pas vos coordonnées, une demande d'accès
+        portera essentiellement sur les échanges présents dans notre messagerie.
+      </p>
+    </aside>
+    <p>
+      Si vous estimez, après nous avoir contactés, que vos droits ne sont pas respectés, vous pouvez
+      introduire une réclamation auprès de la <a
+        href="https://www.cnil.fr/fr/plaintes"
+        target="_blank"
+        rel="noopener noreferrer">Commission nationale de l'informatique et des libertés (CNIL)</a
+      >, 3 place de Fontenoy, TSA 80715, 75334 Paris Cedex 07.
+    </p>
+  </Fragment>
+
+  <Fragment slot="modifications">
+    <p>
+      Cette politique évolue avec le service&nbsp;: ajout d'un prestataire, nouvelle finalité,
+      changement de durée de conservation. La date de dernière mise à jour figure en haut de page.
+    </p>
+    <p>
+      Toute modification substantielle — nouvelle finalité, nouveau destinataire, nouveau traceur —
+      donne lieu à une information visible sur le site et, s'agissant des traceurs, au recueil d'un
+      nouveau consentement.
+    </p>
+    <p>
+      Voir également les <a href="/mentions-legales/">mentions légales</a>.
+    </p>
+  </Fragment>
+</LegalLayout>

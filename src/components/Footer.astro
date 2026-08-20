@@ -27,6 +27,14 @@ const COLONNES = [
     ],
   },
 ] as const;
+
+// Volontairement hors de `COLONNES` : la grille du haut est calibrée pour
+// quatre colonnes (`1.5fr repeat(3, 1fr)`), et les liens légaux se cherchent
+// en bas de page, là où l'usage les a installés.
+const LIENS_LEGAUX = [
+  { href: '/mentions-legales/', label: 'Mentions légales' },
+  { href: '/politique-de-confidentialite/', label: 'Politique de confidentialité' },
+] as const;
 ---
 
 <footer class="site-footer">
@@ -71,7 +79,12 @@ const COLONNES = [
     </div>
 
     <div class="site-footer__bottom">
-      <p>&copy; {annee} Estimer mon bien. Tous droits réservés.</p>
+      <div class="site-footer__bottom-left">
+        <p>&copy; {annee} Estimer mon bien. Tous droits réservés.</p>
+        <nav class="site-footer__legal" aria-label="Informations légales">
+          {LIENS_LEGAUX.map((lien) => <a href={lien.href}>{lien.label}</a>)}
+        </nav>
+      </div>
       <p>Estimation indicative, sans valeur d'expertise réglementaire.</p>
     </div>
   </div>
