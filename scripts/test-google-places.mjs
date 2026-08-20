@@ -14,9 +14,15 @@
  * - `parseAddressQuery` : assainissement des paramètres d'URL transmis par ce
  *   formulaire d'accueil au wizard (`/estimation?address=...`).
  *
- * `loadGoogleMapsScript` n'est pas couvert : il ne fait qu'injecter un
- * `<script>` dans le `document` (rien de pur à vérifier sans DOM ; il sort
- * d'ailleurs immédiatement quand `document` est absent, comme ici).
+ * `loadGoogleMapsScript` est couvert en fin de fichier sur un `document`
+ * bouchonné (2 méthodes : `createElement` et `head.appendChild`). Ce qui s'y
+ * joue n'est pas cosmétique : un build sans `PUBLIC_GOOGLE_MAPS_API_KEY`
+ * produit `CONFIG.GOOGLE === {}` — une variable d'environnement absente vaut
+ * `undefined` et disparaît du JSON sérialisé par `ClientConfig.astro`. Le
+ * contrat verrouillé ici est qu'aucune URL Google n'est alors demandée (pas de
+ * `key=undefined`), que le `false` renvoyé permet à l'appelant de basculer
+ * tout de suite sur son repli manuel, et qu'un avertissement nomme la variable
+ * manquante — sans quoi la panne est parfaitement muette en console.
  *
  * Usage : `node scripts/test-google-places.mjs` (ou `npm run test:google-places`).
  */
@@ -40,7 +46,71 @@ function loadGooglePlacesModule() {
     parseGooglePlace: globalThis.parseGooglePlace,
     parseAddressQuery: globalThis.parseAddressQuery,
     ADDRESS_QUERY_KEYS: globalThis.ADDRESS_QUERY_KEYS,
+    loadGoogleMapsScript: globalThis.loadGoogleMapsScript,
+    readGoogleMapsApiKey: globalThis.readGoogleMapsApiKey,
   };
+}
+
+/**
+ * Exécute `scenario` avec un `document` minimal et un `CONFIG` donné, puis
+ * remet le realm Node exactement dans l'état où il était.
+ *
+ * @param {{config?: object|undefined, withDocument?: boolean}} options
+ *   `config` omis (`undefined`) = pas de global `CONFIG` du tout (cas d'une
+ *   page servie sans `ClientConfig.astro`) ; `withDocument: false` = contexte
+ *   sans DOM.
+ */
+function withGoogleEnv(options, scenario) {
+  const opts = options || {};
+  const appendedScripts = [];
+  const warnings = [];
+
+  const saved = {
+    document: globalThis.document,
+    CONFIG: globalThis.CONFIG,
+    consoleWarn: console.warn,
+  };
+
+  if (opts.withDocument === false) {
+    delete globalThis.document;
+  } else {
+    globalThis.document = {
+      createElement(tagName) {
+        return { tagName: String(tagName).toUpperCase(), src: "", async: false, defer: false };
+      },
+      head: {
+        appendChild(node) {
+          appendedScripts.push(node);
+        },
+      },
+    };
+  }
+
+  if (Object.prototype.hasOwnProperty.call(opts, "config") && opts.config === undefined) {
+    delete globalThis.CONFIG;
+  } else {
+    globalThis.CONFIG = opts.config;
+  }
+
+  console.warn = function () {
+    warnings.push(Array.prototype.join.call(arguments, " "));
+  };
+
+  try {
+    const module = loadGooglePlacesModule();
+    return scenario({
+      loadGoogleMapsScript: module.loadGoogleMapsScript,
+      readGoogleMapsApiKey: module.readGoogleMapsApiKey,
+      appendedScripts: appendedScripts,
+      warnings: warnings,
+    });
+  } finally {
+    console.warn = saved.consoleWarn;
+    if (saved.document === undefined) delete globalThis.document;
+    else globalThis.document = saved.document;
+    if (saved.CONFIG === undefined) delete globalThis.CONFIG;
+    else globalThis.CONFIG = saved.CONFIG;
+  }
 }
 
 // ============================================================================
@@ -184,4 +254,102 @@ test("ADDRESS_QUERY_KEYS — noms de paramètres partagés émetteur/consommateu
     city: "city",
     source: "addressSource",
   });
+});
+
+// ============================================================================
+// loadGoogleMapsScript — build SANS clé (régression : la panne observée en prod)
+// ============================================================================
+
+test("readGoogleMapsApiKey — CONFIG.GOOGLE vide (build sans la variable) => ''", () => {
+  // Forme EXACTE produite par ClientConfig.astro quand la variable
+  // d'environnement manque au build : la clé disparaît du JSON, `GOOGLE`
+  // reste un objet vide. C'est le cas de production à couvrir.
+  withGoogleEnv({ config: { GOOGLE: {} } }, ({ readGoogleMapsApiKey }) => {
+    assert.equal(readGoogleMapsApiKey(), "");
+  });
+});
+
+test("readGoogleMapsApiKey — absence totale de CONFIG ou de CONFIG.GOOGLE => ''", () => {
+  withGoogleEnv({ config: undefined }, ({ readGoogleMapsApiKey }) => {
+    assert.equal(readGoogleMapsApiKey(), "");
+  });
+  withGoogleEnv({ config: { EMAILJS: {} } }, ({ readGoogleMapsApiKey }) => {
+    assert.equal(readGoogleMapsApiKey(), "");
+  });
+});
+
+test("readGoogleMapsApiKey — clé blanche traitée comme absente", () => {
+  withGoogleEnv({ config: { GOOGLE: { API_KEY: "   " } } }, ({ readGoogleMapsApiKey }) => {
+    assert.equal(readGoogleMapsApiKey(), "");
+  });
+});
+
+test("loadGoogleMapsScript — sans clé : AUCUNE URL Google n'est demandée", () => {
+  withGoogleEnv({ config: { GOOGLE: {} } }, ({ loadGoogleMapsScript, appendedScripts }) => {
+    const requested = loadGoogleMapsScript("initAutocomplete");
+    // Le `false` est le signal qui permet à l'appelant de basculer TOUT DE
+    // SUITE sur son repli manuel (cf. estimation-ui.js).
+    assert.equal(requested, false);
+    // Régression : une URL `key=undefined` ne produit qu'un InvalidKeyMapError
+    // opaque, indiscernable d'une panne côté Google.
+    assert.deepEqual(appendedScripts, []);
+  });
+});
+
+test("loadGoogleMapsScript — sans clé : un avertissement nomme la variable manquante", () => {
+  withGoogleEnv({ config: { GOOGLE: {} } }, ({ loadGoogleMapsScript, warnings }) => {
+    loadGoogleMapsScript("initAutocomplete");
+    assert.equal(warnings.length, 1);
+    // Sans ce message, le symptôme est « l'autocomplétion ne marche pas » et
+    // la console est parfaitement vide : rien ne pointe vers le build.
+    assert.match(warnings[0], /PUBLIC_GOOGLE_MAPS_API_KEY/);
+    assert.match(warnings[0], /BUILD/);
+  });
+});
+
+test("loadGoogleMapsScript — avec clé : script injecté, clé et callback dans l'URL", () => {
+  withGoogleEnv(
+    { config: { GOOGLE: { API_KEY: "cle-de-test" } } },
+    ({ loadGoogleMapsScript, appendedScripts, warnings }) => {
+      const requested = loadGoogleMapsScript("initAutocomplete");
+      assert.equal(requested, true);
+      assert.equal(appendedScripts.length, 1);
+
+      const src = appendedScripts[0].src;
+      assert.match(src, /^https:\/\/maps\.googleapis\.com\/maps\/api\/js\?/);
+      assert.match(src, /key=cle-de-test/);
+      assert.match(src, /libraries=places/);
+      assert.match(src, /callback=initAutocomplete/);
+      assert.doesNotMatch(src, /key=undefined/);
+
+      assert.equal(appendedScripts[0].async, true);
+      assert.equal(appendedScripts[0].defer, true);
+      assert.deepEqual(warnings, []);
+    }
+  );
+});
+
+test("loadGoogleMapsScript — `onerror` du script relaie vers le repli de l'appelant", () => {
+  withGoogleEnv(
+    { config: { GOOGLE: { API_KEY: "cle-de-test" } } },
+    ({ loadGoogleMapsScript, appendedScripts }) => {
+      let fallbackCalls = 0;
+      loadGoogleMapsScript("initAutocomplete", () => {
+        fallbackCalls += 1;
+      });
+      // Bloqueur de pub, réseau coupé : Google n'appellera jamais le callback,
+      // c'est `onerror` qui doit rendre la main au repli manuel.
+      appendedScripts[0].onerror();
+      assert.equal(fallbackCalls, 1);
+    }
+  );
+});
+
+test("loadGoogleMapsScript — hors navigateur (pas de `document`) => false, sans throw", () => {
+  withGoogleEnv(
+    { withDocument: false, config: { GOOGLE: { API_KEY: "cle-de-test" } } },
+    ({ loadGoogleMapsScript }) => {
+      assert.equal(loadGoogleMapsScript("initAutocomplete"), false);
+    }
+  );
 });

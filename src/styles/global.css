@@ -111,6 +111,22 @@ video {
   max-width: 100%;
 }
 
+/* L'attribut `hidden` est LA façon dont tout le JavaScript de ce site masque
+   un élément (étapes du wizard, boutons de navigation, champs conditionnels,
+   bannières). La règle correspondante de la feuille de style du navigateur
+   (`[hidden] { display: none }`) n'a qu'une spécificité de 0,1,0 : la moindre
+   règle de classe qui pose un `display` la bat.
+   C'est ainsi que `#wizardSubmit`, porteur de `hidden` mais aussi de `.btn`
+   (`display: inline-flex`) et `.btn--block` (`display: flex`), restait visible
+   aux 5 étapes du formulaire d'estimation alors qu'il ne doit apparaître qu'à
+   la dernière. `!important` est ici le bon outil, et non un contournement :
+   `hidden` exprime une absence, aucune règle de présentation ne doit pouvoir
+   la contredire. À garder AVANT les composants, pour qu'elle les couvre tous
+   — plutôt que de rajouter un `.x[hidden] { display: none }` par composant. */
+[hidden] {
+  display: none !important;
+}
+
 a {
   color: inherit;
   text-decoration: none;
