@@ -1402,7 +1402,7 @@ function pdfClosingSection(l, insights, ctx) {
   pdfFont(doc, PDF_TYPE.h3, "bold", PDF_COLORS.white);
   doc.text("Besoin d'un accompagnement personnalisé ?", l.x + 8, l.y + 10);
   pdfFont(doc, PDF_TYPE.body, "normal", PDF_COLORS.orange25);
-  doc.text("Nos experts vous répondent : estimermb@gmail.com", l.x + 8, l.y + 17);
+  doc.text("Nos experts vous répondent : contact@estimer.co", l.x + 8, l.y + 17);
   l.y += height;
   l.space(1);
 
