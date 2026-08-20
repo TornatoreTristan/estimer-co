@@ -1,7 +1,7 @@
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { Readable } from 'node:stream'
-import pg from 'pg'
+import type pg from 'pg'
 import copyStreams from 'pg-copy-streams'
 
 import { DVF_CSV_COLUMNS, assertCsvHeaderMatches } from '#dvf/csv_columns'

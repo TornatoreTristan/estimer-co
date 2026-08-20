@@ -11,7 +11,9 @@
 # --------------------------------------------------------------------------
 # 1. Dépendances de production seules
 # --------------------------------------------------------------------------
-FROM node:22-alpine AS deps-prod
+# Node 24 est un MINIMUM imposé par AdonisJS 7 (`engines.node >= 24`), pas une
+# préférence : sur Node 22 le serveur refuse de démarrer.
+FROM node:24-alpine AS deps-prod
 WORKDIR /app
 COPY package.json package-lock.json ./
 # `npm ci --omit=dev` garantit une installation reproductible depuis le
@@ -21,7 +23,7 @@ RUN npm ci --omit=dev
 # --------------------------------------------------------------------------
 # 2. Build AdonisJS (nécessite les dépendances de développement)
 # --------------------------------------------------------------------------
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -32,7 +34,7 @@ RUN node ace build
 # --------------------------------------------------------------------------
 # 3. Image finale
 # --------------------------------------------------------------------------
-FROM node:22-alpine AS production
+FROM node:24-alpine AS production
 
 # `dumb-init` assure la propagation de SIGTERM au processus Node : sans lui,
 # un arrêt Coolify couperait les connexions en cours au lieu de les drainer.
