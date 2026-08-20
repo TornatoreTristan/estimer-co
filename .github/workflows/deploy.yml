@@ -12,6 +12,9 @@
 #   - PUBLIC_GOOGLE_MAPS_API_KEY   (restreindre par référent HTTP, cf. README)
 #   - PUBLIC_CONTACT_EMAIL
 #   - PUBLIC_GA4_MEASUREMENT_ID
+# (`PUBLIC_GTM_CONTAINER_ID` n'est PAS dans cette liste : voir le commentaire
+# à l'étape Build — un identifiant de conteneur est public, il est écrit en
+# clair pour ne pas dépendre d'un réglage qu'on peut oublier.)
 # Toutes préfixées PUBLIC_ (donc déjà visibles côté navigateur une fois
 # buildées) : "Repository variables" convient aussi bien que "Secrets" pour
 # ces valeurs, mais "Secrets" évite qu'elles apparaissent en clair dans les
@@ -84,6 +87,16 @@ jobs:
           PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.PUBLIC_GOOGLE_MAPS_API_KEY }}
           PUBLIC_CONTACT_EMAIL: ${{ secrets.PUBLIC_CONTACT_EMAIL }}
           PUBLIC_GA4_MEASUREMENT_ID: ${{ secrets.PUBLIC_GA4_MEASUREMENT_ID }}
+          # Conteneur Google Tag Manager — interrupteur général de la mesure
+          # d'audience ET du bandeau de consentement (src/lib/analytics.ts).
+          #
+          # Écrit en clair, contrairement aux valeurs ci-dessus, et c'est
+          # délibéré : un identifiant de conteneur n'est pas un secret, il
+          # figure dans le HTML de chaque page livrée. Le mettre en secret
+          # n'aurait rien protégé, mais aurait créé un mode de panne
+          # silencieux — secret oublié, build vert, et un site déployé sans
+          # bandeau ni mesure sans que rien ne le signale.
+          PUBLIC_GTM_CONTAINER_ID: GTM-5TB8F4CS
           # Sans cette variable, `requestEstimation` sort en `no-config` sans le
           # moindre appel réseau et 100 % des visiteurs reçoivent un prix issu de
           # l'ancienne table de 35 villes, sans qu'aucun signal ne parvienne à

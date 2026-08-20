@@ -15,9 +15,14 @@ export const CONFIG = {
   EMAIL: {
     TO: import.meta.env.PUBLIC_CONTACT_EMAIL,
   },
-  // Consommé par le futur composant Analytics.astro (Lot 1). Volontairement
-  // pas de comportement ici : lire cette valeur vide et ne pas charger gtag.js
-  // est la responsabilité du composant, pas de ce fichier de config.
+  // ATTENTION — cette valeur ne pilote plus rien.
+  //
+  // La mesure d'audience passe désormais par Google Tag Manager, et son
+  // interrupteur est `PUBLIC_GTM_CONTAINER_ID`, lu par `src/lib/analytics.ts`.
+  // GA4 est configuré comme une balise DANS le conteneur, pas depuis le code :
+  // renseigner l'identifiant ci-dessous ne charge donc aucun script et
+  // n'affiche aucun bandeau. Il n'est conservé que pour rester disponible au
+  // code client qui voudrait le lire.
   ANALYTICS: {
     GA4_MEASUREMENT_ID: import.meta.env.PUBLIC_GA4_MEASUREMENT_ID,
   },

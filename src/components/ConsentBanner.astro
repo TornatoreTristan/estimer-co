@@ -1,0 +1,282 @@
+---
+/**
+ * Bandeau de recueil du consentement (vanilla-cookieconsent v3).
+ *
+ * À placer en fin de `<body>`. Il ne lance rien tant qu'aucun conteneur de
+ * tags n'est configuré — voir l'en-tête de `src/lib/analytics.ts` : un bandeau
+ * qui réclame un consentement pour des traceurs inexistants est une friction
+ * mensongère, pas une précaution.
+ *
+ * ---------------------------------------------------------------------------
+ * LES QUATRE RÈGLES CNIL QUE CE FICHIER MATÉRIALISE
+ * ---------------------------------------------------------------------------
+ * 1. **Refuser doit être aussi simple qu'accepter.** « Tout refuser » est au
+ *    premier niveau, à côté de « Tout accepter », et `equalWeightButtons` leur
+ *    impose le même traitement visuel. C'est le point sur lequel la CNIL a
+ *    sanctionné le plus de sites, et c'est un écart délibéré avec la
+ *    configuration de ritmodiag.com, qui met encore le refus en retrait.
+ *
+ * 2. **Pas de cookie wall.** Disposition `inline` : ni voile assombri, ni
+ *    piège au clavier. Le visiteur peut lire le site, estimer son bien et nous
+ *    écrire sans jamais trancher — le bandeau reste alors affiché, et le refus
+ *    par défaut continue de s'appliquer.
+ *
+ * 3. **Le silence ne vaut pas accord.** Aucune case n'est précochée hors
+ *    « strictement nécessaires », et fermer le bandeau n'accepte rien. Le seul
+ *    moyen de passer un signal en `granted` est un clic explicite.
+ *
+ * 4. **Le choix se retire aussi facilement qu'il se donne.** Le bouton
+ *    « Gestion des cookies » du pied de page (`Footer.astro`) rouvre le panneau
+ *    avec l'état courant ; un nouveau choix écrase l'ancien et met à jour les
+ *    signaux Google en direct, sans rechargement.
+ *
+ * ---------------------------------------------------------------------------
+ * POURQUOI CE SCRIPT N'EST PAS `is:inline`, ET POURQUOI SES IMPORTS SONT
+ * DYNAMIQUES
+ * ---------------------------------------------------------------------------
+ * Il consomme un module npm et les constantes partagées de `lib/analytics` :
+ * il doit donc passer par le bundler. C'est aussi ce qui interdit
+ * `define:vars`, qui forcerait le mode inline et laisserait les `import` non
+ * résolus.
+ *
+ * La bibliothèque et sa feuille de style sont chargées par `import()` et non
+ * en tête de module, parce qu'Astro inclut le script d'un composant dès que
+ * celui-ci figure dans la page — un rendu conditionnel ne suffit pas à l'en
+ * sortir. Mesuré : un import statique laissait 17 Ko de JavaScript mort sur
+ * chaque page d'un site sans conteneur de tags. En dynamique, la bibliothèque
+ * part dans un fragment distinct que le navigateur ne demande jamais tant que
+ * `TRACKING_ACTIF` est faux ; il ne reste que la poignée d'octets de la
+ * condition elle-même.
+ *
+ * ---------------------------------------------------------------------------
+ * À SAVOIR AVANT DE CONCLURE À UNE PANNE
+ * ---------------------------------------------------------------------------
+ * `hideFromBots` est actif par défaut dans la bibliothèque : elle ne rend
+ * strictement rien, et sans lever d'erreur, lorsqu'elle détecte
+ * `navigator.webdriver`. Un bandeau invisible sous Playwright, Puppeteer ou
+ * Selenium n'est donc pas un défaut de cette intégration — c'est ce réglage.
+ * Pour l'exercer en automatisation, il faut masquer le marqueur
+ * (`Object.defineProperty(navigator, 'webdriver', { get: () => false })`),
+ * faute de quoi on teste le filtre anti-robot et non le bandeau.
+ */
+---
+
+<script>
+  import {
+    CONSENT_EXPIRE_JOURS,
+    CONSENT_REVISION,
+    TRACKING_ACTIF,
+  } from '../lib/analytics';
+  // Même source que les pages légales : l'adresse de contact affichée dans le
+  // panneau ne peut pas diverger de celle des mentions légales.
+  import { EDITEUR } from '../data/legal';
+
+  // Garde-fou porté par le script lui-même plutôt que par un rendu
+  // conditionnel : sans conteneur, `run()` n'est jamais appelé, donc aucun
+  // bandeau, aucun cookie — et la bibliothèque n'est même pas téléchargée.
+  if (TRACKING_ACTIF) {
+    /**
+     * Pose la feuille de style de la bibliothèque, et attend qu'elle soit
+     * appliquée.
+     *
+     * Le suffixe `?url` est le point important : sans lui, Vite considère la
+     * feuille comme une dépendance du document et la hisse en
+     * `<link rel="stylesheet">` dans le `<head>` de CHAQUE page — 10 Ko
+     * bloquant le rendu, y compris sur un site sans conteneur de tags, où
+     * elle n'habille rigoureusement rien. Avec `?url`, on ne récupère qu'une
+     * adresse, et c'est ce code qui décide quand la demander.
+     *
+     * L'échec de chargement résout quand même la promesse : un bandeau sans
+     * habillage reste un bandeau qui recueille un consentement valable, alors
+     * qu'une promesse qui ne se résout jamais n'en recueillerait aucun. Entre
+     * la mise en page et la conformité, l'arbitrage n'est pas discutable.
+     */
+    const chargerStyle = async () => {
+      const { default: href } = await import(
+        'vanilla-cookieconsent/dist/cookieconsent.css?url'
+      );
+      await new Promise((resolve) => {
+        const lien = document.createElement('link');
+        lien.rel = 'stylesheet';
+        lien.href = href;
+        lien.addEventListener('load', resolve);
+        lien.addEventListener('error', resolve);
+        document.head.appendChild(lien);
+      });
+    };
+
+    // Style et code en parallèle : le bandeau n'est inséré qu'une fois les
+    // deux prêts, ce qui évite de l'afficher un instant sans son habillage.
+    const [CookieConsent] = await Promise.all([
+      import('vanilla-cookieconsent'),
+      chargerStyle(),
+    ]);
+    // Le `gtag` du socle (`Analytics.astro`) est déclaré dans un script
+    // classique ; on le redéclare ici plutôt que de dépendre d'un global dont
+    // ce module n'a aucune garantie. Les deux poussent dans le MÊME
+    // `window.dataLayer`, ce qui est tout ce qui compte pour GTM.
+    //
+    // `arguments` et non le tableau `parametres` : Google Tag Manager
+    // distingue une commande gtag d'un événement ordinaire en testant le type
+    // exact de l'objet poussé (`[object Arguments]`). Pousser un vrai tableau
+    // passerait la vérification de type de TypeScript mais serait ignoré par
+    // GTM — le consentement ne serait jamais mis à jour, sans la moindre
+    // erreur en console. Le paramètre `parametres` n'existe donc que pour
+    // donner une signature à cette fonction ; le corps ne l'utilise pas.
+    //
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function gtag(...parametres: unknown[]) {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push(arguments);
+    }
+
+    /**
+     * Traduit l'état du bandeau en signaux Consent Mode v2.
+     *
+     * Branchée sur `onConsent` (choix mémorisé retrouvé au chargement, ou
+     * premier choix) ET sur `onChange` (modification a posteriori) : les deux
+     * chemins doivent aboutir au même état, sinon un visiteur qui change
+     * d'avis garderait les anciens signaux jusqu'au rechargement.
+     */
+    const synchroniserConsentementGoogle = () => {
+      const analytics = CookieConsent.acceptedCategory('analytics');
+      const publicite = CookieConsent.acceptedCategory('ads');
+
+      gtag('consent', 'update', {
+        analytics_storage: analytics ? 'granted' : 'denied',
+        ad_storage: publicite ? 'granted' : 'denied',
+        ad_user_data: publicite ? 'granted' : 'denied',
+        ad_personalization: publicite ? 'granted' : 'denied',
+        personalization_storage: publicite ? 'granted' : 'denied',
+      });
+
+      // Trace dans le dataLayer, pour que GTM puisse déclencher ses tags au
+      // moment exact du consentement plutôt qu'au seul chargement de la page —
+      // sans quoi le premier `page_view` d'un visiteur qui vient d'accepter
+      // serait perdu.
+      window.dataLayer.push({
+        event: 'consentement_maj',
+        consentement_analytics: analytics ? 'granted' : 'denied',
+        consentement_publicite: publicite ? 'granted' : 'denied',
+      });
+    };
+
+    const LIEN_POLITIQUE = '/politique-de-confidentialite/';
+    const EMAIL_CONTACT = EDITEUR.email;
+
+    CookieConsent.run({
+      // Le choix survit `CONSENT_EXPIRE_JOURS` jours, puis la question est
+      // reposée. `revision` invalide en bloc les consentements donnés sous une
+      // version antérieure de la politique (cf. `CONSENT_REVISION`).
+      cookie: {
+        name: 'emb_consentement',
+        expiresAfterDays: CONSENT_EXPIRE_JOURS,
+        sameSite: 'Lax',
+      },
+      revision: CONSENT_REVISION,
+
+      guiOptions: {
+        consentModal: {
+          layout: 'box inline',
+          position: 'bottom left',
+          // Règle 1 : accepter et refuser au même poids visuel.
+          equalWeightButtons: true,
+          flipButtons: false,
+        },
+        preferencesModal: {
+          layout: 'box',
+          equalWeightButtons: true,
+        },
+      },
+
+      /**
+       * Retirer un consentement ne suffit pas : les cookies déjà déposés
+       * doivent disparaître. `autoClear` les efface au passage de `granted` à
+       * `denied`. Les motifs couvrent les traceurs que le conteneur est
+       * susceptible de poser — Analytics (`_ga*`), Google Ads (`_gcl*`,
+       * `_gac*`) et Meta (`_fbp`, `_fbc`), ces derniers étant annoncés dans la
+       * politique de confidentialité.
+       */
+      categories: {
+        necessary: {
+          enabled: true,
+          readOnly: true,
+        },
+        analytics: {
+          // Jamais `enabled: true` : une case précochée n'est pas un
+          // consentement (règle 3).
+          autoClear: {
+            cookies: [{ name: /^_ga/ }, { name: '_gid' }],
+          },
+        },
+        ads: {
+          autoClear: {
+            cookies: [
+              { name: /^_gcl/ },
+              { name: /^_gac/ },
+              { name: '_fbp' },
+              { name: '_fbc' },
+            ],
+          },
+        },
+      },
+
+      onConsent: synchroniserConsentementGoogle,
+      onChange: synchroniserConsentementGoogle,
+
+      language: {
+        default: 'fr',
+        translations: {
+          fr: {
+            consentModal: {
+              title: 'Votre estimation ne dépend pas de ce choix',
+              description:
+                "Nous déposons des traceurs pour mesurer l'audience du site et l'efficacité de nos campagnes publicitaires. Ils ne sont indispensables ni à l'estimation, ni au rapport, ni au formulaire de contact : refuser ne vous prive de rien.",
+              acceptAllBtn: 'Tout accepter',
+              acceptNecessaryBtn: 'Tout refuser',
+              showPreferencesBtn: 'Choisir',
+              footer: `<a href="${LIEN_POLITIQUE}">Politique de confidentialité</a>`,
+            },
+            preferencesModal: {
+              title: 'Vos préférences de traceurs',
+              acceptAllBtn: 'Tout accepter',
+              acceptNecessaryBtn: 'Tout refuser',
+              savePreferencesBtn: 'Enregistrer mes choix',
+              closeIconLabel: 'Fermer',
+              serviceCounterLabel: 'traceur|traceurs',
+              sections: [
+                {
+                  title: 'Ce que vous décidez ici',
+                  description:
+                    "Chaque catégorie ci-dessous s'active ou se désactive indépendamment. Votre choix est conservé six mois, puis nous vous le redemandons. Vous pouvez en changer à tout moment depuis le lien « Gestion des cookies » en bas de page — désactiver une catégorie efface aussitôt les traceurs correspondants.",
+                },
+                {
+                  title: 'Strictement nécessaires',
+                  description:
+                    "Indispensables au fonctionnement du site : mémoriser votre progression dans le formulaire d'estimation, afficher votre rapport, et conserver le choix que vous exprimez ici. Ils ne servent à aucune mesure et ne peuvent pas être désactivés.",
+                  linkedCategory: 'necessary',
+                },
+                {
+                  title: "Mesure d'audience",
+                  description:
+                    "Google Analytics 4, déployé via Google Tag Manager. Nous y voyons les pages consultées, la provenance des visites et les étapes où le parcours d'estimation est abandonné. Objectif : corriger ce qui bloque, pas vous identifier.",
+                  linkedCategory: 'analytics',
+                },
+                {
+                  title: 'Publicité et mesure de conversion',
+                  description:
+                    "Google Ads et Meta Ads. Ces traceurs nous indiquent quelles annonces amènent à une demande d'estimation, et permettent à ces plateformes de vous présenter à nouveau nos annonces après votre visite (remarketing).",
+                  linkedCategory: 'ads',
+                },
+                {
+                  title: 'Pour aller plus loin',
+                  description: `Le détail des données traitées, des durées de conservation et de vos droits figure dans notre <a href="${LIEN_POLITIQUE}">politique de confidentialité</a>. Toute question&nbsp;: <a href="mailto:${EMAIL_CONTACT}">${EMAIL_CONTACT}</a>.`,
+                },
+              ],
+            },
+          },
+        },
+      },
+    });
+  }
+</script>
