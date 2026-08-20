@@ -1,0 +1,88 @@
+---
+import RawScript from './RawScript.astro';
+import stickyCtaScript from '../scripts/sticky-cta.js?raw';
+
+/**
+ * Barre d'appel à l'action collée en bas de fenêtre, révélée une fois la hero
+ * passée (comportement dans `src/scripts/sticky-cta.js`, styles dans
+ * `global.css`, section « Sticky CTA »).
+ *
+ * Pages exclues : celles où « Estimer mon bien » ne veut plus rien dire parce
+ * que le visiteur y est déjà. Proposer une estimation à quelqu'un en train de
+ * remplir le formulaire d'estimation, ou en train de lire son rapport, ne peut
+ * que le sortir de son parcours.
+ *
+ * `trailingSlash: 'always'` (astro.config.mjs) : `Astro.url.pathname` finit
+ * toujours par une barre. On la retire des deux côtés de la comparaison plutôt
+ * que d'en dépendre — même précaution que dans `Header.astro`.
+ */
+const EXCLUES = ['/estimation', '/rapport', '/pdf-preview'] as const;
+
+const stripTrailingSlash = (value: string) =>
+  value !== '/' && value.endsWith('/') ? value.slice(0, -1) : value;
+
+const affichee = !EXCLUES.includes(
+  stripTrailingSlash(Astro.url.pathname) as (typeof EXCLUES)[number]
+);
+---
+
+{
+  affichee && (
+    <Fragment>
+      {/*
+        `data-state` est posé dès le rendu : sans JavaScript, la barre reste
+        donc dans son état masqué et ne recouvre jamais la fin de page.
+      */}
+      <aside
+        class="sticky-cta"
+        data-sticky-cta
+        data-state="hidden"
+        aria-label="Estimation gratuite"
+      >
+        <div class="sticky-cta__inner">
+          <svg class="sticky-cta__mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect width="32" height="32" fill="#ffffff" />
+            <path
+              d="M9 15.5 16 9.5l7 6"
+              stroke="#ff6e34"
+              stroke-width="2.2"
+              stroke-linecap="square"
+              stroke-linejoin="miter"
+              fill="none"
+            />
+            <path
+              d="M10.75 15v7.5h10.5V15"
+              stroke="#1d0c1b"
+              stroke-width="2.2"
+              stroke-linecap="square"
+              stroke-linejoin="miter"
+              fill="none"
+            />
+          </svg>
+
+          <p class="sticky-cta__texte">
+            Estimez votre bien en 2 minutes et comparez-le aux ventes réelles de votre secteur.
+          </p>
+
+          <a href="/estimation/" class="btn btn--primary sticky-cta__action">
+            Obtenir mon estimation gratuite
+          </a>
+
+          <button
+            type="button"
+            class="sticky-cta__close"
+            data-sticky-cta-close
+            aria-label="Masquer ce bandeau"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </aside>
+
+      <RawScript code={stickyCtaScript} />
+    </Fragment>
+  )
+}

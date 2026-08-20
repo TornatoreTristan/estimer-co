@@ -1,6 +1,7 @@
 ---
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import StickyCta from '../components/StickyCta.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -20,6 +21,13 @@ const { title, description } = Astro.props;
     {description && <meta name="description" content={description} />}
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
     <meta name="theme-color" content="#fcfbfa" />
+    {/* Le `.ico` d'abord : les navigateurs qui comprennent le SVG prennent
+        quand même ce dernier (règle du format le plus riche), les autres et les
+        crawlers gardent le repli matriciel. */}
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -33,6 +41,10 @@ const { title, description } = Astro.props;
     <Header />
     <slot />
     <Footer />
+    {/* Après le pied de page, et pas avant : son script inline s'exécute à la
+        volée et a besoin de trouver `.site-footer` déjà dans le document — la
+        barre s'efface dès que le pied de page entre à l'écran. */}
+    <StickyCta />
     <slot name="body-end" />
   </body>
 </html>

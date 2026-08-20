@@ -13,11 +13,6 @@ import homeCarouselScript from '../scripts/home-carousel.js?raw';
 import { biensVitrine } from '../data/biens-vitrine';
 import { partenaires } from '../data/partenaires';
 
-// Bandeau et pastilles restent en texte : le rendu est volontairement discret
-// (gris, une seule graisse), et n'afficher en image que les 2 partenaires qui
-// ont un fichier logo déséquilibrerait la ligne.
-const logos = partenaires.slice(0, 8).map((p) => p.logoTexte);
-
 const problemes = [
   {
     titre: 'Des estimations qui varient du simple au double',
@@ -63,7 +58,7 @@ const blocs = [
     eyebrow: 'Réseau de partenaires',
     titre: 'Et si vous vendez, les bons professionnels au bon moment',
     texte:
-      `${partenaires.length} partenaires, des réseaux d'agences aux banques, notaires et diagnostiqueurs. Nous vous les présentons uniquement si vous le demandez, et vos coordonnées ne leur sont transmises qu'avec votre accord.`,
+      `${partenaires.length} partenaires sélectionnés : deux agences immobilières et un expert du diagnostic. Nous vous les présentons uniquement si vous le demandez, et vos coordonnées ne leur sont transmises qu'avec votre accord.`,
     lien: { href: '/partenaires/', label: 'Découvrir nos partenaires' },
     visuel: 'partenaires',
   },
@@ -130,16 +125,19 @@ const dpeImpact = [
   { lettre: 'G', ecart: -25, label: '−25 %', couleur: 'var(--error)', texteClair: true },
 ];
 
-// Deux bandeaux défilants en sens opposés. Chaque bandeau est dupliqué dans le
-// markup pour que la boucle se referme sans saut (cf. `.marquee__track`).
+// Un seul bandeau défilant : à trois partenaires, un second rang serait vide.
+// La liste est répétée pour que la piste reste plus large que le visuel — sans
+// quoi le bandeau se viderait en fin de course — et pour garder la vitesse
+// d'origine, calibrée sur une dizaine de pastilles par cycle. Le markup la
+// duplique une dernière fois pour que la boucle se referme sans saut
+// (cf. `.marquee__track`).
 const reseauRangs = [
-  partenaires.slice(0, 10).map((p) => p.logoTexte),
-  partenaires.slice(10, 20).map((p) => p.logoTexte),
+  Array.from({ length: 4 }, () => partenaires.map((p) => p.logoTexte)).flat(),
 ];
 
 const chiffres = [
   { value: '50 000+', label: 'Estimations réalisées' },
-  { value: String(partenaires.length), label: 'Partenaires de confiance' },
+  { value: '+12 M', label: 'Transactions analysées' },
   { value: '98 %', label: 'Clients satisfaits' },
   { value: 'Immédiat', label: 'Rapport disponible' },
 ];
