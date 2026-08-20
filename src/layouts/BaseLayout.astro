@@ -1,6 +1,7 @@
 ---
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import StickyCta from '../components/StickyCta.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -33,6 +34,10 @@ const { title, description } = Astro.props;
     <Header />
     <slot />
     <Footer />
+    {/* Après le pied de page, et pas avant : son script inline s'exécute à la
+        volée et a besoin de trouver `.site-footer` déjà dans le document — la
+        barre s'efface dès que le pied de page entre à l'écran. */}
+    <StickyCta />
     <slot name="body-end" />
   </body>
 </html>

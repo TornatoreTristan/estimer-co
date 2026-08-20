@@ -960,6 +960,121 @@ p {
   color: var(--orange-75);
 }
 
+/* --------------------------------------------------------- Sticky CTA */
+
+/*
+ * Appel à l'action flottant en bas de fenêtre (`StickyCta.astro`, révélé par
+ * `sticky-cta.js` une fois la hero passée).
+ *
+ * Il flotte au lieu de barrer toute la largeur : largeur dictée par son
+ * contenu, centré, et un retrait sous lui qui laisse voir la page continuer.
+ * Il reprend l'aplat noir du bandeau d'annonce du haut de page — les deux
+ * disent la même chose, autant qu'ils se ressemblent — et, comme partout dans
+ * la charte, se détache par son aplat et son filet de 1 px, jamais par un
+ * rayon ni une ombre.
+ *
+ * L'enveloppe fixe couvre bien toute la largeur (c'est elle qui centre), d'où
+ * son `pointer-events: none` : sans lui, une bande invisible de la hauteur du
+ * bloc intercepterait les clics sur toute la largeur de la page.
+ *
+ * L'état masqué combine `translateY` ET `visibility: hidden` : la première
+ * anime, la seconde retire réellement le bloc du parcours clavier et de
+ * l'arbre d'accessibilité. Un simple décalage laisserait un lien et deux
+ * boutons tabulables hors écran. `visibility` est transitionnable en tout ou
+ * rien : elle bascule à la fin du repli et dès le début du déploiement, ce qui
+ * laisse l'animation se jouer entière dans les deux sens.
+ *
+ * `[hidden]` n'est volontairement pas utilisé pour masquer ce bloc : la règle
+ * `[hidden] { display: none }` du navigateur ne pèse que (0,1,0) et serait
+ * battue par n'importe quelle règle de classe posant un `display` (cf.
+ * l'incident documenté en tête de ce fichier, et
+ * `scripts/test-wizard-nav-visibility.mjs`).
+ */
+.sticky-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* Sous l'en-tête collant (z-index 50), qui doit rester au-dessus quand le
+     menu mobile est déplié. */
+  z-index: 45;
+  /* `env(safe-area-inset-bottom)` : sur iPhone, la barre d'accueil mange le
+     bas de l'écran et rognerait le bloc. La valeur vaut 0 partout ailleurs. */
+  padding: 0 var(--gutter) calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+  /* Le retrait du bas est inclus dans la course de sortie : le bloc doit
+     disparaître entièrement sous le bord de la fenêtre, pas s'arrêter à un
+     centimètre. */
+  transform: translateY(calc(100% + 1.25rem));
+  visibility: hidden;
+  transition:
+    transform 0.35s var(--ease),
+    visibility 0.35s var(--ease);
+}
+
+.sticky-cta[data-state="visible"] {
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.sticky-cta__inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0.625rem 0.625rem 0.625rem 1rem;
+  background: var(--black);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.85);
+  pointer-events: auto;
+}
+
+.sticky-cta__mark {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+}
+
+.sticky-cta__texte {
+  margin-right: auto;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.sticky-cta__action {
+  flex-shrink: 0;
+}
+
+.sticky-cta__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: color 0.2s var(--ease);
+}
+
+.sticky-cta__close:hover {
+  color: var(--white);
+}
+
+.sticky-cta__close svg {
+  width: 1rem;
+  height: 1rem;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
 /* --------------------------------------------------------- Responsive */
 
 @media (max-width: 992px) {
@@ -1036,6 +1151,45 @@ p {
 
   .site-footer__top {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Au pouce, le bloc reprend toute la largeur disponible (moins la gouttière)
+     et se resserre contre le bas : à cette taille d'écran, un bloc flottant
+     étroit ne ferait que rogner la cible tactile. */
+  .sticky-cta {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    transform: translateY(calc(100% + 0.75rem));
+  }
+
+  /* Il passe alors sur deux lignes : texte + croix de fermeture au-dessus, CTA
+     pleine largeur en dessous — la cible tactile qu'on vient chercher au
+     pouce. La marque disparaît : à cette largeur, chaque rem va au texte. */
+  .sticky-cta__inner {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.625rem 0.75rem;
+  }
+
+  .sticky-cta__mark {
+    display: none;
+  }
+
+  /* `flex: 1 1 0` plutôt que la base automatique : sans ça, le paragraphe
+     réclame sa largeur de contenu, ne laisse pas la place à la croix, et
+     l'envoie sur une ligne à elle toute seule. */
+  .sticky-cta__texte {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: var(--text-tiny);
+  }
+
+  /* `order` et non l'ordre du DOM : le CTA est le dernier élément posé sur la
+     ligne, donc le seul à passer à la ligne suivante. La croix reste ainsi à
+     droite du texte, au lieu de se retrouver sous le bouton. Le lecteur
+     d'écran, lui, suit toujours l'ordre du document : texte, CTA, fermeture. */
+  .sticky-cta__action {
+    order: 1;
+    flex-basis: 100%;
   }
 }
 
