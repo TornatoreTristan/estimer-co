@@ -3,6 +3,10 @@ node_modules
 build
 tmp
 
+# Manifeste d'entités régénéré à chaque `node ace build|test|serve` par le
+# hook `indexEntities` (AdonisJS 7). Dérivé du code source : jamais commité.
+.adonisjs
+
 # Secrets
 .env
 .env.local
