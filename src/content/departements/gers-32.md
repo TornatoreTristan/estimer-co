@@ -1,7 +1,7 @@
 ---
 slug: gers-32
 nom: Gers
-title: Prix immobilier au m² — Gers
+title: Prix immobilier au m², Gers
 codeInsee: "32"
 regionParente: occitanie
 prixM2: 1520

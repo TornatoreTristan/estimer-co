@@ -1,7 +1,7 @@
 ---
 slug: puy-de-dome-63
 nom: Puy-de-Dôme
-title: Prix immobilier au m² — Puy-de-Dôme
+title: Prix immobilier au m², Puy-de-Dôme
 codeInsee: "63"
 regionParente: auvergne-rhone-alpes
 prixM2: 2080

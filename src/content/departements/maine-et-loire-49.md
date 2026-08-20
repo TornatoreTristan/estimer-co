@@ -1,7 +1,7 @@
 ---
 slug: maine-et-loire-49
 nom: Maine-et-Loire
-title: Prix immobilier au m² — Maine-et-Loire
+title: Prix immobilier au m², Maine-et-Loire
 codeInsee: "49"
 regionParente: pays-de-la-loire
 prixM2: 2280

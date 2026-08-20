@@ -1,7 +1,7 @@
 ---
 slug: seine-et-marne-77
 nom: Seine-et-Marne
-title: Prix immobilier au m² — Seine-et-Marne
+title: Prix immobilier au m², Seine-et-Marne
 codeInsee: "77"
 regionParente: ile-de-france
 prixM2: 3280

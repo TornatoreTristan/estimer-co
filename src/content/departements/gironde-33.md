@@ -1,7 +1,7 @@
 ---
 slug: gironde-33
 nom: Gironde
-title: Prix immobilier au m² — Gironde
+title: Prix immobilier au m², Gironde
 codeInsee: "33"
 regionParente: nouvelle-aquitaine
 prixM2: 3480

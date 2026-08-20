@@ -1,7 +1,7 @@
 ---
 slug: herault-34
 nom: Hérault
-title: Prix immobilier au m² — Hérault
+title: Prix immobilier au m², Hérault
 codeInsee: "34"
 regionParente: occitanie
 prixM2: 2980

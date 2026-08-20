@@ -1,7 +1,7 @@
 ---
 slug: tarn-et-garonne-82
 nom: Tarn-et-Garonne
-title: Prix immobilier au m² — Tarn-et-Garonne
+title: Prix immobilier au m², Tarn-et-Garonne
 codeInsee: "82"
 regionParente: occitanie
 prixM2: 1780

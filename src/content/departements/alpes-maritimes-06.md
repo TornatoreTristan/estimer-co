@@ -1,7 +1,7 @@
 ---
 slug: alpes-maritimes-06
 nom: Alpes-Maritimes
-title: Prix immobilier au m² — Alpes-Maritimes
+title: Prix immobilier au m², Alpes-Maritimes
 codeInsee: "06"
 regionParente: provence-alpes-cote-azur
 prixM2: 4680

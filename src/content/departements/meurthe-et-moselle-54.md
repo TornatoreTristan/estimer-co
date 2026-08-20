@@ -1,7 +1,7 @@
 ---
 slug: meurthe-et-moselle-54
 nom: Meurthe-et-Moselle
-title: Prix immobilier au m² — Meurthe-et-Moselle
+title: Prix immobilier au m², Meurthe-et-Moselle
 codeInsee: "54"
 regionParente: grand-est
 prixM2: 1780

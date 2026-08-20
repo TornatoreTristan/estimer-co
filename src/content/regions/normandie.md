@@ -1,7 +1,7 @@
 ---
 slug: normandie
 nom: Normandie
-title: Prix immobilier au m² — Normandie
+title: Prix immobilier au m², Normandie
 prixM2: 2320
 prixMaisons: 2150
 prixAppartements: 2650

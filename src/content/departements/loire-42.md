@@ -1,7 +1,7 @@
 ---
 slug: loire-42
 nom: Loire
-title: Prix immobilier au m² — Loire
+title: Prix immobilier au m², Loire
 codeInsee: "42"
 regionParente: auvergne-rhone-alpes
 prixM2: 1680

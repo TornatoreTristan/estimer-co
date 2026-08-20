@@ -1,7 +1,7 @@
 ---
 slug: hauts-de-france
 nom: Hauts-de-France
-title: Prix immobilier au m² — Hauts-de-France
+title: Prix immobilier au m², Hauts-de-France
 prixM2: 2150
 prixMaisons: 1980
 prixAppartements: 2450

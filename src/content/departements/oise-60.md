@@ -1,7 +1,7 @@
 ---
 slug: oise-60
 nom: Oise
-title: Prix immobilier au m² — Oise
+title: Prix immobilier au m², Oise
 codeInsee: "60"
 regionParente: hauts-de-france
 prixM2: 2180

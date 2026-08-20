@@ -1,7 +1,7 @@
 ---
 slug: haute-vienne-87
 nom: Haute-Vienne
-title: Prix immobilier au m² — Haute-Vienne
+title: Prix immobilier au m², Haute-Vienne
 codeInsee: "87"
 regionParente: nouvelle-aquitaine
 prixM2: 1420

@@ -1,7 +1,7 @@
 ---
 slug: grand-est
 nom: Grand Est
-title: Prix immobilier au m² — Grand Est
+title: Prix immobilier au m², Grand Est
 prixM2: 2080
 prixMaisons: 1920
 prixAppartements: 2350

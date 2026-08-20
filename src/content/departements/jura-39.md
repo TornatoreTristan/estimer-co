@@ -1,7 +1,7 @@
 ---
 slug: jura-39
 nom: Jura
-title: Prix immobilier au m² — Jura
+title: Prix immobilier au m², Jura
 codeInsee: "39"
 regionParente: bourgogne-franche-comte
 prixM2: 1680

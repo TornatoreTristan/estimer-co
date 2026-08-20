@@ -1,7 +1,7 @@
 ---
 slug: sarthe-72
 nom: Sarthe
-title: Prix immobilier au m² — Sarthe
+title: Prix immobilier au m², Sarthe
 codeInsee: "72"
 regionParente: pays-de-la-loire
 prixM2: 1680

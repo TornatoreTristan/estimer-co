@@ -1,7 +1,7 @@
 ---
 slug: haute-loire-43
 nom: Haute-Loire
-title: Prix immobilier au m² — Haute-Loire
+title: Prix immobilier au m², Haute-Loire
 codeInsee: "43"
 regionParente: auvergne-rhone-alpes
 prixM2: 1480

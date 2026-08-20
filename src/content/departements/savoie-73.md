@@ -1,7 +1,7 @@
 ---
 slug: savoie-73
 nom: Savoie
-title: Prix immobilier au m² — Savoie
+title: Prix immobilier au m², Savoie
 codeInsee: "73"
 regionParente: auvergne-rhone-alpes
 prixM2: 3850

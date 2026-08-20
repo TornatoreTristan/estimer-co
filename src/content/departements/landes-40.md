@@ -1,7 +1,7 @@
 ---
 slug: landes-40
 nom: Landes
-title: Prix immobilier au m² — Landes
+title: Prix immobilier au m², Landes
 codeInsee: "40"
 regionParente: nouvelle-aquitaine
 prixM2: 2580

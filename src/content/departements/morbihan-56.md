@@ -1,7 +1,7 @@
 ---
 slug: morbihan-56
 nom: Morbihan
-title: Prix immobilier au m² — Morbihan
+title: Prix immobilier au m², Morbihan
 codeInsee: "56"
 regionParente: bretagne
 prixM2: 2680

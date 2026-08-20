@@ -1,7 +1,7 @@
 ---
 slug: deux-sevres-79
 nom: Deux-Sèvres
-title: Prix immobilier au m² — Deux-Sèvres
+title: Prix immobilier au m², Deux-Sèvres
 codeInsee: "79"
 regionParente: nouvelle-aquitaine
 prixM2: 1580

@@ -1,7 +1,7 @@
 ---
 slug: occitanie
 nom: Occitanie
-title: Prix immobilier au m² — Occitanie
+title: Prix immobilier au m², Occitanie
 prixM2: 2420
 prixMaisons: 2200
 prixAppartements: 2780

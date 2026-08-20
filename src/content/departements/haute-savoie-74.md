@@ -1,7 +1,7 @@
 ---
 slug: haute-savoie-74
 nom: Haute-Savoie
-title: Prix immobilier au m² — Haute-Savoie
+title: Prix immobilier au m², Haute-Savoie
 codeInsee: "74"
 regionParente: auvergne-rhone-alpes
 prixM2: 4580

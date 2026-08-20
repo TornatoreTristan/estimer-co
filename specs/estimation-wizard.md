@@ -310,6 +310,20 @@ function createWizard(formEl) {}
 function parseGooglePlace(place) {}
 ```
 
+> **Mise à jour** — `parseGooglePlace` ne vit plus dans `estimation-wizard.js` mais dans `src/scripts/google-places.js`, chargé juste avant lui sur `/estimation` : le champ d'adresse du hero de la page d'accueil s'appuie sur le même widget Google et a besoin du même adaptateur. Contrat de la fonction inchangé. Ce fichier partagé porte aussi `loadGoogleMapsScript(callbackName, onError)` et `parseAddressQuery(search)` (cf. §3.4).
+
+### 3.4 Pré-remplissage depuis la page d'accueil (`/estimation/?address=…`)
+
+Le hero de `/` contient un `<form action="/estimation/" method="get">` (champ adresse + champs cachés `postalCode`, `city`, `addressSource`, renseignés par Google Places — cf. `src/scripts/home-address.js`). Sans JavaScript, le formulaire fonctionne quand même : seule l'adresse brute part en query string.
+
+Côté wizard (`estimation-ui.js`, juste après `wizard.restore()`) :
+
+1. `parseAddressQuery(window.location.search)` assainit les paramètres — code postal retenu seulement s'il vaut `/^\d{5}$/` (même règle que `validateStep(1, …)`), chaînes rognées et bornées, `addressSource === 'autocomplete'` accepté uniquement si CP **et** ville sont présents ;
+2. ces valeurs **priment sur l'état restauré** de sessionStorage (intention explicite et immédiate vs parcours interrompu) ;
+3. si l'adresse diffère de celle du parcours restauré, le wizard repart de l'étape 1 (`goToStep(1)`) : c'est un autre bien ;
+4. si l'étape 1 est alors valide (adresse issue d'une suggestion Google), `wizard.next()` ouvre directement l'**étape 2** — sinon le bloc manuel CP/ville est révélé immédiatement, sans attendre un `blur` sur un champ que l'utilisateur n'a aucune raison de toucher ;
+5. l'URL est nettoyée (`history.replaceState`) pour qu'un rafraîchissement ne réécrase pas une adresse corrigée entre-temps.
+
 ### Google Places — risque signalé
 `google.maps.places.Autocomplete` est le widget **legacy, déprécié par Google en mars 2025** au profit de `PlaceAutocompleteElement`. Les clés existantes fonctionnent toujours. **Ne pas migrer dans ce lot** — inscrit en dette technique (Lot 2).
 

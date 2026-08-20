@@ -1,7 +1,7 @@
 ---
 slug: charente-16
 nom: Charente
-title: Prix immobilier au m² — Charente
+title: Prix immobilier au m², Charente
 codeInsee: "16"
 regionParente: nouvelle-aquitaine
 prixM2: 1520

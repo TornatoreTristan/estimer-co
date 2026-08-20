@@ -1,7 +1,7 @@
 ---
 slug: doubs-25
 nom: Doubs
-title: Prix immobilier au m² — Doubs
+title: Prix immobilier au m², Doubs
 codeInsee: "25"
 regionParente: bourgogne-franche-comte
 prixM2: 1980

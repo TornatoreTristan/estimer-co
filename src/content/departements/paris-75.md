@@ -1,7 +1,7 @@
 ---
 slug: paris-75
 nom: Paris
-title: Prix immobilier au m² — Paris
+title: Prix immobilier au m², Paris
 codeInsee: "75"
 regionParente: ile-de-france
 prixM2: 9850

@@ -1,7 +1,7 @@
 ---
 slug: aube-10
 nom: Aube
-title: Prix immobilier au m² — Aube
+title: Prix immobilier au m², Aube
 codeInsee: "10"
 regionParente: grand-est
 prixM2: 1520

@@ -1,7 +1,7 @@
 ---
 slug: pays-de-la-loire
 nom: Pays de la Loire
-title: Prix immobilier au m² — Pays de la Loire
+title: Prix immobilier au m², Pays de la Loire
 prixM2: 2680
 prixMaisons: 2450
 prixAppartements: 3100

@@ -1,7 +1,7 @@
 ---
 slug: lot-46
 nom: Lot
-title: Prix immobilier au m² — Lot
+title: Prix immobilier au m², Lot
 codeInsee: "46"
 regionParente: occitanie
 prixM2: 1680

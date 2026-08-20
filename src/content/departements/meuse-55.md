@@ -1,7 +1,7 @@
 ---
 slug: meuse-55
 nom: Meuse
-title: Prix immobilier au m² — Meuse
+title: Prix immobilier au m², Meuse
 codeInsee: "55"
 regionParente: grand-est
 prixM2: 1080

@@ -1,7 +1,7 @@
 ---
 slug: centre-val-de-loire
 nom: Centre-Val de Loire
-title: Prix immobilier au m² — Centre-Val de Loire
+title: Prix immobilier au m², Centre-Val de Loire
 prixM2: 1720
 prixMaisons: 1580
 prixAppartements: 1980

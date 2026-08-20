@@ -1,7 +1,7 @@
 ---
 slug: ain-01
 nom: Ain
-title: Prix immobilier au m² — Ain
+title: Prix immobilier au m², Ain
 codeInsee: "01"
 regionParente: auvergne-rhone-alpes
 prixM2: 2180

@@ -1,7 +1,7 @@
 ---
 slug: alpes-de-haute-provence-04
 nom: Alpes-de-Haute-Provence
-title: Prix immobilier au m² — Alpes-de-Haute-Provence
+title: Prix immobilier au m², Alpes-de-Haute-Provence
 codeInsee: "04"
 regionParente: provence-alpes-cote-azur
 prixM2: 2650

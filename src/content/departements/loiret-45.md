@@ -1,7 +1,7 @@
 ---
 slug: loiret-45
 nom: Loiret
-title: Prix immobilier au m² — Loiret
+title: Prix immobilier au m², Loiret
 codeInsee: "45"
 regionParente: centre-val-de-loire
 prixM2: 1920

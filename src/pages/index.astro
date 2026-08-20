@@ -1,5 +1,16 @@
 ---
+import { Image } from 'astro:assets';
+
 import BaseLayout from '../layouts/BaseLayout.astro';
+import ClientConfig from '../components/ClientConfig.astro';
+import RawScript from '../components/RawScript.astro';
+import googlePlacesScript from '../scripts/google-places.js?raw';
+import homeAddressScript from '../scripts/home-address.js?raw';
+import homeHeroDemoScript from '../scripts/home-hero-demo.js?raw';
+import homeHeroWaveScript from '../scripts/home-hero-wave.js?raw';
+import homeVizScript from '../scripts/home-viz.js?raw';
+import homeCarouselScript from '../scripts/home-carousel.js?raw';
+import { biensVitrine } from '../data/biens-vitrine';
 import { partenaires } from '../data/partenaires';
 
 // Bandeau et pastilles restent en texte : le rendu est volontairement discret
@@ -11,17 +22,23 @@ const problemes = [
   {
     titre: 'Des estimations qui varient du simple au double',
     texte:
-      "Trois agences, trois prix. Sans méthode ni données, impossible de savoir laquelle a raison — et l'écart peut atteindre 15 à 20 % de la valeur de votre bien.",
+      "Trois agences, trois prix. Sans méthode ni données, impossible de savoir laquelle a raison, et l'écart peut atteindre 15 à 20 % de la valeur de votre bien.",
+    solution:
+      "Estimer mon bien part des transactions réelles de votre secteur et vous donne un seul prix, avec le détail du calcul qui l'explique.",
   },
   {
     titre: 'Un bien affiché trop cher qui ne part pas',
     texte:
-      "Un prix mal calibré, et votre annonce s'installe dans le paysage. Après trois mois sans visite, la seule issue est la baisse de prix — celle que vous vouliez éviter.",
+      "Un prix mal calibré, et votre annonce s'installe dans le paysage. Après trois mois sans visite, la seule issue est la baisse de prix, celle que vous vouliez éviter.",
+    solution:
+      'Estimer mon bien calibre votre prix de mise en vente sur la tension réelle du marché local, pour vendre dans les délais sans baisse à mi-parcours.',
   },
   {
     titre: 'Aucune visibilité sur votre marché local',
     texte:
       "Les prix ne bougent pas de la même façon d'une rue à l'autre. Sans les transactions réelles de votre secteur, vous négociez à l'aveugle.",
+    solution:
+      'Estimer mon bien vous ouvre les prix au m², la tension et leur évolution sur 12 mois autour de votre adresse.',
   },
 ];
 
@@ -31,7 +48,7 @@ const blocs = [
     titre: 'Les transactions réelles de votre secteur, pas une moyenne nationale',
     texte:
       "Nous croisons les ventes récentes de votre quartier, la tension du marché local et l'évolution des prix sur 12 mois pour situer votre bien au bon endroit de la fourchette.",
-    lien: { href: '/carte', label: 'Voir les prix par région' },
+    lien: { href: '/carte/', label: 'Voir les prix par région' },
     visuel: 'marche',
   },
   {
@@ -39,24 +56,92 @@ const blocs = [
     titre: 'Chaque critère qui fait varier le prix, pris en compte',
     texte:
       "Surface, nombre de pièces, état, exposition, terrain, équipements et DPE. Le diagnostic énergétique pèse à lui seul jusqu'à 25 % du prix : nous l'intégrons au calcul plutôt que de l'ignorer.",
-    lien: { href: '/estimation', label: 'Estimer mon bien' },
+    lien: { href: '/estimation/', label: 'Estimer mon bien' },
     visuel: 'criteres',
   },
   {
     eyebrow: 'Réseau de partenaires',
     titre: 'Et si vous vendez, les bons professionnels au bon moment',
     texte:
-      `${partenaires.length} partenaires — réseaux d'agences, banques, notaires et diagnostiqueurs — que nous vous présentons uniquement si vous le demandez. Jamais de revente de vos coordonnées.`,
-    lien: { href: '/partenaires', label: 'Découvrir nos partenaires' },
+      `${partenaires.length} partenaires, des réseaux d'agences aux banques, notaires et diagnostiqueurs. Nous vous les présentons uniquement si vous le demandez, et vos coordonnées ne leur sont transmises qu'avec votre accord.`,
+    lien: { href: '/partenaires/', label: 'Découvrir nos partenaires' },
     visuel: 'partenaires',
   },
+];
+
+// ---------------------------------------------------------------------------
+// Données des trois visuels de la section « La solution »
+//
+// Rien de réel ici : ce sont des illustrations. Elles sont juste écrites de
+// façon cohérente entre elles, pour qu'un lecteur attentif ne prenne pas le
+// graphique en défaut.
+// ---------------------------------------------------------------------------
+
+// L'axe du graphique est tronqué (il ne part pas de zéro) : sur douze mois la
+// variation est de quelques pour cent, des barres parties de 0 seraient douze
+// traits identiques. Les bornes sont affichées sur la grille pour que la
+// troncature soit lisible plutôt que trompeuse.
+const marcheAxe = { min: 3750, max: 3950 };
+
+// Douze mois, du premier au dernier +2,4 % — le chiffre affiché en tête du
+// graphique et repris dans le hero.
+const marche = [
+  { mois: 'Janvier', initiale: 'J', prix: 3830 },
+  { mois: 'Février', initiale: 'F', prix: 3855 },
+  { mois: 'Mars', initiale: 'M', prix: 3840 },
+  { mois: 'Avril', initiale: 'A', prix: 3875 },
+  { mois: 'Mai', initiale: 'M', prix: 3860 },
+  { mois: 'Juin', initiale: 'J', prix: 3890 },
+  { mois: 'Juillet', initiale: 'J', prix: 3878 },
+  { mois: 'Août', initiale: 'A', prix: 3905 },
+  { mois: 'Septembre', initiale: 'S', prix: 3892 },
+  { mois: 'Octobre', initiale: 'O', prix: 3915 },
+  { mois: 'Novembre', initiale: 'N', prix: 3908 },
+  { mois: 'Décembre', initiale: 'D', prix: 3922 },
+];
+
+const euros = (valeur: number) => `${valeur.toLocaleString('fr-FR')} €`;
+
+// Même code couleur que la pastille DPE de l'aperçu du hero : vert jusqu'à C,
+// neutre pour D-E, rouge à partir de F.
+const classeDpe = (lettre: string) =>
+  'ABC'.includes(lettre) ? 'tag--ok' : 'DE'.includes(lettre) ? 'tag--mid' : 'tag--bad';
+
+// Écart signé, écrit comme les barres DPE plus bas : vrai signe moins (U+2212,
+// de la largeur du plus) et virgule décimale.
+const pourcent = (valeur: number) => {
+  const signe = valeur > 0 ? '+' : valeur < 0 ? '−' : '';
+  return `${signe}${Math.abs(valeur).toLocaleString('fr-FR', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })} %`;
+};
+const hauteurBarre = (prix: number) =>
+  Math.round(((prix - marcheAxe.min) / (marcheAxe.max - marcheAxe.min)) * 100);
+
+// Impact du DPE : des barres divergentes de part et d'autre de la classe C,
+// qui sert de référence. `ecart` est un pourcentage, `couleur` reprend la
+// couleur officielle de l'étiquette énergie.
+const dpeMaxEcart = 25;
+const dpeImpact = [
+  { lettre: 'A', ecart: 15, label: '+15 %', couleur: '#446f28', texteClair: true },
+  { lettre: 'C', ecart: 0, label: 'référence', couleur: '#9cce7b', texteClair: false },
+  { lettre: 'F', ecart: -18, label: '−18 %', couleur: 'var(--orange-95)', texteClair: true },
+  { lettre: 'G', ecart: -25, label: '−25 %', couleur: 'var(--error)', texteClair: true },
+];
+
+// Deux bandeaux défilants en sens opposés. Chaque bandeau est dupliqué dans le
+// markup pour que la boucle se referme sans saut (cf. `.marquee__track`).
+const reseauRangs = [
+  partenaires.slice(0, 10).map((p) => p.logoTexte),
+  partenaires.slice(10, 20).map((p) => p.logoTexte),
 ];
 
 const chiffres = [
   { value: '50 000+', label: 'Estimations réalisées' },
   { value: String(partenaires.length), label: 'Partenaires de confiance' },
   { value: '98 %', label: 'Clients satisfaits' },
-  { value: '24 h', label: 'Délai de réponse moyen' },
+  { value: 'Immédiat', label: 'Rapport disponible' },
 ];
 
 const temoignages = [
@@ -68,7 +153,7 @@ const temoignages = [
   },
   {
     quote:
-      "J'ai reçu mon estimation en moins de 24 h et elle correspondait exactement au prix auquel j'ai finalement vendu ma maison.",
+      "J'ai reçu mon estimation immédiatement et elle correspondait exactement au prix auquel j'ai finalement vendu ma maison.",
     nom: 'Philippe D.',
     detail: 'Maison vendue à Bordeaux',
   },
@@ -108,9 +193,9 @@ const garanties = [
       "Aucun frais, aucune carte bancaire, aucune obligation de vendre. L'estimation de qualité doit rester accessible à tous les propriétaires.",
   },
   {
-    titre: 'Vos données restent chez vous',
+    titre: 'Vous gardez la main sur vos données',
     texte:
-      'Vos informations ne sont ni revendues ni transmises à un partenaire sans votre accord explicite. Hébergement en France.',
+      "Aucune information n'est transmise à un partenaire sans votre accord explicite : c'est vous qui décidez, au cas par cas. Hébergement en France.",
   },
   {
     titre: 'Une méthode documentée',
@@ -131,7 +216,7 @@ const etapes = [
   },
   {
     titre: 'Nous analysons le marché',
-    duree: 'Sous 24 heures',
+    duree: 'Instantané',
     points: [
       'Transactions réelles de votre secteur',
       'Pondération selon les critères de votre bien',
@@ -140,7 +225,7 @@ const etapes = [
   },
   {
     titre: 'Vous recevez votre rapport',
-    duree: 'Immédiatement disponible',
+    duree: 'Rapport immédiat',
     points: [
       'Estimation détaillée et téléchargeable en PDF',
       'Analyse du marché local et de sa dynamique',
@@ -148,54 +233,265 @@ const etapes = [
     ],
   },
 ];
+
+// ---------------------------------------------------------------------------
+// FAQ
+//
+// Un seul tableau : il alimente à la fois l'accordéon visible et le balisage
+// JSON-LD `FAQPage` injecté dans le `<head>`. Les deux ne peuvent donc pas
+// diverger — un rich snippet Google qui promet une réponse absente de la page
+// est une pénalité, pas un bonus.
+//
+// Les réponses ne promettent que ce que le site fait réellement : les chiffres
+// repris ici (trois minutes, cinq étapes, 25 % pour le DPE, transmission des
+// coordonnées sur accord) sont ceux des sections ci-dessus et du wizard.
+// ---------------------------------------------------------------------------
+const faq = [
+  {
+    question: "L'estimation est-elle vraiment gratuite ?",
+    reponse:
+      "Oui. Le formulaire, le calcul et le rapport complet sont gratuits, sans engagement et sans carte bancaire. Il n'y a rien à payer, ni avant, ni après.",
+  },
+  {
+    question: "Combien de temps faut-il pour obtenir mon estimation ?",
+    reponse:
+      "Environ trois minutes. Le formulaire compte cinq étapes : adresse, type de bien (maison ou appartement, avec ou sans terrain), caractéristiques, situation, coordonnées. Le rapport s'affiche immédiatement après validation, sans délai de traitement ni rappel commercial à attendre.",
+  },
+  {
+    question: "Sur quelles données repose le prix affiché ?",
+    reponse:
+      "Sur les transactions réellement conclues autour de votre adresse, croisées avec plus de dix bases de données : tension du marché local, évolution des prix sur douze mois, caractéristiques du bien. Ni moyenne nationale, ni barème d'agence.",
+  },
+  {
+    question: "Quelle confiance accorder au résultat ?",
+    reponse:
+      "Le rapport ne donne pas qu'un chiffre : il donne une fourchette et le détail du calcul qui l'explique, pour que vous puissiez la vérifier plutôt que nous croire sur parole. Cela reste une estimation statistique : elle ne remplace ni un avis de valeur notarié, ni l'expertise d'un professionnel venu sur place, en particulier pour un bien atypique, en mauvais état ou sans transaction comparable à proximité.",
+  },
+  {
+    question: "Le DPE change-t-il vraiment le prix de vente ?",
+    reponse:
+      "Oui, et plus qu'on ne l'imagine : le diagnostic énergétique pèse à lui seul jusqu'à 25 % du prix. Nous l'intégrons au calcul plutôt que de l'ignorer, au même titre que la surface, l'état, l'exposition ou le terrain.",
+  },
+  {
+    question: "Faut-il recevoir la visite d'un agent immobilier ?",
+    reponse:
+      "Non. L'estimation se fait entièrement en ligne, sans visite ni rendez-vous. Si vous voulez ensuite l'avis d'un professionnel, vous pouvez le demander. Rien ne se déclenche automatiquement.",
+  },
+  {
+    question: "Mes coordonnées vont-elles être transmises à des agences ?",
+    reponse:
+      "Pas sans votre accord. Nous vous présentons nos partenaires uniquement si vous le demandez, et vos coordonnées ne leur sont transmises qu'avec votre accord explicite.",
+  },
+  {
+    question: "Que deviennent les informations que je saisis ?",
+    reponse:
+      "Pendant que vous remplissez le formulaire, vos réponses restent dans votre navigateur, le temps de la session : vous pouvez rafraîchir la page sans tout ressaisir. Vos nom, e-mail et téléphone, eux, ne sont jamais enregistrés avant votre validation finale.",
+  },
+];
+
+// Balisage `FAQPage`. Généré depuis `faq` plutôt que recopié à la main, pour
+// la raison expliquée plus haut.
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faq.map((entree) => ({
+    '@type': 'Question',
+    name: entree.question,
+    acceptedAnswer: { '@type': 'Answer', text: entree.reponse },
+  })),
+};
 ---
 
 <BaseLayout
-  title="Estimer mon bien — l'estimation immobilière fiable, gratuite et rapide"
-  description="Recevez sous 24 h un rapport complet sur la valeur de votre bien immobilier : analyse du marché local, impact du DPE et fourchette de prix justifiée."
+  title="Estimer mon bien. L'estimation immobilière fiable, rapide et gratuite"
+  description="Recevez un rapport immédiat sur la valeur de votre bien immobilier : analyse du marché local, impact du DPE et fourchette de prix justifiée."
 >
+  <Fragment slot="head">
+    <ClientConfig />
+    <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)} is:inline />
+  </Fragment>
+
   <!-- ------------------------------------------------------------ Hero -->
   <section class="hero">
+    <!--
+      Nappe de particules ondulante, dessinée par `home-hero-wave.js`.
+      Purement décorative : elle se superpose au fond beige/orange de la
+      hero sans le remplacer, et s'efface par un masque sur les bords pour
+      ne jamais gêner la lecture du titre ni du formulaire.
+    -->
+    <canvas class="hero__wave" id="heroWave" aria-hidden="true"></canvas>
+
     <div class="container">
       <div class="hero__grid">
         <div class="hero__copy">
-          <span class="pill">Gratuit · Sans engagement</span>
-          <h1>L'estimation immobilière fiable, gratuite et rapide</h1>
+          <span class="pill">Estimation Dynamique sur +10 bases de données</span>
+          <h1>Estimez le prix de votre bien immobilier. Fiable, rapide et gratuit</h1>
           <p class="lead">
-            Recevez un rapport complet sur la valeur de votre bien : transactions réelles de votre
-            secteur, impact du DPE et fourchette de prix justifiée. Sous 24 heures.
+            Recevez un rapport complet sur la valeur de votre bien : transactions réelles de votre secteur, impact du DPE et fourchette de prix justifiée. Rapport immédiat.
           </p>
-          <div class="btn-row">
-            <a href="/estimation" class="btn btn--primary btn--lg">Estimer mon bien</a>
-            <a href="/carte" class="btn btn--outline btn--lg">Voir les prix au m²</a>
-          </div>
+          <!--
+            Vrai formulaire GET vers /estimation/ : sans JavaScript, l'adresse
+            saisie part quand même en query string et le wizard la pré-remplit.
+            `home-address.js` n'ajoute que l'autocomplétion Google, qui
+            renseigne les champs cachés code postal / ville — de quoi ouvrir
+            directement l'étape 2 du wizard. La barre finale est obligatoire
+            (`trailingSlash: 'always'`, cf. astro.config.mjs).
+          -->
+          <form
+            class="hero-form"
+            id="heroAddressForm"
+            action="/estimation/"
+            method="get"
+            novalidate
+          >
+            <div class="hero-form__row">
+              <div class="hero-form__field">
+                <label class="sr-only" for="heroAddress">Adresse du bien à estimer</label>
+                <input
+                  type="text"
+                  id="heroAddress"
+                  name="address"
+                  class="input"
+                  placeholder="Saisissez l'adresse de votre bien"
+                  autocomplete="off"
+                  aria-describedby="heroAddress-error"
+                />
+              </div>
+              <button type="submit" class="btn btn--primary btn--lg">Estimer mon bien</button>
+            </div>
+            <p class="field-error" id="heroAddress-error" role="alert" hidden></p>
+            <input type="hidden" id="heroPostalCode" name="postalCode" />
+            <input type="hidden" id="heroCity" name="city" />
+            <input type="hidden" id="heroAddressSource" name="addressSource" />
+          </form>
           <p class="hero__note">
             <strong>50 000+</strong> propriétaires accompagnés &nbsp;·&nbsp; <strong>98 %</strong> de
             clients satisfaits
           </p>
         </div>
 
-        <!-- Aperçu du rapport, dessiné en CSS plutôt qu'en image -->
+        <!--
+          Aperçu du rapport, dessiné en CSS plutôt qu'en image.
+
+          `home-hero-demo.js` rejoue en boucle le parcours complet : saisie du
+          formulaire, calcul, puis rapport — avec un bien différent à chaque
+          tour (10 scénarios normands déclarés dans le script). Les valeurs
+          écrites ci-dessous sont celles du premier scénario ; le script
+          réécrit tout ce qui porte un attribut `data-demo-*`.
+
+          Les deux premières scènes sont `hidden` dans le HTML — c'est le
+          script qui les révèle. Sans JS, ou en `prefers-reduced-motion`, il ne
+          reste donc que la scène « résultat », exactement le visuel statique
+          d'avant. Le bloc entier est `aria-hidden` : purement décoratif, rien
+          à annoncer.
+        -->
         <div class="hero__preview" aria-hidden="true">
-          <div class="preview">
+          <div class="preview" id="heroDemo">
             <div class="preview__head">
               <span class="preview__dot"></span>
-              <span class="mono">Rapport d'estimation</span>
+              <span class="mono" data-demo-title>Rapport d'estimation</span>
+              <span class="preview__badge mono" data-demo-badge hidden></span>
             </div>
-            <div class="preview__body">
-              <div class="preview__label">Estimation moyenne</div>
-              <div class="preview__price">348 500 €</div>
-              <div class="preview__range">
-                <div><span>Minimum</span><strong>331 100 €</strong></div>
-                <div><span>Maximum</span><strong>365 900 €</strong></div>
+
+            <div class="preview__stage">
+              <!-- Scène 1 — quelqu'un remplit le formulaire -->
+              <div class="demo demo--form" data-demo-scene="form" hidden>
+                <div class="demo__field" data-demo-field="address">
+                  <span class="demo__label">Adresse du bien</span>
+                  <span class="demo__box">
+                    <span class="demo__value" data-demo-typed></span>
+                    <i class="demo__caret"></i>
+                  </span>
+                </div>
+
+                <div class="demo__field" data-demo-field="type">
+                  <span class="demo__label">Type de bien</span>
+                  <span class="demo__choices">
+                    <span class="demo__choice" data-demo-choice="Appartement">Appartement</span>
+                    <span class="demo__choice" data-demo-choice="Maison">Maison</span>
+                  </span>
+                </div>
+
+                <div class="demo__field" data-demo-field="surface">
+                  <span class="demo__label">Surface habitable</span>
+                  <span class="demo__box">
+                    <span class="demo__value" data-demo-typed></span>
+                    <i class="demo__caret"></i>
+                    <em class="demo__unit">m²</em>
+                  </span>
+                </div>
+
+                <div class="demo__field" data-demo-field="dpe">
+                  <span class="demo__label">Diagnostic énergétique</span>
+                  <span class="demo__dpe">
+                    <span class="demo__grade" data-demo-grade="A">A</span>
+                    <span class="demo__grade" data-demo-grade="B">B</span>
+                    <span class="demo__grade" data-demo-grade="C">C</span>
+                    <span class="demo__grade" data-demo-grade="D">D</span>
+                    <span class="demo__grade" data-demo-grade="E">E</span>
+                    <span class="demo__grade" data-demo-grade="F">F</span>
+                    <span class="demo__grade" data-demo-grade="G">G</span>
+                  </span>
+                </div>
+
+                <span class="demo__submit" data-demo-submit>Calculer l'estimation</span>
               </div>
-              <div class="preview__bar"><span></span></div>
-              <ul class="preview__rows">
-                <li><span>Prix au m²</span><strong>4 100 €</strong></li>
-                <li><span>Surface</span><strong>85 m²</strong></li>
-                <li><span>DPE</span><strong class="tag tag--ok">C</strong></li>
-                <li><span>Marché local 12 mois</span><strong class="up">+2,4 %</strong></li>
-              </ul>
+
+              <!-- Scène 2 — le calcul tourne -->
+              <div class="demo demo--compute" data-demo-scene="compute" hidden>
+                <div class="demo__label">Analyse en cours</div>
+                <ul class="demo__tasks">
+                  <li class="demo__task">Transactions comparables du secteur</li>
+                  <li class="demo__task">Pondération surface, état et DPE</li>
+                  <li class="demo__task">Dynamique du marché sur 12 mois</li>
+                </ul>
+                <div class="demo__loader"><span data-demo-loader></span></div>
+                <p class="demo__count mono">
+                  <strong data-demo-analysed>0</strong> ventes analysées
+                </p>
+              </div>
+
+              <!-- Scène 3 — le rapport (état par défaut, sans JS) -->
+              <div class="demo demo--result" data-demo-scene="result">
+                <div class="preview__label" data-demo-label>Estimation moyenne</div>
+                <div
+                  class="preview__price"
+                  data-demo-number="price"
+                  data-demo-value="348500"
+                  data-demo-unit=" €"
+                >
+                  348 500 €
+                </div>
+                <div class="preview__range">
+                  <div>
+                    <span>Minimum</span>
+                    <strong data-demo-number="min" data-demo-value="331100" data-demo-unit=" €">
+                      331 100 €
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Maximum</span>
+                    <strong data-demo-number="max" data-demo-value="365900" data-demo-unit=" €">
+                      365 900 €
+                    </strong>
+                  </div>
+                </div>
+                <div class="preview__bar"><span data-demo-gauge></span></div>
+                <ul class="preview__rows">
+                  <li>
+                    <span>Prix au m²</span>
+                    <strong data-demo-number="sqm" data-demo-value="4100" data-demo-unit=" €">
+                      4 100 €
+                    </strong>
+                  </li>
+                  <li><span>Surface</span><strong data-demo-surface>85 m²</strong></li>
+                  <li><span>DPE</span><strong class="tag tag--ok" data-demo-dpe>C</strong></li>
+                  <li>
+                    <span>Marché local 12 mois</span>
+                    <strong class="up" data-demo-trend>+2,4 %</strong>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
@@ -203,12 +499,126 @@ const etapes = [
     </div>
   </section>
 
-  <!-- --------------------------------------------------- Bandeau logos -->
-  <section class="section--sm logos">
+  <!-- --------------------------------------------------- Biens en vitrine -->
+  <!--
+    Carrousel d'exemples d'estimations.
+
+    Le défilement est natif : `.carousel__track` est une liste en
+    `overflow-x: auto` + `scroll-snap`. Sans JavaScript, la section reste donc
+    entièrement parcourable — à la molette, au doigt, ou au clavier une fois la
+    piste focalisée. `home-carousel.js` n'ajoute que les flèches, les pastilles
+    et le défilement automatique, et il ne révèle ces contrôles que s'il a pu
+    s'installer (cf. l'attribut `hidden` posé dans le markup).
+  -->
+  <section class="section section--sand">
     <div class="container">
-      <p class="logos__title">Un réseau de {partenaires.length} partenaires de confiance</p>
-      <div class="logos__row">
-        {logos.map((logo) => <span>{logo}</span>)}
+      <div class="section-head carousel-head">
+        <div class="carousel-head__copy">
+          <span class="eyebrow">Exemples d'estimations</span>
+          <h2>Ce que vous recevez, bien par bien</h2>
+          <p>
+            Cinq configurations, cinq marchés. À chaque fois un montant, le prix au m² qui le
+            justifie, les ventes sur lesquelles il s'appuie et la dynamique du secteur.
+          </p>
+        </div>
+
+        <div class="carousel-head__nav" data-carousel-nav hidden>
+          <button type="button" class="carousel__arrow" data-carousel-prev aria-label="Bien précédent">
+            <span aria-hidden="true">←</span>
+          </button>
+          <button type="button" class="carousel__arrow" data-carousel-next aria-label="Bien suivant">
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="carousel" data-carousel>
+        <ul
+          class="carousel__track"
+          data-carousel-track
+          tabindex="0"
+          role="region"
+          aria-label="Exemples d'estimations, faites défiler horizontalement"
+        >
+          {
+            biensVitrine.map((bien) => (
+              <li class="carousel__slide">
+                <article class="bien">
+                  <div class="bien__photo">
+                    <Image
+                      src={bien.photo}
+                      alt={bien.alt}
+                      widths={[440, 640, 880]}
+                      width={880}
+                      sizes="(min-width: 82rem) 25rem, (min-width: 62rem) 30vw, (min-width: 47.5rem) 46vw, 82vw"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span class="bien__type mono">{bien.type}</span>
+                    <div class="bien__prix">
+                      <span class="bien__prix-label">Estimation moyenne</span>
+                      <strong class="bien__prix-valeur">{euros(bien.montant)}</strong>
+                    </div>
+                  </div>
+
+                  <div class="bien__body">
+                    <span class="bien__lieu mono">{bien.lieu}</span>
+                    <h3 class="bien__titre">{bien.titre}</h3>
+                    <ul class="bien__meta">
+                      <li>
+                        <span>Surface</span>
+                        <strong>{bien.surface} m²</strong>
+                      </li>
+                      <li>
+                        <span>Pièces</span>
+                        <strong>{bien.pieces}</strong>
+                      </li>
+                      <li>
+                        <span>Prix au m²</span>
+                        <strong>{euros(bien.prixM2)}</strong>
+                      </li>
+                      <li>
+                        <span>DPE</span>
+                        <strong class={`tag ${classeDpe(bien.dpe)}`}>{bien.dpe}</strong>
+                      </li>
+                      <li class="bien__marche">
+                        <span>Marché local 12 mois</span>
+                        <strong class={bien.evolution < 0 ? 'down' : 'up'}>
+                          {pourcent(bien.evolution)}
+                        </strong>
+                      </li>
+                    </ul>
+
+                    <p class="bien__analyse">
+                      Analyse de <strong>{bien.ventes.toLocaleString('fr-FR')} ventes</strong> sur
+                      les 12 derniers mois
+                    </p>
+                  </div>
+                </article>
+              </li>
+            ))
+          }
+        </ul>
+
+        <div class="carousel__foot">
+          <div class="carousel__dots" data-carousel-dots hidden>
+            {
+              biensVitrine.map((bien, i) => (
+                <button
+                  type="button"
+                  class="carousel__dot"
+                  data-carousel-dot={i}
+                  aria-label={`Aller au bien ${i + 1} sur ${biensVitrine.length} : ${bien.titre}`}
+                />
+              ))
+            }
+          </div>
+
+          <p class="carousel__note">
+            Exemples d'illustration, construits sur des prix au m² réalistes. Votre estimation part
+            des transactions de votre secteur.
+          </p>
+        </div>
       </div>
     </div>
   </section>
@@ -217,7 +627,7 @@ const etapes = [
   <section class="section section--beige">
     <div class="container">
       <div class="section-head">
-        <span class="eyebrow">Le problème</span>
+        <span class="eyebrow">Un prix fiable et juste de votre bien immobilier</span>
         <h2>Personne ne sait vraiment ce que vaut son bien.</h2>
         <p>
           Un prix affiché au doigt mouillé, trois avis d'agence contradictoires, et une décision à
@@ -231,6 +641,7 @@ const etapes = [
             <article class="card card--hover problem">
               <h3>{probleme.titre}</h3>
               <p>{probleme.texte}</p>
+              <p class="problem__solution">{probleme.solution}</p>
             </article>
           ))
         }
@@ -264,62 +675,88 @@ const etapes = [
 
               <div class="block__visual" aria-hidden="true">
                 {bloc.visuel === 'marche' && (
-                  <div class="viz viz--chart">
+                  <div class="viz viz--chart" data-viz>
                     <div class="viz__head">
                       <span class="mono">Prix au m² · 12 mois</span>
-                      <span class="up">+2,4 %</span>
+                      <span
+                        class="up"
+                        data-count-to="2.4"
+                        data-count-prefix="+"
+                        data-count-suffix=" %"
+                      >
+                        +2,4 %
+                      </span>
                     </div>
-                    <div class="bars">
-                      {[42, 55, 48, 63, 58, 71, 66, 80, 76, 88, 84, 96].map((h) => (
-                        <span style={`height:${h}%`} />
-                      ))}
+
+                    <div class="chart">
+                      <div class="chart__grid">
+                        <span data-label={euros(marcheAxe.max)} />
+                        <span />
+                        <span data-label={euros(marcheAxe.min)} />
+                      </div>
+
+                      <ul class="chart__bars">
+                        {marche.map((point, i) => (
+                          <li style={`--h:${hauteurBarre(point.prix)}%;--i:${i}`}>
+                            <span class="chart__tip mono">
+                              {point.mois} · {euros(point.prix)}
+                            </span>
+                            <span class="chart__bar" />
+                            <span class="chart__mois mono">{point.initiale}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
                 )}
 
                 {bloc.visuel === 'criteres' && (
-                  <div class="viz viz--dpe">
+                  <div class="viz viz--dpe" data-viz>
                     <div class="viz__head">
                       <span class="mono">Impact du DPE sur le prix</span>
                     </div>
+
                     <ul class="dpe">
-                      <li>
-                        <span class="dpe__letter dpe__letter--a">A</span>
-                        <span class="dpe__track">
-                          <span style="width:100%" />
-                        </span>
-                        <strong>+15 %</strong>
-                      </li>
-                      <li>
-                        <span class="dpe__letter dpe__letter--c">C</span>
-                        <span class="dpe__track">
-                          <span style="width:62%" />
-                        </span>
-                        <strong>référence</strong>
-                      </li>
-                      <li>
-                        <span class="dpe__letter dpe__letter--f">F</span>
-                        <span class="dpe__track">
-                          <span style="width:34%" />
-                        </span>
-                        <strong>−18 %</strong>
-                      </li>
-                      <li>
-                        <span class="dpe__letter dpe__letter--g">G</span>
-                        <span class="dpe__track">
-                          <span style="width:22%" />
-                        </span>
-                        <strong>−25 %</strong>
-                      </li>
+                      {dpeImpact.map((ligne, i) => (
+                        <li
+                          class={ligne.ecart >= 0 ? 'is-up' : 'is-down'}
+                          style={`--w:${(Math.abs(ligne.ecart) / dpeMaxEcart) * 50}%;--c:${ligne.couleur};--i:${i}`}
+                        >
+                          <span
+                            class="dpe__letter"
+                            style={ligne.texteClair ? '' : 'color:var(--black)'}
+                          >
+                            {ligne.lettre}
+                          </span>
+                          <span class="dpe__track">
+                            <span class="dpe__fill" />
+                          </span>
+                          <strong>{ligne.label}</strong>
+                        </li>
+                      ))}
                     </ul>
+
+                    <p class="dpe__foot mono">Écart constaté face à un bien équivalent classé C</p>
                   </div>
                 )}
 
                 {bloc.visuel === 'partenaires' && (
-                  <div class="viz viz--net">
-                    {partenaires.slice(0, 9).map((partenaire) => (
-                      <span class="chip">{partenaire.logoTexte}</span>
-                    ))}
+                  <div class="viz viz--net" data-viz>
+                    <div class="viz__head">
+                      <span class="mono">{partenaires.length} partenaires</span>
+                    </div>
+
+                    <div class="marquee">
+                      {reseauRangs.map((rang, i) => (
+                        <div class={`marquee__row${i % 2 ? ' marquee__row--rev' : ''}`}>
+                          <div class="marquee__track">
+                            {rang.concat(rang).map((logo) => (
+                              <span class="chip">{logo}</span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -412,7 +849,7 @@ const etapes = [
       <div class="section-head">
         <span class="eyebrow">Comment ça marche</span>
         <h2>Trois étapes, aucune visite obligatoire</h2>
-        <p>Le formulaire prend trois minutes. Le rapport arrive sous 24 heures.</p>
+        <p>Le formulaire prend trois minutes. Le rapport est disponible immédiatement.</p>
       </div>
 
       <div class="steps">
@@ -447,10 +884,10 @@ const etapes = [
           <span class="pill">En autonomie</span>
           <h3>Estimation en ligne</h3>
           <p>
-            Trois minutes de formulaire, un rapport détaillé sous 24 heures. Gratuit, sans
+            Trois minutes de formulaire, un rapport détaillé immédiat. Gratuit, sans
             engagement, sans carte bancaire.
           </p>
-          <a href="/estimation" class="btn btn--light">Estimer mon bien</a>
+          <a href="/estimation/" class="btn btn--light">Estimer mon bien</a>
         </article>
 
         <article class="card card--dark">
@@ -458,13 +895,67 @@ const etapes = [
           <h3>Parler à un expert</h3>
           <p>
             Une question sur votre situation, un bien atypique, un projet particulier ? Notre équipe
-            vous répond sous 24 heures.
+            vous répond dans les meilleurs délais.
           </p>
-          <a href="/contact" class="btn btn--ghost-light">Nous contacter</a>
+          <a href="/contact/" class="btn btn--ghost-light">Nous contacter</a>
         </article>
       </div>
     </div>
   </section>
+
+  <!-- ----------------------------------------------------------------- FAQ -->
+  <!--
+    Accordéon en `<details>` natif : ouverture au clavier, à la souris et au
+    lecteur d'écran sans une ligne de JavaScript, et le contenu reste dans le
+    DOM (donc trouvable par Ctrl+F et par les moteurs).
+
+    L'attribut `name` partagé fait de l'ensemble un accordéon exclusif — ouvrir
+    une réponse referme la précédente. Les navigateurs qui ne le connaissent
+    pas encore ouvrent simplement plusieurs réponses à la fois : dégradation
+    sans conséquence.
+
+    La première réponse est ouverte au chargement : l'accordéon se lit alors
+    comme un bloc de contenu et non comme une liste de titres muets.
+  -->
+  <section class="section section--beige" id="faq" aria-labelledby="faq-titre">
+    <div class="container container--narrow">
+      <div class="section-head section-head--center">
+        <span class="eyebrow">Questions fréquentes</span>
+        <h2 id="faq-titre">Ce que les propriétaires nous demandent</h2>
+        <p>
+          Le fonctionnement, les données, la fiabilité et ce que nous faisons de vos
+          informations.
+        </p>
+      </div>
+
+      <div class="faq">
+        {
+          faq.map((entree, i) => (
+            <details class="faq__item" name="faq" open={i === 0}>
+              <summary class="faq__question">
+                <span>{entree.question}</span>
+                <span class="faq__icon" aria-hidden="true" />
+              </summary>
+              <div class="faq__reponse">
+                <p>{entree.reponse}</p>
+              </div>
+            </details>
+          ))
+        }
+      </div>
+
+      <p class="faq__reste">
+        Une question qui n'est pas là ? <a href="/contact/" class="link-arrow">Écrivez-nous</a>
+      </p>
+    </div>
+  </section>
+
+  <RawScript slot="body-end" code={googlePlacesScript} />
+  <RawScript slot="body-end" code={homeAddressScript} />
+  <RawScript slot="body-end" code={homeHeroDemoScript} />
+  <RawScript slot="body-end" code={homeHeroWaveScript} />
+  <RawScript slot="body-end" code={homeVizScript} />
+  <RawScript slot="body-end" code={homeCarouselScript} />
 </BaseLayout>
 
 <style>
@@ -477,6 +968,37 @@ const etapes = [
       linear-gradient(180deg, var(--beige-25) 0%, var(--beige-10) 100%);
     border-bottom: 1px solid var(--border);
     overflow: hidden;
+  }
+
+  /* Le canvas couvre toute la hero, sous le contenu. Il ne pose aucune
+     couleur de fond : le dégradé beige/orange ci-dessus reste seul maître
+     du fond, la nappe ne fait qu'ajouter ses points par-dessus.
+
+     Double masque en intersection : disparition vers le haut (le titre
+     garde un fond propre) et vers la gauche (la colonne de texte et le
+     formulaire restent parfaitement lisibles). */
+  .hero__wave {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.85;
+    -webkit-mask-image:
+      linear-gradient(to bottom, transparent 0%, #000 42%, #000 100%),
+      linear-gradient(to right, transparent 8%, #000 62%);
+    mask-image:
+      linear-gradient(to bottom, transparent 0%, #000 42%, #000 100%),
+      linear-gradient(to right, transparent 8%, #000 62%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  /* Le contenu repasse devant la nappe. */
+  .hero > .container {
+    position: relative;
+    z-index: 1;
   }
 
   .hero__grid {
@@ -497,6 +1019,36 @@ const etapes = [
   .hero__copy .lead {
     max-width: 34rem;
     margin-bottom: 2rem;
+  }
+
+  /* Champ d'adresse + bouton : une seule ligne tant que la place le permet,
+     empilés en dessous de 560px (le bouton passe alors pleine largeur). */
+  .hero-form {
+    margin-bottom: 1rem;
+  }
+
+  .hero-form__row {
+    display: flex;
+    gap: 0.75rem;
+    max-width: 34rem;
+  }
+
+  .hero-form__field {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .hero-form__row .btn {
+    flex: 0 0 auto;
+  }
+
+  .hero-form .field-error {
+    max-width: 34rem;
+    margin-top: 0.5rem;
+  }
+
+  .btn-row {
+    max-width: 34rem;
   }
 
   .hero__note {
@@ -533,10 +1085,34 @@ const etapes = [
     width: 0.5rem;
     height: 0.5rem;
     background: var(--orange);
+    flex: 0 0 auto;
   }
 
-  .preview__body {
+  /* Compteur d'étape, à droite de l'en-tête. Affiché par le script seulement. */
+  .preview__badge {
+    margin-left: auto;
+    color: var(--orange);
+    letter-spacing: 0.08em;
+  }
+
+  /*
+    Les trois scènes sont empilées dans la même cellule de grille : la carte
+    garde la hauteur de la plus grande (le rapport) et ne saute donc jamais
+    d'une scène à l'autre.
+  */
+  .preview__stage {
+    display: grid;
     padding: clamp(1.5rem, 1rem + 1.5vw, 2rem);
+  }
+
+  .demo {
+    grid-area: 1 / 1;
+  }
+
+  /* `display: flex` des scènes l'emporterait sur le `display: none` par
+     défaut de l'attribut `hidden` : on le rétablit explicitement. */
+  .demo[hidden] {
+    display: none;
   }
 
   .preview__label {
@@ -617,14 +1193,356 @@ const etapes = [
     font-size: var(--text-tiny);
   }
 
+  /* Le DPE change à chaque scénario : vert jusqu'à C, neutre pour D-E,
+     rouge à partir de F. */
   .tag--ok {
     background: var(--success-soft);
     color: var(--success);
   }
 
+  .tag--mid {
+    background: var(--beige-50);
+    color: var(--text-soft);
+  }
+
+  .tag--bad {
+    background: var(--error-soft);
+    color: var(--error);
+  }
+
   .up {
     color: var(--success);
     font-weight: 600;
+  }
+
+  .down {
+    color: var(--error);
+    font-weight: 600;
+  }
+
+  /* ------------------------------------------------- Démo animée (hero)
+     Toutes les classes d'état (`is-*`) sont posées par `home-hero-demo.js`.
+     Sans lui, aucune de ces règles ne s'applique : la carte reste le rapport
+     statique. */
+
+  /* `is-playing` bascule la carte en mode diaporama : seule la scène active
+     est visible, les autres restent dans le flux pour figer la hauteur. */
+  .preview.is-playing .demo {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 0.45s var(--ease),
+      visibility 0.45s var(--ease);
+  }
+
+  .preview.is-playing .demo.is-active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* --------------------------------------------- Scène 1 : la saisie */
+  .demo--form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .demo__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .preview.is-playing .demo__field,
+  .preview.is-playing .demo__submit {
+    opacity: 0;
+    transform: translateY(0.5rem);
+    transition:
+      opacity 0.35s var(--ease),
+      transform 0.35s var(--ease);
+  }
+
+  .preview.is-playing .demo__field.is-shown,
+  .preview.is-playing .demo__submit.is-shown {
+    opacity: 1;
+    transform: none;
+  }
+
+  .demo__label {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .demo__box {
+    display: flex;
+    align-items: center;
+    gap: 0.0625rem;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    background: var(--beige-10);
+    font-size: var(--text-sm);
+    color: var(--black);
+    transition:
+      border-color 0.2s var(--ease),
+      background-color 0.2s var(--ease);
+  }
+
+  .demo__field.is-typing .demo__box {
+    border-color: var(--orange);
+    background: var(--white);
+  }
+
+  .demo__field.is-filled .demo__box {
+    border-color: var(--border-strong);
+    background: var(--white);
+  }
+
+  .demo__value {
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .demo__caret {
+    width: 1px;
+    height: 1.05em;
+    background: var(--black);
+    opacity: 0;
+  }
+
+  .demo__field.is-typing .demo__caret {
+    animation: demo-caret 1s steps(1, end) infinite;
+  }
+
+  @keyframes demo-caret {
+    0%,
+    45% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .demo__unit {
+    margin-left: auto;
+    font-style: normal;
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
+  }
+
+  .demo__choices {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .demo__choice {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    text-align: center;
+    border: 1px solid var(--border);
+    background: var(--beige-10);
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+    transition:
+      border-color 0.2s var(--ease),
+      background-color 0.2s var(--ease),
+      color 0.2s var(--ease);
+  }
+
+  .demo__choice.is-picked {
+    border-color: var(--orange);
+    background: var(--orange-10);
+    color: var(--black);
+    font-weight: 600;
+  }
+
+  .demo__dpe {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .demo__grade {
+    flex: 1;
+    padding: 0.4375rem 0;
+    text-align: center;
+    border: 1px solid var(--border);
+    background: var(--beige-10);
+    font-size: var(--text-tiny);
+    font-weight: 600;
+    color: var(--text-faint);
+    transition:
+      border-color 0.15s var(--ease),
+      background-color 0.15s var(--ease),
+      color 0.15s var(--ease);
+  }
+
+  .demo__grade.is-hover {
+    border-color: var(--border-strong);
+    color: var(--text-soft);
+  }
+
+  /* Sélection = orange, comme les autres choix du formulaire. La couleur
+     sémantique du DPE (vert / neutre / rouge) est réservée à la pastille du
+     rapport : un F surligné en vert dans le formulaire tromperait. */
+  .demo__grade.is-picked {
+    border-color: var(--orange);
+    background: var(--orange-10);
+    color: var(--black);
+  }
+
+  .demo__submit {
+    margin-top: 0.25rem;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    background: var(--orange);
+    color: var(--white);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+
+  .preview.is-playing .demo__submit.is-pressed {
+    animation: demo-press 0.4s var(--ease);
+  }
+
+  @keyframes demo-press {
+    50% {
+      transform: scale(0.97);
+      background: var(--orange-95);
+    }
+  }
+
+  /* --------------------------------------------- Scène 2 : le calcul */
+  .demo--compute {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1.25rem;
+  }
+
+  .demo__tasks {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .demo__task {
+    position: relative;
+    padding-left: 1.75rem;
+    font-size: var(--text-sm);
+    color: var(--text-faint);
+    transition: color 0.3s var(--ease);
+  }
+
+  /* La case à gauche : vide, puis orange pulsée pendant le calcul, puis
+     verte avec la coche dessinée en `::after`. */
+  .demo__task::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.15em;
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid var(--border-strong);
+    background: var(--white);
+    transition:
+      border-color 0.25s var(--ease),
+      background-color 0.25s var(--ease);
+  }
+
+  .demo__task.is-running::before {
+    border-color: var(--orange);
+    animation: demo-pulse 1.1s ease-in-out infinite;
+  }
+
+  .demo__task.is-done {
+    color: var(--text);
+  }
+
+  .demo__task.is-done::before {
+    border-color: var(--success);
+    background: var(--success);
+  }
+
+  .demo__task.is-done::after {
+    content: '';
+    position: absolute;
+    left: 0.34rem;
+    top: 0.36em;
+    width: 0.3rem;
+    height: 0.55rem;
+    border: solid var(--white);
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+  }
+
+  @keyframes demo-pulse {
+    50% {
+      background: var(--orange-25);
+    }
+  }
+
+  .demo__loader {
+    height: 0.375rem;
+    background: var(--beige-50);
+    overflow: hidden;
+  }
+
+  .demo__loader span {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--orange-50), var(--orange));
+  }
+
+  .demo__count {
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
+  }
+
+  .demo__count strong {
+    color: var(--black);
+    font-weight: 600;
+  }
+
+  /* -------------------------------------------- Scène 3 : le rapport */
+  /* Les blocs du rapport arrivent en cascade quand la scène s'active. */
+  .preview.is-playing .demo--result > * {
+    opacity: 0;
+    transform: translateY(0.5rem);
+    transition:
+      opacity 0.45s var(--ease),
+      transform 0.45s var(--ease);
+  }
+
+  .preview.is-playing .demo--result.is-active > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  .preview.is-playing .demo--result.is-active > *:nth-child(2) {
+    transition-delay: 0.08s;
+  }
+
+  .preview.is-playing .demo--result.is-active > *:nth-child(3) {
+    transition-delay: 0.16s;
+  }
+
+  .preview.is-playing .demo--result.is-active > *:nth-child(4) {
+    transition-delay: 0.24s;
+  }
+
+  .preview.is-playing .demo--result.is-active > *:nth-child(5) {
+    transition-delay: 0.32s;
+  }
+
+  /* La jauge repart de zéro à chaque boucle : le script pose la largeur
+     finale en style inline, et la remet à vide au rembobinage. */
+  .preview.is-playing .preview__bar span {
+    width: 0;
+    transition: width 1.1s var(--ease);
   }
 
   /* ------------------------------------------------------------ Logos */
@@ -666,11 +1584,29 @@ const etapes = [
   /* --------------------------------------------------------- Problème */
   .problem {
     border-top: 3px solid var(--orange-25);
+    display: flex;
+    flex-direction: column;
   }
 
   .problem h3 {
     font-size: var(--h4);
     margin-bottom: 0.75rem;
+  }
+
+  /* La réponse d'Estimer mon bien : détachée du constat par un filet, et
+     poussée en bas de carte pour que les trois lignes s'alignent. */
+  .problem__solution {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .problem__solution::before {
+    content: "→";
+    color: var(--orange);
+    margin-right: 0.5rem;
   }
 
   /* --------------------------------------------------- Blocs alternés */
@@ -703,6 +1639,13 @@ const etapes = [
     margin-bottom: 1.5rem;
   }
 
+  /*
+    Les trois visuels partagent le même cadre et le même en-tête. Chacun est
+    marqué `data-viz` : `home-viz.js` leur pose `is-armed` (état de départ,
+    replié) puis `is-in` quand ils entrent dans le viewport. Sans JavaScript —
+    ou en `prefers-reduced-motion` — aucune des deux classes n'arrive et les
+    règles ci-dessous rendent directement l'état final.
+  */
   .viz {
     background: var(--beige-25);
     border: 1px solid var(--border);
@@ -720,22 +1663,153 @@ const etapes = [
     margin-bottom: 1.25rem;
   }
 
-  .bars {
+  /* ------------------------------------------------ Visuel « marché » */
+  .chart {
+    position: relative;
+    /* En haut, la place de l'infobulle qui déborde au-dessus des barres ;
+       à gauche, la gouttière de l'axe des prix. */
+    padding: 1.75rem 0 0 3.75rem;
+  }
+
+  /* Trois filets horizontaux. Les bornes de l'axe sont écrites en toutes
+     lettres : il est tronqué (il ne part pas de zéro), autant l'annoncer. */
+  .chart__grid {
+    position: absolute;
+    inset: 1.75rem 0 1.25rem 3.75rem;
     display: flex;
-    align-items: flex-end;
-    gap: 0.5rem;
+    flex-direction: column;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  .chart__grid span {
+    position: relative;
+    height: 0;
+    border-top: 1px dashed var(--border-strong);
+  }
+
+  .chart__grid span[data-label]::after {
+    content: attr(data-label);
+    position: absolute;
+    top: 0;
+    right: 100%;
+    transform: translateY(-50%);
+    padding-right: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    color: var(--text-faint);
+  }
+
+  .chart__bars {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    gap: clamp(0.25rem, 0.1rem + 0.5vw, 0.5rem);
     height: 11rem;
   }
 
-  .bars span {
+  .chart__bars li {
+    position: relative;
     flex: 1;
-    background: var(--orange-25);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
   }
 
-  .bars span:nth-last-child(-n + 3) {
+  .chart__bar {
+    height: var(--h);
+    min-height: 2px;
+    background: var(--orange-25);
+    transform-origin: bottom;
+  }
+
+  /* Le dernier trimestre, celui qui porte la hausse annoncée en tête. */
+  .chart__bars li:nth-last-child(-n + 3) .chart__bar {
     background: var(--orange);
   }
 
+  .chart__mois {
+    height: 1.25rem;
+    line-height: 1.25rem;
+    text-align: center;
+    font-size: 0.6875rem;
+    color: var(--text-faint);
+  }
+
+  /* Le visuel est `aria-hidden` et ne contient rien de focusable : le survol
+     est le seul état d'interaction à couvrir. */
+  .chart__bars li:hover .chart__bar {
+    background: var(--aubergine-1);
+  }
+
+  .chart__bars li:hover .chart__mois {
+    color: var(--black);
+  }
+
+  /* Infobulle : centrée sur la barre, ramenée dans le cadre aux extrémités
+     par la translation en pourcentage plutôt qu'un décalage fixe. */
+  .chart__tip {
+    position: absolute;
+    bottom: calc(1.25rem + var(--h) + 0.375rem);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+    padding: 0.25rem 0.5rem;
+    background: var(--aubergine-1);
+    color: var(--white);
+    font-size: 0.6875rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s var(--ease);
+  }
+
+  .chart__bars li:first-child .chart__tip {
+    left: 0;
+    transform: none;
+  }
+
+  .chart__bars li:last-child .chart__tip {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+
+  .chart__bars li:hover .chart__tip {
+    opacity: 1;
+  }
+
+  /* Les barres poussent du bas, décalées les unes des autres. */
+  .viz.is-armed .chart__bar {
+    transform: scaleY(0);
+  }
+
+  .viz.is-armed .chart__grid,
+  .viz.is-armed .chart__mois {
+    opacity: 0;
+  }
+
+  .viz.is-armed.is-in .chart__bar {
+    transform: none;
+    transition: transform 0.7s var(--ease) calc(var(--i) * 0.05s);
+  }
+
+  .viz.is-armed.is-in .chart__grid,
+  .viz.is-armed.is-in .chart__mois {
+    opacity: 1;
+    transition: opacity 0.5s var(--ease) 0.25s;
+  }
+
+  /* --------------------------------------------------- Visuel « DPE » */
+  /*
+    Barres divergentes : la classe C est la référence, les autres s'écartent
+    à gauche (décote) ou à droite (surcote) d'un axe central matérialisé par
+    un pointillé. `--w` vaut au plus 50 % de la piste, soit l'écart maximum.
+  */
   .dpe {
     display: grid;
     gap: 0.875rem;
@@ -743,7 +1817,7 @@ const etapes = [
 
   .dpe li {
     display: grid;
-    grid-template-columns: 1.75rem 1fr auto;
+    grid-template-columns: 1.75rem 1fr 4.5rem;
     align-items: center;
     gap: 0.75rem;
     font-size: var(--text-sm);
@@ -758,32 +1832,40 @@ const etapes = [
     font-weight: 600;
     font-size: var(--text-sm);
     color: var(--white);
-  }
-
-  .dpe__letter--a {
-    background: #446f28;
-  }
-  .dpe__letter--c {
-    background: #9cce7b;
-    color: var(--black);
-  }
-  .dpe__letter--f {
-    background: var(--orange-95);
-  }
-  .dpe__letter--g {
-    background: var(--error);
+    background: var(--c);
   }
 
   .dpe__track {
-    height: 0.5rem;
+    position: relative;
+    height: 1.75rem;
     background: var(--beige-75);
-    overflow: hidden;
   }
 
-  .dpe__track span {
-    display: block;
-    height: 100%;
-    background: var(--aubergine-1);
+  /* L'axe central : un segment par ligne, qui déborde dans les gouttières
+     pour donner un pointillé continu du haut en bas du visuel. */
+  .dpe__track::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -0.5rem;
+    bottom: -0.5rem;
+    border-left: 1px dashed var(--aubergine-4);
+  }
+
+  .dpe__fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--w);
+    background: var(--c);
+  }
+
+  .dpe .is-up .dpe__fill {
+    left: 50%;
+  }
+
+  .dpe .is-down .dpe__fill {
+    right: 50%;
   }
 
   .dpe strong {
@@ -791,12 +1873,80 @@ const etapes = [
     font-weight: 600;
     color: var(--text-soft);
     white-space: nowrap;
+    text-align: right;
   }
 
-  .viz--net {
-    display: flex;
-    flex-wrap: wrap;
+  .dpe .is-up strong {
+    color: var(--success);
+  }
+
+  .dpe .is-down strong {
+    color: var(--error);
+  }
+
+  .dpe__foot {
+    margin-top: 1rem;
+    font-size: 0.6875rem;
+    color: var(--text-faint);
+  }
+
+  .viz.is-armed .dpe__fill {
+    width: 0;
+  }
+
+  .viz.is-armed.is-in .dpe__fill {
+    width: var(--w);
+    transition: width 0.8s var(--ease) calc(var(--i) * 0.09s);
+  }
+
+  /* ------------------------------------------- Visuel « partenaires » */
+  /*
+    Deux bandeaux qui défilent en sens opposés. Chaque piste contient deux
+    fois la même liste et se translate de la moitié de sa largeur : à la fin
+    du cycle, la copie occupe exactement la place de l'original, la boucle est
+    donc invisible.
+  */
+  .marquee {
+    display: grid;
     gap: 0.5rem;
+    /* Les chips s'effacent sur les bords au lieu d'être coupées net.
+       Le préfixe reste nécessaire pour Safari < 16.4. */
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+
+  .marquee__row {
+    overflow: hidden;
+  }
+
+  .marquee__track {
+    display: flex;
+    width: max-content;
+    gap: 0.5rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .marquee__track {
+      animation: marquee 38s linear infinite;
+    }
+
+    .marquee__row--rev .marquee__track {
+      animation-direction: reverse;
+    }
+
+    .marquee:hover .marquee__track {
+      animation-play-state: paused;
+    }
+  }
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      /* La moitié de la piste, gouttière de raccord comprise. */
+      transform: translateX(calc(-50% - 0.25rem));
+    }
   }
 
   .chip {
@@ -806,6 +1956,304 @@ const etapes = [
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--aubergine-1);
+    white-space: nowrap;
+  }
+
+  .viz.is-armed .marquee__row {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+
+  .viz.is-armed.is-in .marquee__row {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 0.6s var(--ease),
+      transform 0.6s var(--ease);
+  }
+
+  .viz.is-armed.is-in .marquee__row:last-child {
+    transition-delay: 0.12s;
+  }
+
+  /* -------------------------------------------------- Biens en vitrine */
+
+  /* L'en-tête accueille les flèches à sa droite : le `max-width` hérité de
+     `.section-head` ne s'applique donc plus qu'au texte. */
+  .carousel-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    max-width: none;
+  }
+
+  .carousel-head__copy {
+    max-width: 44rem;
+  }
+
+  .carousel-head__nav {
+    display: flex;
+    gap: 1px;
+    flex-shrink: 0;
+    /* Aligne le bas des flèches sur la dernière ligne du paragraphe. */
+    padding-bottom: 0.25rem;
+  }
+
+  .carousel__arrow {
+    width: 3rem;
+    height: 3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-strong);
+    background: var(--beige-10);
+    color: var(--black);
+    font-size: var(--text-md);
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      background 0.2s var(--ease),
+      color 0.2s var(--ease),
+      border-color 0.2s var(--ease);
+  }
+
+  .carousel__arrow:hover:not(:disabled) {
+    background: var(--black);
+    border-color: var(--black);
+    color: var(--white);
+  }
+
+  /* Aux deux extrémités de la piste : la flèche reste dans le flux (pas de
+     saut de mise en page) mais s'efface. */
+  .carousel__arrow:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  /* La piste déborde volontairement de la gouttière du conteneur pour que le
+     bien suivant soit visible en bord d'écran — d'où les marges négatives et
+     le rembourrage qui les compense sur les slides. */
+  .carousel__track {
+    display: flex;
+    gap: 1.5rem;
+    margin: 0 calc(var(--gutter) * -1);
+    padding: 0 var(--gutter);
+    list-style: none;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: var(--gutter);
+    /* La barre native ferait un trait gris sous les photos ; le repérage passe
+       par les pastilles. */
+    scrollbar-width: none;
+  }
+
+  .carousel__track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .carousel__track:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 4px;
+  }
+
+  .carousel__slide {
+    flex: 0 0 calc((100% - 3rem) / 3);
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+
+  .bien {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--beige-10);
+    border: 1px solid var(--border);
+  }
+
+  .bien__photo {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--beige-50);
+  }
+
+  .bien__photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.6s var(--ease);
+  }
+
+  .bien:hover .bien__photo img {
+    transform: scale(1.04);
+  }
+
+  .bien__type {
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 0.4375rem 0.75rem;
+    background: var(--black);
+    color: var(--white);
+    font-size: var(--text-tiny);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* Le montant est posé sur la photo, en bas à gauche : c'est l'information
+     que la section vient montrer, elle ne doit pas attendre le corps de la
+     carte. */
+  .bien__prix {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    padding: 0.75rem 1.125rem 0.875rem;
+    background: var(--beige-10);
+    border-top: 3px solid var(--orange);
+  }
+
+  .bien__prix-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--aubergine-3);
+  }
+
+  .bien__prix-valeur {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: clamp(1.375rem, 1.1rem + 1vw, 1.75rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+
+  .bien__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: 1.25rem 1.25rem 1.125rem;
+  }
+
+  .bien__lieu {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--orange);
+  }
+
+  .bien__titre {
+    margin-top: 0.5rem;
+    font-size: var(--text-md);
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  .bien__meta {
+    margin-top: auto;
+    padding-top: 1rem;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem 1.25rem;
+  }
+
+  .bien__meta li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    font-size: var(--text-sm);
+  }
+
+  .bien__meta span {
+    color: var(--text-faint);
+  }
+
+  .bien__meta strong {
+    font-weight: 500;
+  }
+
+  /* La dynamique du secteur vaut pour le bien entier, pas pour une colonne :
+     elle prend toute la largeur de la grille. */
+  .bien__marche {
+    grid-column: 1 / -1;
+  }
+
+  .bien__marche strong {
+    font-weight: 600;
+    /* Le signe et l'unité ne se séparent pas de la valeur sur carte étroite. */
+    white-space: nowrap;
+  }
+
+  /* Même filet et même rythme que les lignes de la grille au-dessus. */
+  .bien__analyse {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    font-size: var(--text-tiny);
+    line-height: 1.45;
+    color: var(--text-faint);
+  }
+
+  .bien__analyse strong {
+    font-weight: 500;
+    color: var(--text-soft);
+  }
+
+  .carousel__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .carousel__dots {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  /* Cible tactile de 44 px obtenue par le rembourrage ; le trait visible ne
+     fait que 2 px de haut. */
+  .carousel__dot {
+    width: 2rem;
+    padding: 1.25rem 0;
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .carousel__dot::before {
+    content: "";
+    display: block;
+    height: 2px;
+    background: var(--border-strong);
+    transition: background 0.25s var(--ease);
+  }
+
+  .carousel__dot:hover::before {
+    background: var(--aubergine-3);
+  }
+
+  .carousel__dot[aria-current="true"]::before {
+    background: var(--orange);
+  }
+
+  .carousel__note {
+    font-size: var(--text-sm);
+    color: var(--text-faint);
+    text-align: right;
   }
 
   /* ------------------------------------------------------ Témoignages */
@@ -933,11 +2381,150 @@ const etapes = [
     font-size: var(--text-base);
   }
 
+  /* --------------------------------------------------------------- FAQ */
+  /* Liste à filets plutôt que cartes : sur un fond beige, huit cartes
+     empilées feraient un mur d'ombres portées. Un seul trait entre deux
+     questions suffit à les séparer, et ça reste dans la grammaire du site. */
+  .faq {
+    border-top: 1px solid var(--border-strong);
+  }
+
+  .faq__item {
+    border-bottom: 1px solid var(--border-strong);
+  }
+
+  .faq__question {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.25rem 0;
+    font-size: var(--text-md);
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--black);
+    cursor: pointer;
+    /* Le triangle par défaut du navigateur est remplacé par `.faq__icon`.
+       Les deux règles sont nécessaires : `list-style` pour Firefox, le
+       pseudo-élément WebKit pour Safari. */
+    list-style: none;
+  }
+
+  .faq__question::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Le focus clavier doit cerner la ligne entière, pas seulement le texte :
+     `summary` est la cible focusable, on lui donne un contour visible qui
+     déborde légèrement du filet. */
+  .faq__question:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 4px;
+  }
+
+  .faq__question:hover {
+    color: var(--orange);
+  }
+
+  /* Un « + » qui devient « − » : deux barres, celle du haut s'efface. Dessiné
+     en CSS plutôt qu'en SVG — c'est deux traits, et ça suit la couleur. */
+  .faq__icon {
+    position: relative;
+    flex: 0 0 auto;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-top: 0.35rem;
+  }
+
+  .faq__icon::before,
+  .faq__icon::after {
+    content: "";
+    position: absolute;
+    background: var(--orange);
+    border-radius: 1px;
+  }
+
+  .faq__icon::before {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    transform: translateY(-50%);
+  }
+
+  .faq__icon::after {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    transform: translateX(-50%);
+  }
+
+  .faq__item[open] .faq__icon::after {
+    transform: translateX(-50%) scaleY(0);
+  }
+
+  .faq__reponse {
+    padding: 0 3rem 1.5rem 0;
+  }
+
+  .faq__reponse p {
+    max-width: 46rem;
+    color: var(--text-soft);
+    line-height: 1.6;
+  }
+
+  .faq__reste {
+    margin-top: 2rem;
+    text-align: center;
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .faq__icon::after {
+      transition: transform 0.2s var(--ease);
+    }
+
+    /* Ouverture animée : `::details-content` et `interpolate-size` sont
+       récents. Là où ils manquent, la réponse apparaît d'un coup — le
+       comportement natif, parfaitement utilisable. */
+    @supports (interpolate-size: allow-keywords) {
+      .faq__item {
+        interpolate-size: allow-keywords;
+      }
+
+      .faq__item::details-content {
+        height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition:
+          height 0.25s var(--ease),
+          opacity 0.25s var(--ease),
+          content-visibility 0.25s allow-discrete;
+      }
+
+      .faq__item[open]::details-content {
+        height: auto;
+        opacity: 1;
+      }
+    }
+  }
+
   /* ------------------------------------------------------- Responsive */
   @media (max-width: 992px) {
     .hero__grid {
       grid-template-columns: minmax(0, 1fr);
       gap: 2.5rem;
+    }
+
+    /* En colonne unique le texte occupe toute la largeur : le masque de
+       gauche n'a plus de sens, on ne garde que la fuite vers le haut et on
+       baisse l'intensité pour préserver le contraste du titre. */
+    .hero__wave {
+      opacity: 0.6;
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 55%, #000 100%);
+      mask-image: linear-gradient(to bottom, transparent 0%, #000 55%, #000 100%);
     }
 
     .preview {
@@ -956,15 +2543,74 @@ const etapes = [
     .steps {
       grid-template-columns: minmax(0, 1fr);
     }
+
+    .carousel__slide {
+      flex-basis: calc((100% - 1.5rem) / 2);
+    }
+  }
+
+  @media (max-width: 560px) {
+    .hero-form__row {
+      flex-direction: column;
+    }
+
+    .hero-form__row .btn {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .carousel-head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.5rem;
+    }
+
+    /* Un bien par écran, avec un talon de la carte suivante qui indique que
+       la piste continue. */
+    .carousel__slide {
+      flex-basis: 82%;
+    }
+
+    .carousel__foot {
+      flex-direction: column-reverse;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .carousel__note {
+      text-align: left;
+    }
   }
 
   @media (max-width: 640px) {
+    /* La réserve à droite servait à ne pas passer sous le « + ». À cette
+       largeur, chaque rem gagnée va au texte. */
+    .faq__question {
+      font-size: var(--text-base);
+      gap: 1rem;
+    }
+
+    .faq__reponse {
+      padding-right: 0;
+    }
+
     .preview__range {
       grid-template-columns: minmax(0, 1fr);
     }
 
-    .bars {
+    .chart__bars {
       height: 8rem;
+    }
+
+    /* La gouttière de l'axe se resserre : à cette largeur, chaque rem gagnée
+       va aux barres. */
+    .chart {
+      padding-left: 3.25rem;
+    }
+
+    .chart__grid {
+      left: 3.25rem;
     }
   }
 </style>

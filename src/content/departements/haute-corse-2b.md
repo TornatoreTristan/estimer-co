@@ -1,7 +1,7 @@
 ---
 slug: haute-corse-2b
 nom: Haute-Corse
-title: Prix immobilier au m² — Haute-Corse
+title: Prix immobilier au m², Haute-Corse
 codeInsee: 2B
 regionParente: corse
 prixM2: 3520

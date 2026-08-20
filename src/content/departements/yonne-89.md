@@ -1,7 +1,7 @@
 ---
 slug: yonne-89
 nom: Yonne
-title: Prix immobilier au m² — Yonne
+title: Prix immobilier au m², Yonne
 codeInsee: "89"
 regionParente: bourgogne-franche-comte
 prixM2: 1380

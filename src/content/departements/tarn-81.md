@@ -1,7 +1,7 @@
 ---
 slug: tarn-81
 nom: Tarn
-title: Prix immobilier au m² — Tarn
+title: Prix immobilier au m², Tarn
 codeInsee: "81"
 regionParente: occitanie
 prixM2: 1680

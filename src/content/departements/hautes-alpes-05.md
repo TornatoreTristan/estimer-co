@@ -1,7 +1,7 @@
 ---
 slug: hautes-alpes-05
 nom: Hautes-Alpes
-title: Prix immobilier au m² — Hautes-Alpes
+title: Prix immobilier au m², Hautes-Alpes
 codeInsee: "05"
 regionParente: provence-alpes-cote-azur
 prixM2: 2890

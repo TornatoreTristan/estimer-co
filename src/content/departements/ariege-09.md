@@ -1,7 +1,7 @@
 ---
 slug: ariege-09
 nom: Ariège
-title: Prix immobilier au m² — Ariège
+title: Prix immobilier au m², Ariège
 codeInsee: "09"
 regionParente: occitanie
 prixM2: 1580

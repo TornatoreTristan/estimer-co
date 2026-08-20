@@ -1,7 +1,7 @@
 ---
 slug: vienne-86
 nom: Vienne
-title: Prix immobilier au m² — Vienne
+title: Prix immobilier au m², Vienne
 codeInsee: "86"
 regionParente: nouvelle-aquitaine
 prixM2: 1580

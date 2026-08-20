@@ -1,7 +1,7 @@
 ---
 slug: guadeloupe-971
 nom: Guadeloupe
-title: Prix immobilier au m² — Guadeloupe
+title: Prix immobilier au m², Guadeloupe
 codeInsee: "971"
 regionParente: guadeloupe
 prixM2: 2650

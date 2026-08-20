@@ -1,7 +1,7 @@
 ---
 slug: martinique-972
 nom: Martinique
-title: Prix immobilier au m² — Martinique
+title: Prix immobilier au m², Martinique
 codeInsee: "972"
 regionParente: martinique
 prixM2: 2780

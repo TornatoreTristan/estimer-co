@@ -1,7 +1,7 @@
 ---
 slug: creuse-23
 nom: Creuse
-title: Prix immobilier au m² — Creuse
+title: Prix immobilier au m², Creuse
 codeInsee: "23"
 regionParente: nouvelle-aquitaine
 prixM2: 980

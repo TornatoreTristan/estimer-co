@@ -1,7 +1,7 @@
 ---
 slug: charente-maritime-17
 nom: Charente-Maritime
-title: Prix immobilier au m² — Charente-Maritime
+title: Prix immobilier au m², Charente-Maritime
 codeInsee: "17"
 regionParente: nouvelle-aquitaine
 prixM2: 2850

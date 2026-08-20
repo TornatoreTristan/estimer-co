@@ -1,7 +1,7 @@
 ---
 slug: dordogne-24
 nom: Dordogne
-title: Prix immobilier au m² — Dordogne
+title: Prix immobilier au m², Dordogne
 codeInsee: "24"
 regionParente: nouvelle-aquitaine
 prixM2: 1780

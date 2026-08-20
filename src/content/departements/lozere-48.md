@@ -1,7 +1,7 @@
 ---
 slug: lozere-48
 nom: Lozère
-title: Prix immobilier au m² — Lozère
+title: Prix immobilier au m², Lozère
 codeInsee: "48"
 regionParente: occitanie
 prixM2: 1380

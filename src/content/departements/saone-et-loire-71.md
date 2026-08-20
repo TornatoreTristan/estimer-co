@@ -1,7 +1,7 @@
 ---
 slug: saone-et-loire-71
 nom: Saône-et-Loire
-title: Prix immobilier au m² — Saône-et-Loire
+title: Prix immobilier au m², Saône-et-Loire
 codeInsee: "71"
 regionParente: bourgogne-franche-comte
 prixM2: 1480

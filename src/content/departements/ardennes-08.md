@@ -1,7 +1,7 @@
 ---
 slug: ardennes-08
 nom: Ardennes
-title: Prix immobilier au m² — Ardennes
+title: Prix immobilier au m², Ardennes
 codeInsee: "08"
 regionParente: grand-est
 prixM2: 1180

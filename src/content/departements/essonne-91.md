@@ -1,7 +1,7 @@
 ---
 slug: essonne-91
 nom: Essonne
-title: Prix immobilier au m² — Essonne
+title: Prix immobilier au m², Essonne
 codeInsee: "91"
 regionParente: ile-de-france
 prixM2: 3580

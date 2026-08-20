@@ -1,7 +1,7 @@
 ---
 slug: vosges-88
 nom: Vosges
-title: Prix immobilier au m² — Vosges
+title: Prix immobilier au m², Vosges
 codeInsee: "88"
 regionParente: grand-est
 prixM2: 1180

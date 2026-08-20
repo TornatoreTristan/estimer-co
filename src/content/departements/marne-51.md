@@ -1,7 +1,7 @@
 ---
 slug: marne-51
 nom: Marne
-title: Prix immobilier au m² — Marne
+title: Prix immobilier au m², Marne
 codeInsee: "51"
 regionParente: grand-est
 prixM2: 1780

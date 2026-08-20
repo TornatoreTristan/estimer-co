@@ -1,7 +1,7 @@
 ---
 slug: aveyron-12
 nom: Aveyron
-title: Prix immobilier au m² — Aveyron
+title: Prix immobilier au m², Aveyron
 codeInsee: "12"
 regionParente: occitanie
 prixM2: 1480

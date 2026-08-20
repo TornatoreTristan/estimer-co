@@ -1,7 +1,7 @@
 ---
 slug: loir-et-cher-41
 nom: Loir-et-Cher
-title: Prix immobilier au m² — Loir-et-Cher
+title: Prix immobilier au m², Loir-et-Cher
 codeInsee: "41"
 regionParente: centre-val-de-loire
 prixM2: 1580

@@ -1,7 +1,7 @@
 ---
 slug: haute-marne-52
 nom: Haute-Marne
-title: Prix immobilier au m² — Haute-Marne
+title: Prix immobilier au m², Haute-Marne
 codeInsee: "52"
 regionParente: grand-est
 prixM2: 1080

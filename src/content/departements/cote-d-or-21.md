@@ -1,7 +1,7 @@
 ---
 slug: cote-d-or-21
 nom: Côte-d'Or
-title: Prix immobilier au m² — Côte-d'Or
+title: Prix immobilier au m², Côte-d'Or
 codeInsee: "21"
 regionParente: bourgogne-franche-comte
 prixM2: 2180
