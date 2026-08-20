@@ -5,6 +5,7 @@ import RawScript from '../components/RawScript.astro';
 import googlePlacesScript from '../scripts/google-places.js?raw';
 import estimationWizardScript from '../scripts/estimation-wizard.js?raw';
 import estimationApiScript from '../scripts/estimation-api.js?raw';
+import leadApiScript from '../scripts/lead-api.js?raw';
 import estimationUiScript from '../scripts/estimation-ui.js?raw';
 import { partenaires } from '../data/partenaires';
 
@@ -685,9 +686,11 @@ const wizardSteps = [
 
   <RawScript slot="body-end" code={googlePlacesScript} />
   <RawScript slot="body-end" code={estimationWizardScript} />
-  <!-- `estimation-api.js` avant `estimation-ui.js` : ce dernier consomme
-       `buildEstimationApiPayload`, `requestEstimation`… (globales). -->
+  <!-- `estimation-api.js` et `lead-api.js` avant `estimation-ui.js` : ce
+       dernier consomme `buildEstimationApiPayload`, `requestEstimation`,
+       `buildEstimationLeadPayload`, `requestLead`… (globales). -->
   <RawScript slot="body-end" code={estimationApiScript} />
+  <RawScript slot="body-end" code={leadApiScript} />
   <RawScript slot="body-end" code={estimationUiScript} />
 </BaseLayout>
 

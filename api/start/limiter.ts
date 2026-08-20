@@ -100,6 +100,39 @@ export const throttleEstimation = limiter.define('estimation', (ctx) => {
   return limiter.allowRequests(requests).every(duration).usingKey(keyFor('estimation', ctx))
 })
 
+/**
+ * 5 req/min sur `POST /v1/leads`.
+ *
+ * Beaucoup plus serré que l'estimation, et pour une raison différente : cet
+ * endpoint FAIT PARTIR DES E-MAILS. Un abus n'y coûte pas du CPU, il coûte la
+ * réputation d'expéditeur du domaine — un domaine grillé chez les gros
+ * fournisseurs met des semaines à revenir, et pendant ce temps aucun accusé
+ * de réception n'arrive plus chez personne. Cinq envois par minute couvrent
+ * très largement un humain qui corrige et resoumet son formulaire.
+ */
+export const throttleLead = limiter.define('lead', (ctx) => {
+  const { requests, duration } = parseRateLimit(env.get('RATE_LIMIT_LEADS'), {
+    requests: 5,
+    duration: '1 minute',
+  })
+
+  return limiter.allowRequests(requests).every(duration).usingKey(keyFor('lead', ctx))
+})
+
+/**
+ * 20 req/jour sur `POST /v1/leads`, cumulé avec la limite par minute — même
+ * raisonnement qu'en §2.6 : sans quota journalier, un abus lent reste
+ * indéfiniment sous le seuil par minute.
+ */
+export const throttleLeadDaily = limiter.define('lead_daily', (ctx) => {
+  const { requests, duration } = parseRateLimit(env.get('RATE_LIMIT_LEADS_DAILY'), {
+    requests: 20,
+    duration: '1 day',
+  })
+
+  return limiter.allowRequests(requests).every(duration).usingKey(keyFor('lead_day', ctx))
+})
+
 /** 60 req/jour sur `POST /v1/estimations`, cumulé avec la limite par minute. */
 export const throttleEstimationDaily = limiter.define('estimation_daily', (ctx) => {
   const { requests, duration } = parseRateLimit(env.get('RATE_LIMIT_ESTIMATION_DAILY'), {

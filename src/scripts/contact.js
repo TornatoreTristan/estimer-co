@@ -1,5 +1,25 @@
-// Initialiser EmailJS avec la configuration
-      emailjs.init(CONFIG.EMAILJS.PUBLIC_KEY);
+// ============================================================================
+// FORMULAIRE DE CONTACT — envoi par l'API transactionnelle, EmailJS en repli
+// ============================================================================
+//
+// Le message part par `POST /v1/leads` (kind `contact`), qui rend le gabarit
+// et envoie via Scaleway TEM. EmailJS n'est conservé que comme repli LEGACY,
+// pour les cas où l'on SAIT qu'aucun e-mail n'est parti — cf.
+// `shouldUseLegacyFallback` dans `lead-api.js`. Il n'y a donc jamais deux
+// envois pour une soumission.
+//
+// `lead-api.js` doit être chargé AVANT ce fichier (cf. contact.astro).
+
+      // EmailJS — initialisation défensive : le CDN peut être bloqué, et ce
+      // n'est plus le chemin nominal. Une `ReferenceError` ici casserait tout
+      // le formulaire pour un repli dont on n'a le plus souvent pas besoin.
+      if (
+        typeof emailjs !== "undefined" &&
+        typeof CONFIG !== "undefined" &&
+        CONFIG.EMAILJS
+      ) {
+        emailjs.init(CONFIG.EMAILJS.PUBLIC_KEY);
+      }
 
       document
         .getElementById("contactForm")
@@ -12,6 +32,10 @@
           const phone =
             document.getElementById("phone").value || "Non renseigné";
           const subjectSelect = document.getElementById("subject");
+          // Le CODE (`estimation`, `partenariat`…) part vers l'API, qui produit
+          // le libellé lisible ; le LIBELLÉ sert au repli EmailJS et à
+          // l'export CSV local, deux consommateurs qui attendent du texte.
+          const subjectValue = subjectSelect.value;
           const subjectText =
             subjectSelect.options[subjectSelect.selectedIndex].text;
           const message = document.getElementById("message").value;
@@ -22,41 +46,110 @@
           submitBtn.textContent = "Envoi en cours...";
           submitBtn.disabled = true;
 
-          // Paramètres pour le template EmailJS
-          const templateParams = {
-            from_name: name,
-            from_email: email,
-            phone: phone,
-            subject: subjectText,
-            message: message,
-            to_email: CONFIG.EMAIL.TO,
-          };
+          function releaseButton() {
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+          }
 
-          // Envoyer l'email via EmailJS
-          emailjs
-            .send(
-              CONFIG.EMAILJS.SERVICE_ID,
-              CONFIG.EMAILJS.TEMPLATE_ID,
-              templateParams
-            )
-            .then(function (response) {
-              console.log("SUCCESS!", response.status, response.text);
-              alert(
-                "Merci ! Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais."
-              );
-              document.getElementById("contactForm").reset();
-            })
-            .catch(function (error) {
-              console.error("FAILED...", error);
-              alert(
-                "Une erreur est survenue lors de l'envoi. Veuillez réessayer ou nous contacter directement à estimermb@gmail.com"
-              );
-            })
-            .finally(function () {
-              // Réactiver le bouton
-              submitBtn.textContent = originalText;
-              submitBtn.disabled = false;
-            });
+          function onSuccess() {
+            alert(
+              "Merci ! Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais."
+            );
+            document.getElementById("contactForm").reset();
+            releaseButton();
+          }
+
+          function onFailure(detail) {
+            console.error("Envoi du message impossible :", detail);
+            alert(
+              "Une erreur est survenue lors de l'envoi. Veuillez réessayer ou nous contacter directement à " +
+                (typeof CONFIG !== "undefined" && CONFIG.EMAIL && CONFIG.EMAIL.TO
+                  ? CONFIG.EMAIL.TO
+                  : "estimermb@gmail.com")
+            );
+            releaseButton();
+          }
+
+          /** Repli LEGACY : envoi par EmailJS depuis le navigateur. */
+          function sendWithEmailJs() {
+            if (
+              typeof emailjs === "undefined" ||
+              typeof CONFIG === "undefined" ||
+              !CONFIG.EMAILJS ||
+              !CONFIG.EMAILJS.SERVICE_ID
+            ) {
+              onFailure("aucun canal d'envoi disponible");
+              return;
+            }
+
+            emailjs
+              .send(CONFIG.EMAILJS.SERVICE_ID, CONFIG.EMAILJS.TEMPLATE_ID, {
+                from_name: name,
+                from_email: email,
+                phone: phone,
+                subject: subjectText,
+                message: message,
+                to_email: CONFIG.EMAIL ? CONFIG.EMAIL.TO : undefined,
+              })
+              .then(function (response) {
+                console.log("SUCCESS!", response.status, response.text);
+                onSuccess();
+              })
+              .catch(function (error) {
+                onFailure(error);
+              });
+          }
+
+          if (
+            typeof requestLead === "function" &&
+            typeof buildContactLeadPayload === "function"
+          ) {
+            const apiConfig =
+              typeof CONFIG !== "undefined" && CONFIG.API ? CONFIG.API : {};
+
+            requestLead(
+              buildContactLeadPayload({
+                name: name,
+                email: email,
+                // Le champ est facultatif : la valeur de courtoisie « Non
+                // renseigné » n'a rien à faire dans un champ `phone` validé
+                // par l'API, qui la refuserait (422).
+                phone: document.getElementById("phone").value,
+                subject: subjectValue,
+                message: message,
+              }),
+              { baseUrl: apiConfig.BASE_URL },
+              function (response) {
+                if (response.status === "ok") {
+                  if (response.mode === "dry-run") {
+                    console.warn(
+                      "Message accepté en mode dry-run : aucun e-mail n'a été envoyé (réf. " +
+                        response.reference +
+                        ")."
+                    );
+                  }
+                  onSuccess();
+                  return;
+                }
+
+                if (shouldUseLegacyFallback(response)) {
+                  console.warn(
+                    "API transactionnelle indisponible (" +
+                      (response.reason || "inconnu") +
+                      ") : repli EmailJS."
+                  );
+                  sendWithEmailJs();
+                  return;
+                }
+
+                // 422 / 429 / timeout : rejouer par EmailJS enverrait soit un
+                // message que l'API vient de refuser, soit un doublon.
+                onFailure(response.message || response.reason);
+              }
+            );
+          } else {
+            sendWithEmailJs();
+          }
 
           // Sauvegarder aussi dans localStorage
           const formData = {
