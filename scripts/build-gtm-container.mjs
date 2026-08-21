@@ -374,11 +374,11 @@ for (const cle of VARIABLES_DATALAYER) {
  */
 const libelleManquant = (libelle) => /^LABEL_/.test(libelle);
 
-const LIBELLE_ESTIMATION = "LABEL_ESTIMATION";
-const LIBELLE_CONTACT = "LABEL_CONTACT";
-const LIBELLE_PARTENARIAT = "LABEL_PARTENARIAT";
-const LIBELLE_PDF = "LABEL_PDF";
-const LIBELLE_MICRO = "LABEL_MICRO";
+const LIBELLE_ESTIMATION = "tkZ4CMXkt-UcEOelnMdE"; // Estimation - Lead
+const LIBELLE_CONTACT = "YG-DCMikw-UcEOelnMdE"; // Contact - message
+const LIBELLE_PARTENARIAT = "pwClCKysw-UcEOelnMdE"; // Contact - partenariat
+const LIBELLE_PDF = "LABEL_PDF"; // action non créée — balise en pause
+const LIBELLE_MICRO = "LABEL_MICRO"; // action non créée — balise en pause
 
 /*
  * Données fournies par l'utilisateur — conversions améliorées (lot T3).

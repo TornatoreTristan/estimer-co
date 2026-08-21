@@ -652,3 +652,39 @@ test("la table de correspondance par événement a bien disparu", () => {
     "aucune table de correspondance ne doit indexer les libellés par événement"
   );
 });
+
+test("un libellé actif a la forme d'un vrai libellé Google Ads", () => {
+  /*
+   * Complément du test précédent : « pas un gabarit » ne suffit pas. Un
+   * libellé tronqué à la copie, ou saisi avec un caractère de trop, produit
+   * exactement la même panne silencieuse — la balise tire, Google ne
+   * reconnaît rien, la colonne « Conversions » reste à zéro.
+   *
+   * Les libellés Ads sont des chaînes base64-URL d'une vingtaine de
+   * caractères. Ce contrôle n'attrape pas une confusion `l`/`I` — seul un
+   * test en conditions réelles (mode Aperçu, puis diagnostic Ads sous 48 h)
+   * la révélera.
+   */
+  for (const balise of VERSION.tag.filter((t) => t.type === "awct" && !t.paused)) {
+    const libelle = balise.parameter.find((p) => p.key === "conversionLabel").value;
+    assert.match(
+      libelle,
+      /^[A-Za-z0-9_-]{10,40}$/,
+      `${balise.name} : « ${libelle} » n'a pas la forme d'un libellé de conversion`
+    );
+  }
+});
+
+test("les trois conversions issues d'un formulaire sont actives", () => {
+  // Ce sont elles qui portent la mesure : si l'une repassait en pause sans
+  // qu'on l'ait voulu, les campagnes tourneraient sans rien remonter.
+  for (const nom of [
+    "Ads — Conversion : estimation",
+    "Ads — Conversion : contact",
+    "Ads — Conversion : partenariat",
+  ]) {
+    const balise = VERSION.tag.find((t) => t.name === nom);
+    assert.ok(balise, `balise manquante : ${nom}`);
+    assert.notEqual(balise.paused, true, `${nom} : en pause alors qu'elle doit mesurer`);
+  }
+});
