@@ -1,0 +1,713 @@
+#!/usr/bin/env node
+/**
+ * Générateur du conteneur Google Tag Manager — lot T2 de
+ * `specs/plan-taggage-conversions.md`.
+ *
+ * ---------------------------------------------------------------------------
+ * POURQUOI UN GÉNÉRATEUR, ET PAS UNE CONFIGURATION FAITE À LA MAIN DANS GTM
+ * ---------------------------------------------------------------------------
+ * Un conteneur GTM configuré à la souris ne vit que dans l'interface de
+ * Google. Il n'est ni relisible en revue, ni comparable d'une version à
+ * l'autre, ni reconstructible après une fausse manœuvre — et personne ne peut
+ * répondre à « qui a changé ce déclencheur, quand, et pourquoi » autrement
+ * qu'en fouillant l'historique des versions du conteneur.
+ *
+ * Ce fichier est donc la SOURCE DE VÉRITÉ de la configuration. Il produit
+ * `gtm/container-estimer-co.json`, importable tel quel dans GTM, et ce JSON
+ * est committé parce que c'est lui qu'on importe. `scripts/test-gtm-container.mjs`
+ * vérifie en CI qu'il n'a pas divergé de ce générateur — même logique qu'un
+ * fichier de verrouillage de dépendances.
+ *
+ * Les 44 variables de couche de données tiennent ici en une liste ; à la main,
+ * ce sont 44 formulaires identiques à remplir, donc 44 occasions de se tromper
+ * de nom ou d'oublier « Version 2 ».
+ *
+ * ---------------------------------------------------------------------------
+ * CE QUE CE FICHIER NE PEUT PAS FAIRE
+ * ---------------------------------------------------------------------------
+ * Ni les actions de conversion Google Ads, ni les dimensions personnalisées
+ * GA4, ni le pixel Meta n'ont de format d'import. Ils restent manuels, et leur
+ * mode opératoire est dans `gtm/README.md`. Le conteneur ne fait que les
+ * ALIMENTER : sans eux, les balises tirent dans le vide.
+ *
+ * Usage : `npm run gtm:build`
+ */
+
+import { writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SORTIE = path.join(__dirname, "..", "gtm", "container-estimer-co.json");
+
+/** Identifiant public du conteneur (cf. `PUBLIC_GTM_CONTAINER_ID`). */
+const CONTENEUR_PUBLIC_ID = "GTM-5TB8F4CS";
+
+/*
+ * `accountId` et `containerId` à "0" : GTM les réattribue à l'import, quel que
+ * soit le conteneur cible. Les figer à une valeur réelle ne servirait qu'à
+ * faire croire que ce fichier n'est importable que dans un seul conteneur.
+ */
+const ZERO = { accountId: "0", containerId: "0" };
+
+// ===========================================================================
+// 1. VARIABLES INTÉGRÉES (§6.1)
+// ===========================================================================
+
+const VARIABLES_INTEGREES = [
+  ["PAGE_URL", "Page URL"],
+  ["PAGE_PATH", "Page Path"],
+  ["PAGE_HOSTNAME", "Page Hostname"],
+  ["REFERRER", "Referrer"],
+  ["EVENT", "Event"],
+  ["CLICK_ELEMENT", "Click Element"],
+  ["CLICK_CLASSES", "Click Classes"],
+  ["CLICK_URL", "Click URL"],
+  ["CLICK_TEXT", "Click Text"],
+];
+
+// ===========================================================================
+// 2. VARIABLES DE COUCHE DE DONNÉES (§6.2)
+// ===========================================================================
+
+/*
+ * Tout ce que `src/scripts/tracking.js` et les scripts de parcours poussent.
+ * L'ordre est celui du dictionnaire d'événements (§4), pas l'alphabet : on
+ * relit cette liste en suivant le parcours du visiteur.
+ *
+ * `region` figure au plan mais n'est PAS poussé aujourd'hui (le navigateur n'a
+ * aucune correspondance département -> région). La variable est créée quand
+ * même : elle restera vide, GTM omettra le paramètre, et le jour où le lot 2
+ * de `specs/cms-seo-tracking.md` la fournira, il n'y aura rien à changer ici.
+ */
+const VARIABLES_DATALAYER = [
+  // Conversion
+  "lead_id",
+  "lead_type",
+  "lead_quality",
+  "value",
+  "currency",
+  // Bien
+  "property_type",
+  "surface_bucket",
+  "rooms",
+  "dpe",
+  "postal_code",
+  "city",
+  "departement_code",
+  "region",
+  "estimation_value",
+  "estimation_status",
+  "is_owner",
+  "want_to_sell",
+  // Qualité de l'estimation
+  "confidence_score",
+  "comparables_count",
+  "latency_ms",
+  "failure_type",
+  "http_status",
+  // Tunnel
+  "entry_point",
+  "has_address_prefill",
+  "step_number",
+  "step_key",
+  "step_direction",
+  "error_fields",
+  "error_count",
+  "address_source",
+  // Engagement
+  "cta_id",
+  "cta_label",
+  "cta_destination",
+  "contact_subject",
+  "partner_slug",
+  "partner_name",
+  "partner_category",
+  "page_type",
+  "link_url",
+  "position",
+  // Consentement
+  "consent_analytics",
+  "consent_ads",
+  // Conversions améliorées — lot T3. Les variables existent, rien ne les
+  // alimente encore : `embHash` n'est pas livré (cf. plan §9.1).
+  "user_data.sha256_email_address",
+  "user_data.sha256_phone_number",
+];
+
+/*
+ * Paramètres transmis à GA4 sur CHAQUE événement métier, via une variable de
+ * paramètres partagée. Ceux dont la variable est vide sont omis par GTM — d'où
+ * une seule balise d'événement pour tout le site (§6.5).
+ *
+ * `user_data.*` en est exclu : ces valeurs vont aux conversions améliorées de
+ * Google Ads, pas dans les rapports GA4.
+ */
+const PARAMS_GA4 = VARIABLES_DATALAYER.filter(
+  (nom) => !nom.startsWith("user_data.")
+);
+
+// ===========================================================================
+// 3. FABRIQUES D'ENTITÉS
+// ===========================================================================
+
+const param = {
+  texte: (key, value) => ({ type: "TEMPLATE", key, value }),
+  booleen: (key, value) => ({ type: "BOOLEAN", key, value: String(value) }),
+  entier: (key, value) => ({ type: "INTEGER", key, value: String(value) }),
+  liste: (key, list) => ({ type: "LIST", key, list }),
+  map: (map) => ({ type: "MAP", map }),
+};
+
+/** Référence GTM d'une variable, telle qu'on l'écrit dans un champ. */
+const ref = (nom) => `{{${nom}}}`;
+
+let prochainVariableId = 1;
+let prochainTriggerId = 1;
+let prochainTagId = 1;
+let prochainFolderId = 1;
+
+const variables = [];
+const declencheurs = [];
+const balises = [];
+const dossiers = [];
+
+function dossier(name) {
+  const folderId = String(prochainFolderId++);
+  dossiers.push({ ...ZERO, folderId, name, fingerprint: "0" });
+  return folderId;
+}
+
+function variable(name, type, parameter, parentFolderId) {
+  variables.push({
+    ...ZERO,
+    variableId: String(prochainVariableId++),
+    name,
+    type,
+    parameter,
+    fingerprint: "0",
+    ...(parentFolderId ? { parentFolderId } : {}),
+  });
+  return name;
+}
+
+function declencheur(name, corps, parentFolderId) {
+  const triggerId = String(prochainTriggerId++);
+  declencheurs.push({
+    ...ZERO,
+    triggerId,
+    name,
+    fingerprint: "0",
+    ...corps,
+    ...(parentFolderId ? { parentFolderId } : {}),
+  });
+  return triggerId;
+}
+
+function balise(name, type, parameter, options) {
+  const opts = options || {};
+  balises.push({
+    ...ZERO,
+    tagId: String(prochainTagId++),
+    name,
+    type,
+    parameter,
+    fingerprint: "0",
+    firingTriggerId: opts.declencheurs || [],
+    tagFiringOption: "ONCE_PER_EVENT",
+    monitoringMetadata: { type: "MAP" },
+    consentSettings: opts.consentement || { consentStatus: "NOT_SET" },
+    ...(opts.setupTag ? { setupTag: opts.setupTag } : {}),
+    ...(opts.dossier ? { parentFolderId: opts.dossier } : {}),
+  });
+}
+
+/**
+ * Condition d'événement personnalisé : `{{_event}}` comparé à `valeur`.
+ * `type` vaut `EQUALS` (correspondance exacte) ou `MATCH_REGEX`.
+ */
+const filtreEvenement = (type, valeur) => ({
+  type,
+  parameter: [param.texte("arg0", "{{_event}}"), param.texte("arg1", valeur)],
+});
+
+/** Condition supplémentaire sur une variable, avec négation optionnelle. */
+const filtreVariable = (type, variableRef, valeur, negation) => ({
+  type,
+  parameter: [
+    param.texte("arg0", variableRef),
+    param.texte("arg1", valeur),
+    ...(negation ? [param.booleen("negate", true)] : []),
+  ],
+});
+
+// ===========================================================================
+// 4. DOSSIERS (§6.6)
+// ===========================================================================
+
+const F_SOCLE = dossier("00 — Socle");
+const F_GA4 = dossier("10 — GA4");
+const F_ADS = dossier("20 — Google Ads");
+const F_META = dossier("30 — Meta");
+const F_VARIABLES = dossier("90 — Variables");
+
+// ===========================================================================
+// 5. VARIABLES
+// ===========================================================================
+
+/*
+ * LES TROIS SEULES VALEURS À RENSEIGNER À LA MAIN APRÈS L'IMPORT.
+ *
+ * Elles sont regroupées en constantes précisément pour cela : un identifiant
+ * recopié dans huit balises est un identifiant qu'on oubliera de corriger dans
+ * la huitième. Les valeurs ci-dessous sont des GABARITS VOLONTAIREMENT
+ * INVALIDES — une balise qui tire avec un identifiant fantaisiste ne remonte
+ * rien, ce qui est bien moins grave que d'envoyer des conversions dans le
+ * compte de quelqu'un d'autre.
+ */
+const V_GA4_ID = variable(
+  "CONST — GA4 Measurement ID",
+  "c",
+  [param.texte("value", "G-XXXXXXXXXX")],
+  F_VARIABLES
+);
+
+/*
+ * Sans le préfixe `AW-` : les balises `awct` et `sp` attendent le nombre seul,
+ * et le préfixent elles-mêmes. Le coller avec `AW-` produit une balise qui
+ * passe la validation de GTM et ne remonte jamais rien.
+ */
+const V_ADS_ID = variable(
+  "CONST — Google Ads Conversion ID",
+  "c",
+  [param.texte("value", "000000000")],
+  F_VARIABLES
+);
+
+const V_META_ID = variable(
+  "CONST — Meta Pixel ID",
+  "c",
+  [param.texte("value", "000000000000000")],
+  F_VARIABLES
+);
+
+/** Nom GTM d'une variable de couche de données. */
+const nomDlv = (cle) => `DLV — ${cle}`;
+
+for (const cle of VARIABLES_DATALAYER) {
+  variable(
+    nomDlv(cle),
+    "v",
+    [
+      param.texte("name", cle),
+      param.entier("dataLayerVersion", 2),
+      // Aucune valeur par défaut : une variable vide est omise par GTM, là où
+      // un défaut ferait apparaître des lignes « (not set) » dans tous les
+      // rapports GA4 — la plupart de ces paramètres sont conditionnels par
+      // nature (un appartement n'a pas de terrain).
+      param.booleen("setDefaultValue", false),
+    ],
+    F_VARIABLES
+  );
+}
+
+/*
+ * Libellés de conversion Google Ads, regroupés dans une table plutôt que
+ * recopiés dans chaque balise : ils se renseignent tous au même endroit, en
+ * face du nom de l'événement qu'ils mesurent.
+ */
+const V_LOOKUP_LABELS = variable(
+  "LOOKUP — Ads Conversion Label",
+  "smm",
+  [
+    param.texte("input", ref("Event")),
+    param.liste("map", [
+      param.map([
+        param.texte("key", "generate_lead"),
+        param.texte("value", "LABEL_ESTIMATION"),
+      ]),
+      param.map([
+        param.texte("key", "contact_lead"),
+        param.texte("value", "LABEL_CONTACT"),
+      ]),
+      param.map([
+        param.texte("key", "report_pdf_download"),
+        param.texte("value", "LABEL_PDF"),
+      ]),
+      param.map([
+        param.texte("key", "estimation_step_view"),
+        param.texte("value", "LABEL_MICRO"),
+      ]),
+    ]),
+    param.booleen("setDefaultValue", false),
+  ],
+  F_VARIABLES
+);
+
+/*
+ * Variable de paramètres d'événement GA4 : c'est elle qui permet UNE SEULE
+ * balise d'événement pour tout le site. Ajouter un paramètre au plan revient
+ * à ajouter une ligne à `VARIABLES_DATALAYER`, pas à créer une balise.
+ */
+const V_PARAMS_GA4 = variable(
+  "SETTINGS — Params communs",
+  "gtes",
+  [
+    param.liste(
+      "eventSettingsTable",
+      PARAMS_GA4.map((cle) =>
+        param.map([
+          param.texte("parameter", cle),
+          param.texte("parameterValue", ref(nomDlv(cle))),
+        ])
+      )
+    ),
+  ],
+  F_VARIABLES
+);
+
+// ===========================================================================
+// 6. DÉCLENCHEURS (§6.3)
+// ===========================================================================
+
+const D_INIT = declencheur("Initialisation — Toutes les pages", { type: "init" }, F_SOCLE);
+const D_TOUTES_PAGES = declencheur("Toutes les pages", { type: "pageview" }, F_SOCLE);
+
+/*
+ * Déclencheur unique de la balise d'événement GA4.
+ *
+ * L'ANCRAGE `^` ET LES `$` NE SONT PAS DÉCORATIFS : sans eux, les événements
+ * internes de GTM (`gtm.js`, `gtm.dom`, `gtm.load`, `gtm.click`) passeraient
+ * le filtre et rempliraient la propriété d'événements qui ne veulent rien dire.
+ */
+const REGEX_EVENEMENTS_METIER =
+  "^(estimation_|generate_lead$|contact_lead$|report_|partner_click_out$|cta_click$|sticky_cta_dismiss$|consent_update$)";
+
+const D_TOUS_EVENEMENTS = declencheur(
+  "CE — Tous événements métier",
+  {
+    type: "customEvent",
+    customEventFilter: [filtreEvenement("MATCH_REGEX", REGEX_EVENEMENTS_METIER)],
+  },
+  F_GA4
+);
+
+const D_GENERATE_LEAD = declencheur(
+  "CE — generate_lead",
+  {
+    type: "customEvent",
+    customEventFilter: [filtreEvenement("EQUALS", "generate_lead")],
+  },
+  F_SOCLE
+);
+
+const D_REPORT_VIEW = declencheur(
+  "CE — report_view",
+  {
+    type: "customEvent",
+    customEventFilter: [filtreEvenement("EQUALS", "report_view")],
+  },
+  F_SOCLE
+);
+
+/*
+ * Deux déclencheurs pour un même événement, séparés par le sujet du message.
+ * Une candidature de partenaire est un lead B2B : la compter avec les demandes
+ * d'estimation apprendrait aux enchères à acheter du trafic de professionnels
+ * avec le budget destiné aux propriétaires vendeurs (cf. `embContactValue`).
+ */
+const D_CONTACT_HORS_PARTENARIAT = declencheur(
+  "CE — contact_lead (hors partenariat)",
+  {
+    type: "customEvent",
+    customEventFilter: [filtreEvenement("EQUALS", "contact_lead")],
+    filter: [
+      filtreVariable("EQUALS", ref(nomDlv("contact_subject")), "partenariat", true),
+    ],
+  },
+  F_SOCLE
+);
+
+const D_CONTACT_PARTENARIAT = declencheur(
+  "CE — contact_lead (partenariat)",
+  {
+    type: "customEvent",
+    customEventFilter: [filtreEvenement("EQUALS", "contact_lead")],
+    filter: [filtreVariable("EQUALS", ref(nomDlv("contact_subject")), "partenariat")],
+  },
+  F_SOCLE
+);
+
+const D_PDF = declencheur(
+  "CE — report_pdf_download",
+  {
+    type: "customEvent",
+    customEventFilter: [filtreEvenement("EQUALS", "report_pdf_download")],
+  },
+  F_SOCLE
+);
+
+/*
+ * Micro-conversion : « a rempli l'adresse, le type de bien, et arrive aux
+ * caractéristiques ». Au démarrage, une campagne qui reçoit moins d'une
+ * trentaine de conversions par mois ne sort jamais de sa phase
+ * d'apprentissage ; ce signal à fort volume nourrit les enchères le temps que
+ * les vrais leads s'accumulent. `step_direction = forward` exclut les
+ * allers-retours dans le formulaire, qui compteraient plusieurs fois le même
+ * visiteur.
+ */
+const D_MICRO_ETAPE_3 = declencheur(
+  "CE — micro : étape 3 atteinte",
+  {
+    type: "customEvent",
+    customEventFilter: [filtreEvenement("EQUALS", "estimation_step_view")],
+    filter: [
+      filtreVariable("EQUALS", ref(nomDlv("step_number")), "3"),
+      filtreVariable("EQUALS", ref(nomDlv("step_direction")), "forward"),
+    ],
+  },
+  F_SOCLE
+);
+
+// ===========================================================================
+// 7. RÉGLAGES DE CONSENTEMENT (§6.4)
+// ===========================================================================
+
+/*
+ * Les balises Google lisent le Consent Mode nativement : rien à déclarer.
+ *
+ * Les balises tierces, NON. Le Consent Mode est un mécanisme Google — une
+ * balise HTML personnalisée s'exécute sans lui demander son avis si on ne
+ * coche rien, et le pixel se chargerait alors chez un visiteur qui a refusé.
+ * C'est le manquement à l'article 82 que ce bloc empêche.
+ */
+const CONSENTEMENT_NATIF = { consentStatus: "NOT_SET" };
+
+const CONSENTEMENT_PUBLICITE = {
+  consentStatus: "NEEDED",
+  consentType: {
+    type: "LIST",
+    list: [
+      { type: "TEMPLATE", value: "ad_storage" },
+      { type: "TEMPLATE", value: "ad_user_data" },
+      { type: "TEMPLATE", value: "ad_personalization" },
+    ],
+  },
+};
+
+// ===========================================================================
+// 8. BALISES (§6.5)
+// ===========================================================================
+
+balise(
+  "GA4 — Configuration",
+  "googtag",
+  [param.texte("tagId", ref(V_GA4_ID))],
+  { declencheurs: [D_INIT], dossier: F_GA4, consentement: CONSENTEMENT_NATIF }
+);
+
+/*
+ * UNE SEULE balise d'événement GA4, et non une par événement : le nom vient de
+ * `{{Event}}`, les paramètres de la variable partagée. Quinze balises seraient
+ * quinze copies du même objet, à corriger quinze fois.
+ */
+balise(
+  "GA4 — Événement générique",
+  "gaawe",
+  [
+    param.texte("eventName", ref("Event")),
+    param.texte("measurementIdOverride", ref(V_GA4_ID)),
+    param.texte("eventSettingsVariable", ref(V_PARAMS_GA4)),
+    param.booleen("sendEcommerceData", false),
+  ],
+  { declencheurs: [D_TOUS_EVENEMENTS], dossier: F_GA4, consentement: CONSENTEMENT_NATIF }
+);
+
+/*
+ * Le Google tag pose déjà le lien de conversion, mais le Conversion Linker
+ * reste un filet peu coûteux sur la capture du `gclid` — notamment quand un
+ * visiteur atterrit sur une page avant que le Google tag n'ait fini de charger.
+ */
+balise("Ads — Conversion Linker", "gclidw", [param.booleen("enableCrossDomain", false)], {
+  declencheurs: [D_TOUTES_PAGES],
+  dossier: F_ADS,
+  consentement: CONSENTEMENT_NATIF,
+});
+
+/**
+ * Balise de conversion Google Ads.
+ *
+ * `orderId` porte le `lead_id` : c'est le dédoublonnage de dernier recours,
+ * celui qui tient quand le verrou local de `/rapport/` saute (Safari en
+ * navigation privée). Associé au comptage « une seule » réglé côté Ads, il
+ * garantit qu'un rechargement de la page de rapport ne facture pas deux
+ * conversions.
+ */
+function conversionAds(nom, declencheurId, valeur) {
+  balise(
+    nom,
+    "awct",
+    [
+      param.texte("conversionId", ref(V_ADS_ID)),
+      param.texte("conversionLabel", ref(V_LOOKUP_LABELS)),
+      param.texte("conversionValue", valeur),
+      param.texte("currencyCode", "EUR"),
+      param.texte("orderId", ref(nomDlv("lead_id"))),
+      param.booleen("enableConversionLinker", true),
+      // Conversions améliorées : lot T3. Les activer ici enverrait des champs
+      // que rien n'alimente, et Google Ads afficherait un diagnostic en erreur
+      // permanent — un voyant rouge qu'on finit par ne plus regarder.
+      param.booleen("enableEnhancedConversions", false),
+    ],
+    { declencheurs: [declencheurId], dossier: F_ADS, consentement: CONSENTEMENT_NATIF }
+  );
+}
+
+conversionAds("Ads — Conversion : estimation", D_GENERATE_LEAD, ref(nomDlv("value")));
+conversionAds("Ads — Conversion : contact", D_CONTACT_HORS_PARTENARIAT, ref(nomDlv("value")));
+conversionAds("Ads — Conversion : partenariat", D_CONTACT_PARTENARIAT, "0");
+conversionAds("Ads — Conversion : PDF", D_PDF, "0");
+conversionAds("Ads — Conversion : micro étape 3", D_MICRO_ETAPE_3, "0");
+
+balise(
+  "Ads — Remarketing",
+  "sp",
+  [
+    param.texte("conversionId", ref(V_ADS_ID)),
+    param.booleen("enableDynamicRemarketing", false),
+  ],
+  { declencheurs: [D_TOUTES_PAGES], dossier: F_ADS, consentement: CONSENTEMENT_NATIF }
+);
+
+// --------------------------------------------------------------------------
+// Meta
+// --------------------------------------------------------------------------
+
+const PIXEL_META_BASE = `<script>
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+document,'script','https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', ${JSON.stringify(ref(V_META_ID))});
+fbq('track', 'PageView');
+</script>`;
+
+/*
+ * Pas d'iframe `<noscript>`, pour la même raison qu'elle est absente du
+ * conteneur GTM lui-même (cf. `src/components/Analytics.astro`) : sans
+ * JavaScript, le bandeau ne peut pas s'afficher, donc aucun consentement ne
+ * peut être recueilli — ce serait le seul traceur du site à partir sans qu'un
+ * refus soit possible.
+ */
+balise("Meta — Pixel de base", "html", [
+  param.texte("html", PIXEL_META_BASE),
+  param.booleen("supportDocumentWrite", false),
+], {
+  declencheurs: [D_TOUTES_PAGES],
+  dossier: F_META,
+  consentement: CONSENTEMENT_PUBLICITE,
+});
+
+/**
+ * Événement Meta.
+ *
+ * `eventID` porte le `lead_id` : c'est lui qui permettra la déduplication le
+ * jour où la Conversions API (envoi serveur, lot T4) doublera le pixel. Sans
+ * lui, chaque conversion serait comptée deux fois par Meta — et l'oublier
+ * maintenant obligerait à reprendre l'historique plus tard.
+ */
+function evenementMeta(nom, evenementFbq, declencheurId, avecValeur) {
+  const donnees = avecValeur
+    ? `{value: ${JSON.stringify(ref(nomDlv("value")))}, currency: 'EUR'}`
+    : `{content_name: 'rapport'}`;
+
+  balise(
+    nom,
+    "html",
+    [
+      param.texte(
+        "html",
+        `<script>
+fbq('track', ${JSON.stringify(evenementFbq)}, ${donnees}, {eventID: ${JSON.stringify(
+          ref(nomDlv("lead_id"))
+        )}});
+</script>`
+      ),
+      param.booleen("supportDocumentWrite", false),
+    ],
+    {
+      declencheurs: [declencheurId],
+      dossier: F_META,
+      consentement: CONSENTEMENT_PUBLICITE,
+      // Séquencement : `fbq` n'existe pas tant que le pixel de base n'a pas
+      // tourné. Sur une arrivée directe sur `/rapport/`, l'événement de
+      // conversion et le chargement du pixel se disputent la même
+      // milliseconde ; sans cette dépendance déclarée, la conversion part
+      // parfois dans le vide, et seulement parfois — le pire des défauts.
+      setupTag: [{ tagName: "Meta — Pixel de base", stopOnSetupFailure: true }],
+    }
+  );
+}
+
+evenementMeta("Meta — Lead", "Lead", D_GENERATE_LEAD, true);
+evenementMeta("Meta — Contact", "Contact", D_CONTACT_HORS_PARTENARIAT, true);
+evenementMeta("Meta — ViewContent", "ViewContent", D_REPORT_VIEW, false);
+
+// ===========================================================================
+// 9. ASSEMBLAGE
+// ===========================================================================
+
+const conteneur = {
+  exportFormatVersion: 2,
+  // Pas d'horodatage : il changerait à chaque exécution et rendrait le
+  // fichier généré incomparable d'un commit à l'autre. Le journal de bord de
+  // cette configuration, c'est git.
+  exportTime: "",
+  containerVersion: {
+    path: "accounts/0/containers/0/versions/0",
+    ...ZERO,
+    containerVersionId: "0",
+    name: "Plan de taggage — conversions",
+    description:
+      "Généré par scripts/build-gtm-container.mjs. Source de vérité : specs/plan-taggage-conversions.md. Ne pas modifier à la main dans l'interface GTM sans reporter le changement dans le générateur.",
+    container: {
+      path: "accounts/0/containers/0",
+      ...ZERO,
+      name: "estimer.co",
+      publicId: CONTENEUR_PUBLIC_ID,
+      usageContext: ["WEB"],
+      fingerprint: "0",
+    },
+    builtInVariable: VARIABLES_INTEGREES.map(([type, name]) => ({
+      ...ZERO,
+      type,
+      name,
+    })),
+    variable: variables,
+    trigger: declencheurs,
+    tag: balises,
+    folder: dossiers,
+    fingerprint: "0",
+  },
+};
+
+/** Sérialisation canonique : c'est elle que la CI compare au fichier committé. */
+export const JSON_CONTENEUR = JSON.stringify(conteneur, null, 2) + "\n";
+
+/*
+ * L'écriture n'a lieu QUE si ce fichier est exécuté directement.
+ * `scripts/test-gtm-container.mjs` l'importe pour comparer sa sortie au JSON
+ * committé : s'il écrivait à l'import, le test réparerait silencieusement la
+ * divergence qu'il est censé signaler, et ne pourrait jamais échouer.
+ */
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  writeFileSync(SORTIE, JSON_CONTENEUR, "utf8");
+  console.log(
+    `gtm/container-estimer-co.json écrit : ${variables.length} variables, ` +
+      `${declencheurs.length} déclencheurs, ${balises.length} balises, ` +
+      `${dossiers.length} dossiers.`
+  );
+}
+
+export { conteneur, SORTIE };
