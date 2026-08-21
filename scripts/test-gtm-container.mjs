@@ -463,6 +463,49 @@ test("chaque identifiant de compte a la forme de sa plateforme", () => {
   );
 });
 
+test("le préfixe AW- est mis là où il faut, et nulle part ailleurs", () => {
+  /*
+   * Asymétrie déroutante mais réelle, et source de pannes silencieuses : la
+   * balise Google (`googtag`) veut `AW-18402972391`, les balises de conversion
+   * (`awct`) et de remarketing (`sp`) veulent `18402972391`. Une seule
+   * constante porte la valeur, chacun la préfixe selon son besoin — et ce test
+   * verrouille qui préfixe quoi.
+   */
+  const config = VERSION.tag.find((t) => t.name === "Ads — Configuration");
+  assert.ok(config, "la balise Google de Google Ads doit exister");
+  assert.equal(
+    config.parameter.find((p) => p.key === "tagId").value,
+    "AW-{{CONST — Google Ads Conversion ID}}"
+  );
+
+  for (const balise of VERSION.tag.filter((t) => t.type === "awct" || t.type === "sp")) {
+    const id = balise.parameter.find((p) => p.key === "conversionId").value;
+    assert.equal(
+      id,
+      "{{CONST — Google Ads Conversion ID}}",
+      `${balise.name} : avec le préfixe, cette balise passe la validation de GTM et ne remonte jamais rien`
+    );
+  }
+});
+
+test("les balises de configuration ne comptent aucune conversion", () => {
+  // `googtag` configure, `awct` mesure. Confondre les deux, c'est le double
+  // comptage. Les deux balises de configuration se déclenchent à
+  // l'initialisation et ne portent ni libellé, ni valeur, ni identifiant de
+  // transaction.
+  for (const nom of ["GA4 — Configuration", "Ads — Configuration"]) {
+    const balise = VERSION.tag.find((t) => t.name === nom);
+    assert.equal(balise.type, "googtag", nom);
+    for (const interdit of ["conversionLabel", "conversionValue", "orderId"]) {
+      assert.equal(
+        balise.parameter.some((p) => p.key === interdit),
+        false,
+        `${nom} : « ${interdit} » n'a rien à faire sur une balise de configuration`
+      );
+    }
+  }
+});
+
 // ===========================================================================
 // 5. Dérive du fichier committé
 // ===========================================================================
@@ -481,4 +524,27 @@ test("le conteneur cible est bien celui du site", () => {
   // Un horodatage rendrait le fichier différent à chaque génération, donc
   // impossible à comparer d'un commit à l'autre.
   assert.equal(JSON.parse(BRUT).exportTime, "");
+});
+
+test("le mode opératoire annonce le bon inventaire", () => {
+  // Ce compteur a déjà dérivé deux fois. Un README qui annonce 13 balises
+  // quand le conteneur en porte 14 n'est pas une coquille : c'est la première
+  // chose que lira celui qui vérifiera l'aperçu d'import, et un écart le
+  // laissera croire que l'import a échoué.
+  const readme = readFileSync(path.join(RACINE, "gtm", "README.md"), "utf8");
+  const annonce = readme.match(
+    /\((\d+) variables, (\d+) déclencheurs, (\d+) balises, (\d+) dossiers\)/
+  );
+  assert.ok(annonce, "gtm/README.md doit annoncer l'inventaire du conteneur");
+
+  assert.deepEqual(
+    annonce.slice(1, 5).map(Number),
+    [
+      VERSION.variable.length,
+      VERSION.trigger.length,
+      VERSION.tag.length,
+      VERSION.folder.length,
+    ],
+    "inventaire annoncé dans gtm/README.md et contenu réel du conteneur désaccordés"
+  );
 });

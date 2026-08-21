@@ -311,7 +311,7 @@ const V_GA4_ID = variable(
 const V_ADS_ID = variable(
   "CONST — Google Ads Conversion ID",
   "c",
-  [param.texte("value", "000000000")],
+  [param.texte("value", "18402972391")],
   F_VARIABLES
 );
 
@@ -590,9 +590,40 @@ balise(
 );
 
 /*
- * Le Google tag pose déjà le lien de conversion, mais le Conversion Linker
- * reste un filet peu coûteux sur la capture du `gclid` — notamment quand un
- * visiteur atterrit sur une page avant que le Google tag n'ait fini de charger.
+ * Balise Google de Google Ads (`AW-…`).
+ *
+ * Les cinq balises de conversion `awct` fonctionnent sans elle : elles portent
+ * l'identifiant et le libellé, et c'est un montage supporté de longue date.
+ * Elle est ajoutée pour deux raisons concrètes :
+ *
+ *   - c'est le socle attendu par Google aujourd'hui, et son absence fait
+ *     souvent rester le diagnostic Ads en « balise inactive » — un voyant rouge
+ *     permanent derrière lequel une vraie panne finit par passer inaperçue ;
+ *   - elle fiabilise la pose des cookies propriétaires de Google Ads, dont
+ *     dépendent l'attribution et les conversions améliorées.
+ *
+ * Une balise par identifiant : GA4 (`G-…`) et Ads (`AW-…`) ne se cumulent pas
+ * dans un même `googtag`. Aucune des deux ne compte de conversion — ce sont des
+ * balises de configuration, pas de mesure.
+ */
+// `AW-` + la constante : c'est la balise Google qui veut le préfixe, alors que
+// les balises de conversion veulent le nombre seul. Un seul endroit porte la
+// valeur, chacun la préfixe comme il en a besoin.
+balise("Ads — Configuration", "googtag", [param.texte("tagId", "AW-" + ref(V_ADS_ID))], {
+  declencheurs: [D_INIT],
+  dossier: F_ADS,
+  consentement: CONSENTEMENT_NATIF,
+});
+
+/*
+ * Conversion Linker.
+ *
+ * Redondant avec la balise Google ci-dessus, qui assure désormais la même
+ * capture du `gclid`. On le garde comme repli : il se déclenche sur toutes les
+ * pages, là où la balise Google dépend de l'initialisation, et il coûte
+ * quelques octets. Le supprimer serait un nettoyage à part entière, à faire
+ * une fois le diagnostic Ads au vert — pas au moment de la première mise en
+ * service, où l'on veut le maximum de filets.
  */
 balise("Ads — Conversion Linker", "gclidw", [param.booleen("enableCrossDomain", false)], {
   declencheurs: [D_TOUTES_PAGES],

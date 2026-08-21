@@ -102,7 +102,7 @@
           {
             "type": "TEMPLATE",
             "key": "value",
-            "value": "000000000"
+            "value": "18402972391"
           }
         ],
         "fingerprint": "0",
@@ -2395,6 +2395,32 @@
         "accountId": "0",
         "containerId": "0",
         "tagId": "3",
+        "name": "Ads — Configuration",
+        "type": "googtag",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "tagId",
+            "value": "AW-{{CONST — Google Ads Conversion ID}}"
+          }
+        ],
+        "fingerprint": "0",
+        "firingTriggerId": [
+          "1"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        },
+        "parentFolderId": "3"
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "tagId": "4",
         "name": "Ads — Conversion Linker",
         "type": "gclidw",
         "parameter": [
@@ -2420,7 +2446,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "4",
+        "tagId": "5",
         "name": "Ads — Conversion : estimation",
         "type": "awct",
         "parameter": [
@@ -2481,7 +2507,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "5",
+        "tagId": "6",
         "name": "Ads — Conversion : contact",
         "type": "awct",
         "parameter": [
@@ -2542,7 +2568,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "6",
+        "tagId": "7",
         "name": "Ads — Conversion : partenariat",
         "type": "awct",
         "parameter": [
@@ -2598,7 +2624,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "7",
+        "tagId": "8",
         "name": "Ads — Conversion : PDF",
         "type": "awct",
         "parameter": [
@@ -2654,7 +2680,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "8",
+        "tagId": "9",
         "name": "Ads — Conversion : micro étape 3",
         "type": "awct",
         "parameter": [
@@ -2710,7 +2736,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "9",
+        "tagId": "10",
         "name": "Ads — Remarketing",
         "type": "sp",
         "parameter": [
@@ -2741,7 +2767,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "10",
+        "tagId": "11",
         "name": "Meta — Pixel de base",
         "type": "html",
         "parameter": [
@@ -2789,7 +2815,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "11",
+        "tagId": "12",
         "name": "Meta — Lead",
         "type": "html",
         "parameter": [
@@ -2843,7 +2869,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "12",
+        "tagId": "13",
         "name": "Meta — Contact",
         "type": "html",
         "parameter": [
@@ -2897,7 +2923,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "13",
+        "tagId": "14",
         "name": "Meta — ViewContent",
         "type": "html",
         "parameter": [

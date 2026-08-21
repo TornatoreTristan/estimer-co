@@ -20,7 +20,7 @@ gestes à faire.
 
 ## 1. Ce que l'import couvre — et ce qu'il ne couvre pas
 
-**Couvert** (49 variables, 9 déclencheurs, 13 balises, 5 dossiers) : tout le §6
+**Couvert** (50 variables, 9 déclencheurs, 14 balises, 5 dossiers) : tout le §6
 du plan. Variables de couche de données, déclencheurs, balises GA4, Google Ads
 et Meta, réglages de consentement, dossiers.
 
@@ -65,7 +65,7 @@ balises est un identifiant qu'on oubliera de corriger dans la huitième.
 | Variable | Valeur | État |
 |---|---|---|
 | `CONST — GA4 Measurement ID` | `G-B066RRFQL5` | ✅ **déjà versionnée** — rien à saisir |
-| `CONST — Google Ads Conversion ID` | le **nombre seul**, ex. `123456789` | à fournir (Ads → Objectifs → Conversions → Configuration de la balise) |
+| `CONST — Google Ads Conversion ID` | `18402972391` | ✅ **déjà versionnée** — rien à saisir |
 | `CONST — Meta Pixel ID` | 15 chiffres | à fournir (Meta Events Manager) |
 
 Ces identifiants ne sont pas des secrets : ils figurent en clair dans le HTML
@@ -74,9 +74,16 @@ ressaisie à chaque import — donc une occasion de se tromper. Les fournir se f
 dans `scripts/build-gtm-container.mjs`, puis `npm run gtm:build`, jamais
 directement dans l'interface.
 
-> **`AW-` est à retirer.** Les balises `awct` et `sp` attendent le nombre seul
-> et le préfixent elles-mêmes. Coller `AW-123456789` produit une balise qui
-> passe la validation de GTM et ne remonte **jamais** rien.
+> **`AW-` est à retirer de la constante.** Les balises `awct` (conversion) et
+> `sp` (remarketing) attendent le nombre seul. Seule la balise `Ads —
+> Configuration` veut le préfixe, et elle se le fabrique à partir de la même
+> constante. Coller `AW-…` dans la constante produit des balises qui passent la
+> validation de GTM et ne remontent **jamais** rien.
+
+> **Ne jamais coller le snippet « Balise Google » proposé par Ads dans le
+> site.** Il court-circuiterait le conteneur, figerait un identifiant hors du
+> générateur versionné, et chargerait un second `gtag.js`. La balise `Ads —
+> Configuration` du conteneur remplit ce rôle.
 
 Puis les **libellés de conversion**, dans `LOOKUP — Ads Conversion Label` (une
 ligne par événement, à remplacer après le §4) :
