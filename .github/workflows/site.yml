@@ -1,0 +1,111 @@
+# CI du site statique (racine du repo).
+#
+# ---------------------------------------------------------------------------
+# CE WORKFLOW NE DÉPLOIE PAS — ET C'EST VOLONTAIRE
+# ---------------------------------------------------------------------------
+# Il s'appelait `deploy.yml` et prétendait publier sur GitHub Pages. Il ne l'a
+# jamais fait : Pages n'a jamais été activé sur le repo (l'API GitHub répond
+# 404), et l'étape `configure-pages` échouait donc à chaque exécution. Le site
+# est en réalité servi par le `Dockerfile` (nginx), construit et déployé par
+# Coolify sur webhook de push `main` — exactement comme l'API du dossier
+# `api/`. C'est ce webhook, et lui seul, qui met estimer.co à jour, y compris
+# après une édition Pages CMS.
+#
+# Un workflow qui échoue à chaque push finit par être ignoré, et le jour où il
+# signale une vraie régression plus personne ne le lit. On lui rend donc le
+# seul rôle qu'il puisse tenir honnêtement : vérifier le code. Le déploiement
+# reste chez Coolify, qui le fait déjà.
+#
+# ---------------------------------------------------------------------------
+# AUCUN SECRET N'EST NÉCESSAIRE ICI
+# ---------------------------------------------------------------------------
+# Les valeurs `PUBLIC_*` de production vivent dans l'environnement de build
+# Coolify, pas dans les réglages GitHub (où aucun secret n'est d'ailleurs
+# configuré). Ce workflow construit donc le site avec les valeurs par défaut :
+# il répond à « le code compile-t-il, les gardes-fous passent-ils ? », jamais à
+# « le site produit ici est-il publiable ? » — personne ne publie ce qu'il
+# construit.
+name: Site
+
+on:
+  push:
+    branches: [main]
+    # L'API (`api/`) est un service Coolify indépendant, avec sa propre CI
+    # (`.github/workflows/api.yml`). Le site n'a aucune raison d'être vérifié
+    # quand seule l'API change (spec `estimation-donnees-reelles.md` §2.2).
+    paths-ignore:
+      - 'api/**'
+      - '.github/workflows/api.yml'
+  # Ajouté en même temps que la conversion en CI : sans cela les garde-fous ne
+  # s'exécutaient qu'APRÈS le merge, donc trop tard pour empêcher quoi que ce
+  # soit d'atteindre `main` — et, Coolify déployant sur push `main`, trop tard
+  # aussi pour empêcher une mise en production. Une CI qui ne tourne pas sur
+  # les PR ne protège rien.
+  pull_request:
+    paths-ignore:
+      - 'api/**'
+      - '.github/workflows/api.yml'
+  workflow_dispatch:
+
+# Lecture seule : plus rien ici ne publie, donc plus aucune raison de porter
+# les droits `pages: write` et `id-token: write` d'origine.
+permissions:
+  contents: read
+
+# Par référence, et non plus une file unique `pages` : deux PR doivent pouvoir
+# être vérifiées en parallèle, et seule une nouvelle version de LA MÊME
+# référence rend la précédente inutile.
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Validation du contenu, tests et build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Node 22 comme le `Dockerfile` (node:22.13.1-alpine) : la CI doit
+      # vérifier le code sur la version qui le construira réellement. C'est
+      # aussi ce qui a révélé que `package-lock.json`, écrit par npm 11, était
+      # incomplet pour le npm 10 livré avec Node 22.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Garde-fou : une entrée `statut: publie` incomplète doit faire échouer
+      # la vérification. S'exécute AVANT le build, jamais après.
+      - name: Validate content
+        run: node scripts/validate-content.mjs
+
+      # Garde-fou : les tests du front verrouillent des comportements dont la
+      # violation est SILENCIEUSE (double soumission créant deux leads, blocs
+      # du rapport lus sans garde sur un `lastEstimation` d'ancienne
+      # génération, mention DVF sur une estimation qui n'en vient pas, dépôt
+      # d'un traceur avant consentement).
+      - name: Test
+        run: npm test
+
+      # Le build reste une vérification à part entière : il attrape les erreurs
+      # que les tests ne voient pas (import cassé, page qui ne rend plus,
+      # collection de contenu invalide).
+      - name: Build
+        run: npm run build
+        env:
+          # `astro.config.mjs` fait échouer tout build de production dont
+          # `PUBLIC_API_URL` est vide, pour qu'un site muet sur son propre mode
+          # dégradé ne parte jamais en ligne (Annexe B.5 de la spec). Ce
+          # garde-fou protège un DÉPLOIEMENT ; ici rien n'est déployé et
+          # aucune valeur de production n'est disponible. Le lever est donc
+          # exactement l'usage prévu par la variable — et l'inverse (exiger un
+          # secret jamais configuré) ferait échouer la CI pour une raison qui
+          # n'apprend rien sur le code.
+          ESTIMATION_ALLOW_NO_API: '1'
