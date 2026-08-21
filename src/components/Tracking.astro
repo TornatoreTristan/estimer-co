@@ -1,0 +1,40 @@
+---
+import RawScript from './RawScript.astro';
+import trackingScript from '../scripts/tracking.js?raw';
+import { TRACKING_ACTIF } from '../lib/analytics';
+
+/**
+ * Socle de mesure — pont unique entre le site et Google Tag Manager.
+ *
+ * À placer dans le `<head>`, JUSTE APRÈS `Analytics.astro` et avant tout le
+ * reste. L'ordre n'est pas décoratif :
+ *
+ *   - après `Analytics`, parce que c'est lui qui pose le `gtag('consent',
+ *     'default', denied)`, lequel n'a de valeur qu'en toute première position ;
+ *   - avant tout script de page, parce que `sticky-cta.js`, `estimation-ui.js`
+ *     ou `rapport-report.js` appellent `embTrack()` au fil de leur exécution.
+ *
+ * ---------------------------------------------------------------------------
+ * POURQUOI IL EST CONDITIONNÉ, ET CE QUE ÇA IMPOSE AUX APPELANTS
+ * ---------------------------------------------------------------------------
+ * `TRACKING_ACTIF` gouverne ici comme il gouverne `Analytics` et
+ * `ConsentBanner` (voir l'en-tête de `src/lib/analytics.ts`). Sans conteneur,
+ * ce script n'est pas écrit du tout — et donc `window.dataLayer` n'est même pas
+ * créé. C'est la règle vérifiée par `scripts/test-consent-banner.mjs` : « sans
+ * conteneur, aucun script Google n'atteint la page », `dataLayer` compris.
+ *
+ * On aurait pu injecter le socle en permanence en arguant qu'un tableau
+ * JavaScript que personne ne lit n'est pas un traceur. Ce serait vrai, et ce
+ * serait quand même une entorse : un site déclaré muet doit être muet jusque
+ * dans son code source, sans quoi la promesse devient une affaire
+ * d'interprétation. En prime, une page sans conteneur ne porte aucun octet mort.
+ *
+ * **Conséquence pour tout appelant** : `embTrack` peut ne pas exister. Les
+ * scripts de page le testent avant de l'appeler —
+ * `if (typeof embTrack === "function")` — exactement comme ils testent déjà
+ * `requestLead` ou `CONFIG`. Un `ReferenceError` au milieu d'une soumission ne
+ * coûterait pas une mesure, il coûterait le lead.
+ */
+---
+
+{TRACKING_ACTIF && <RawScript code={trackingScript} />}

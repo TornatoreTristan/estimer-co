@@ -19,7 +19,9 @@ const current = stripTrailingSlash(Astro.url.pathname);
 ---
 
 <div class="announce">
-  Estimation gratuite, rapport complet immédiat. <a href="/estimation/">Commencer &rarr;</a>
+  Estimation gratuite, rapport complet immédiat. <a href="/estimation/" data-cta="announce"
+    >Commencer &rarr;</a
+  >
 </div>
 
 <header class="site-header" id="siteHeader">
@@ -49,11 +51,16 @@ const current = stripTrailingSlash(Astro.url.pathname);
             </a>
           ))
         }
-        <a href="/estimation/" class="btn btn--primary">Estimer mon bien</a>
+        {/* Deux CTA identiques, un par point d'arrêt (celui-ci pour le menu
+            mobile, celui du bloc `site-header__actions` pour le bureau). Ils
+            portent donc DEUX identifiants distincts : les confondre reviendrait
+            à ignorer d'où viennent réellement les clics, ce qui est justement la
+            question qu'on se pose en achetant du trafic mobile. */}
+        <a href="/estimation/" class="btn btn--primary" data-cta="header_nav">Estimer mon bien</a>
       </nav>
 
       <div class="site-header__actions">
-        <a href="/estimation/" class="btn btn--primary">Estimer mon bien</a>
+        <a href="/estimation/" class="btn btn--primary" data-cta="header">Estimer mon bien</a>
         <button
           type="button"
           class="nav-toggle"

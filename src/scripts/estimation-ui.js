@@ -376,6 +376,126 @@ if (estimationFormEl) {
 
   var wizard = createWizard(estimationFormEl);
 
+  // ====================================================================
+  // MESURE DU TUNNEL — specs/plan-taggage-conversions.md §4.2
+  // ====================================================================
+  //
+  // `tracking.js` n'est injecté que si un conteneur de tags est configuré
+  // (cf. `Tracking.astro`) : tout passe donc par les relais ci-dessous, qui
+  // sont inertes en son absence. Les appeler sans garde ferait lever une
+  // `ReferenceError` au milieu d'une soumission — soit un lead perdu pour une
+  // mesure manquante, l'exact inverse du but recherché.
+  //
+  // LE WIZARD N'EST PAS TOUCHÉ. Il ignore l'API (cf. son en-tête) ; il ignore
+  // tout autant la mesure. C'est la couche d'affichage, qui possède déjà le
+  // DOM et l'orchestration, qui observe — et `scripts/test-estimation-wizard.mjs`
+  // reste valable sans modification.
+
+  var mesureChargee = typeof embTrack === "function";
+
+  function mesurer(nom, params) {
+    if (mesureChargee) embTrack(nom, params);
+  }
+
+  function departementDe(codePostal) {
+    return mesureChargee ? embDepartement(codePostal) : "";
+  }
+
+  function trancheSurface(surface) {
+    return mesureChargee ? embSurfaceBucket(surface) : "";
+  }
+
+  function qualiteLead(isOwner, wantToSell) {
+    return mesureChargee ? embLeadQuality(isOwner, wantToSell) : "";
+  }
+
+  function nouvelIdentifiantLead() {
+    return mesureChargee ? embLeadId() : "";
+  }
+
+  /** Clé lisible d'une étape (`address`, `property`…), "" si inconnue. */
+  function cleEtape(id) {
+    if (typeof WIZARD_STEPS === "undefined") return "";
+    for (var i = 0; i < WIZARD_STEPS.length; i++) {
+      if (WIZARD_STEPS[i].id === id) return WIZARD_STEPS[i].key;
+    }
+    return "";
+  }
+
+  // `mesureActive` reste faux pendant toute la séquence d'initialisation
+  // (restauration + pré-remplissage depuis l'URL), qui peut appeler `next()`
+  // et `goToStep()` plusieurs fois. Sans ce verrou, un visiteur arrivant de
+  // l'accueil produirait deux ou trois `estimation_step_view` avant même
+  // d'avoir vu quoi que ce soit — un entonnoir qui compte des étapes que
+  // personne n'a franchies ne mesure plus rien.
+  var mesureActive = false;
+  var etapeSuivie = 0;
+  var adresseSuivie = false;
+  var leadId = "";
+  var debutSoumission = 0;
+
+  function suivreEtape() {
+    if (!mesureActive) return;
+
+    var etape = wizard.state.currentStep;
+    if (etape === etapeSuivie) return;
+
+    var precedente = etapeSuivie;
+    etapeSuivie = etape;
+
+    // L'étape 1 ne se franchit qu'une fois l'adresse validée : la quitter
+    // vers l'avant, c'est exactement l'instant où elle l'est. Mesurer ici
+    // plutôt que dans le rappel `place_changed` de Google couvre d'un seul
+    // point les deux chemins — suggestion retenue ET saisie manuelle.
+    if (!adresseSuivie && precedente === 1 && etape > 1) {
+      adresseSuivie = true;
+      mesurer("estimation_address_selected", {
+        address_source: wizard.state.data.addressSource || "manual",
+        postal_code: wizard.state.data.postalCode,
+        city: wizard.state.data.city,
+        departement_code: departementDe(wizard.state.data.postalCode),
+      });
+    }
+
+    var direction;
+    if (precedente === 0) direction = etape > 1 ? "restore" : "forward";
+    else direction = etape > precedente ? "forward" : "backward";
+
+    mesurer("estimation_step_view", {
+      step_number: etape,
+      step_key: cleEtape(etape),
+      step_direction: direction,
+    });
+  }
+
+  // Observation par enveloppe des quatre méthodes qui déplacent l'étape
+  // affichée, plutôt qu'un appel après chacun de leurs six sites d'appel.
+  // Ce n'est pas de l'élégance : un site d'appel ajouté plus tard et oublié
+  // creuserait un trou dans l'entonnoir, et un trou dans un entonnoir ne se
+  // voit pas — on lit simplement de mauvais taux d'abandon pendant des mois.
+  ["next", "prev", "goToStep", "setErrors"].forEach(function (nom) {
+    var original = wizard[nom];
+    wizard[nom] = function () {
+      var resultat = original.apply(wizard, arguments);
+
+      // `next()` ne renvoie `false` que sur un échec de validation : c'est le
+      // seul point du wizard où l'on sait qu'un champ a bloqué le visiteur.
+      if (nom === "next" && resultat === false) {
+        var champs = Object.keys(wizard.state.errors || {});
+        mesurer("estimation_step_error", {
+          step_number: wizard.state.currentStep,
+          step_key: cleEtape(wizard.state.currentStep),
+          // Des NOMS de champs, jamais leur contenu ni les messages affichés.
+          error_fields: champs.join("|"),
+          error_count: champs.length,
+        });
+      }
+
+      suivreEtape();
+      return resultat;
+    };
+  });
+
   // --------------------------------------------------------------------
   // Références DOM (déclarées avant tout câblage : `hydrateFieldsFromState`
   // et les fonctions ci-dessous en ont besoin dès l'initialisation).
@@ -600,6 +720,48 @@ if (estimationFormEl) {
     // ultérieur ne réécrase pas une adresse corrigée entre-temps.
     if (window.history && typeof window.history.replaceState === "function") {
       window.history.replaceState({}, "", window.location.pathname);
+    }
+  }
+
+  // --------------------------------------------------------------------
+  // Ouverture de la mesure — l'état d'arrivée est enfin stabilisé
+  // --------------------------------------------------------------------
+  //
+  // `estimation_start` marque l'entrée dans le tunnel, et `suivreEtape()` qui
+  // suit émet le premier `estimation_step_view` sur l'étape RÉELLEMENT
+  // affichée : la 2 pour qui arrive de l'accueil avec une adresse complète, la
+  // 1 pour une visite directe, la n-ième pour un parcours restauré.
+  (function ouvrirLaMesure() {
+    var entree;
+    if (addressPrefill) entree = "home_hero";
+    else if (wizard.state.currentStep > 1) entree = "restored";
+    else if (estimationVientDuSite()) entree = "cta";
+    else entree = "direct";
+
+    mesureActive = true;
+
+    mesurer("estimation_start", {
+      entry_point: entree,
+      has_address_prefill: Boolean(addressPrefill),
+    });
+
+    suivreEtape();
+  })();
+
+  /**
+   * Vrai si le visiteur arrive d'une autre page du site.
+   *
+   * On ne cherche pas à savoir QUEL bouton a été cliqué — c'est le rôle de
+   * `cta_click`, qui porte l'identifiant exact de l'emplacement. Ici on ne
+   * sépare que deux populations : celle qui a navigué et celle qui atterrit
+   * directement (annonce, favori, lien partagé).
+   */
+  function estimationVientDuSite() {
+    if (typeof document === "undefined" || !document.referrer) return false;
+    try {
+      return new URL(document.referrer).origin === window.location.origin;
+    } catch (erreur) {
+      return false;
     }
   }
 
@@ -857,6 +1019,27 @@ if (estimationFormEl) {
     var valid = wizard.next();
     if (!valid) return;
 
+    // Identifiant du lead — clé de déduplication inter-plateformes (plan §2.4).
+    // Il est frappé ICI, au moment où la soumission devient certaine, puis
+    // voyage dans le payload persisté jusqu'à `/rapport/`, qui s'en sert pour
+    // n'émettre la conversion qu'une fois. La `reference` renvoyée par l'API
+    // ne pourrait pas jouer ce rôle : elle arrive après la redirection.
+    leadId = nouvelIdentifiantLead();
+    debutSoumission = new Date().getTime();
+
+    mesurer("estimation_submit", {
+      lead_id: leadId,
+      property_type: wizard.state.data.propertyType,
+      surface_bucket: trancheSurface(wizard.state.data.surface),
+      rooms: parseInt(wizard.state.data.rooms, 10),
+      dpe: wizard.state.data.dpe,
+      postal_code: wizard.state.data.postalCode,
+      departement_code: departementDe(wizard.state.data.postalCode),
+      is_owner: wizard.state.data.isOwner,
+      want_to_sell: wizard.state.data.wantToSell,
+      lead_quality: qualiteLead(wizard.state.data.isOwner, wizard.state.data.wantToSell),
+    });
+
     var submitBtn = document.getElementById("wizardSubmit");
     var originalHTML = submitBtn ? submitBtn.innerHTML : "";
 
@@ -881,6 +1064,7 @@ if (estimationFormEl) {
           // filet, une erreur imprévue ici laisserait `submitInFlight` à
           // `true` et le formulaire définitivement inutilisable.
           console.error("Erreur pendant la finalisation de la soumission :", error);
+          mesurer("estimation_failed", { lead_id: leadId, failure_type: "unexpected" });
           releaseSubmit(submitBtn, originalHTML);
           showWizardAlert(
             "Une erreur inattendue est survenue. Vous pouvez réessayer votre demande."
@@ -891,6 +1075,7 @@ if (estimationFormEl) {
       // `requestEstimation` ne rejette jamais et ne devrait pas lever, mais
       // une soumission bloquée à vie coûterait un lead : on relâche.
       console.error("Erreur pendant l'appel d'estimation :", error);
+      mesurer("estimation_failed", { lead_id: leadId, failure_type: "unexpected" });
       hideSubmitStatus();
       releaseSubmit(submitBtn, originalHTML);
       showWizardAlert(
@@ -911,6 +1096,11 @@ if (estimationFormEl) {
    */
   function finalizeSubmit(response, submitBtn, originalHTML) {
     if (response.status === "invalid") {
+      mesurer("estimation_failed", {
+        lead_id: leadId,
+        failure_type: "validation",
+        http_status: response.httpStatus,
+      });
       // L'utilisateur reste sur le formulaire pour corriger : on lui rend la
       // main (bouton ET drapeau de double soumission).
       releaseSubmit(submitBtn, originalHTML);
@@ -931,6 +1121,11 @@ if (estimationFormEl) {
     }
 
     if (response.status === "rate-limited") {
+      mesurer("estimation_failed", {
+        lead_id: leadId,
+        failure_type: "rate_limited",
+        http_status: response.httpStatus,
+      });
       // Pas de retry (US-8) : l'utilisateur réessaiera lui-même, il faut donc
       // que le drapeau soit relâché — sinon plus aucune soumission possible.
       releaseSubmit(submitBtn, originalHTML);
@@ -960,8 +1155,24 @@ if (estimationFormEl) {
       );
     }
 
+    mesurer("estimation_api_result", {
+      lead_id: leadId,
+      estimation_status: estimationStatus,
+      confidence_score:
+        estimation && estimation.confidence ? estimation.confidence.score : undefined,
+      comparables_count:
+        estimation && estimation.method ? estimation.method.comparablesCount : undefined,
+      latency_ms: debutSoumission ? new Date().getTime() - debutSoumission : undefined,
+    });
+
     var payload = wizard.serializeForSubmit(estimation);
     payload.estimationStatus = estimationStatus;
+    // Voyage jusqu'à `/rapport/` par `localStorage.lastEstimation`, où il sert
+    // à la fois de `transaction_id` de la conversion et de verrou contre le
+    // double comptage. `buildEstimationLeadPayload` construit son corps HTTP
+    // champ par champ : ce `lead_id` supplémentaire n'atteint jamais l'API,
+    // dont la validation est en liste blanche stricte.
+    payload.lead_id = leadId;
 
     sendLead(payload, submitBtn, originalHTML);
 

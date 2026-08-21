@@ -154,10 +154,15 @@
       // moment exact du consentement plutôt qu'au seul chargement de la page —
       // sans quoi le premier `page_view` d'un visiteur qui vient d'accepter
       // serait perdu.
+      //
+      // Nom anglais, à rebours du reste du code : c'est la convention du plan
+      // de taggage (`specs/plan-taggage-conversions.md` §2.2), imposée par les
+      // noms réservés de GA4 (`page_view`, `generate_lead`). Un dictionnaire
+      // d'événements à moitié français serait pire que l'un ou l'autre.
       window.dataLayer.push({
-        event: 'consentement_maj',
-        consentement_analytics: analytics ? 'granted' : 'denied',
-        consentement_publicite: publicite ? 'granted' : 'denied',
+        event: 'consent_update',
+        consent_analytics: analytics ? 'granted' : 'denied',
+        consent_ads: publicite ? 'granted' : 'denied',
       });
     };
 

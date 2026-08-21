@@ -1,6 +1,26 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { partenaires } from '../data/partenaires';
+
+/**
+ * Identifiant stable d'un partenaire pour la mesure (`partner_slug`).
+ *
+ * Dérivé du nom plutôt qu'ajouté à `src/data/partenaires.ts` : ce fichier est
+ * appelé à disparaître au profit de la collection `partenaires`
+ * (`specs/cms-seo-tracking.md`, lot 1), dont les entrées portent déjà un
+ * `slug`. La règle appliquée ici est exactement celle qui a produit les noms
+ * de fichiers de `src/content/partenaires/` — `century-21`,
+ * `caisse-d-epargne`, `stephane-plaza-immobilier` — pour que l'historique de
+ * mesure reste continu le jour de la bascule. Sans quoi chaque partenaire
+ * changerait d'identifiant et les rapports repartiraient de zéro.
+ */
+const slugPartenaire = (nom: string) =>
+  nom
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 ---
 
 <BaseLayout
@@ -25,7 +45,7 @@ import { partenaires } from '../data/partenaires';
     <div class="container">
       <div class="grid grid--3">
         {
-          partenaires.map((partenaire) => (
+          partenaires.map((partenaire, index) => (
             <article
               class:list={['partner', 'card', 'card--hover', { 'partner--featured': partenaire.featured }]}
             >
@@ -46,11 +66,28 @@ import { partenaires } from '../data/partenaires';
               {partenaire.featured && <span class="partner__badge">Partenaire privilégié</span>}
               <h3>{partenaire.name}</h3>
               <p>{partenaire.description}</p>
+              {/*
+                Point d'entrée unique du suivi des clics sortants : les
+                attributs `data-partner-*` sont lus par la délégation de
+                `src/scripts/tracking.js`, qui émet `partner_click_out` sans
+                jamais intercepter la navigation — le lien s'ouvre exactement
+                comme si la mesure n'existait pas (contrat de
+                `specs/cms-seo-tracking.md` §6).
+
+                `data-partner-category` est délibérément absent : la catégorie
+                (`agence-immobiliere`, `banque`, `notaire`…) n'existe que dans
+                la collection `partenaires`, que cette page ne consomme pas
+                encore. Un attribut vide vaudrait mieux qu'une catégorie
+                inventée, et `embTrack` écarte de toute façon les valeurs vides.
+              */}
               <a
                 href={partenaire.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 class="link-arrow"
+                data-partner-slug={slugPartenaire(partenaire.name)}
+                data-partner-name={partenaire.name}
+                data-partner-position={index + 1}
               >
                 Visiter le site
               </a>
@@ -73,8 +110,12 @@ import { partenaires } from '../data/partenaires';
         </p>
       </div>
       <div class="btn-row btn-row--center">
-        <a href="/contact/" class="btn btn--light btn--lg">Nous contacter</a>
-        <a href="/estimation/" class="btn btn--ghost-light btn--lg">Voir le parcours client</a>
+        <a href="/contact/" class="btn btn--light btn--lg" data-cta="partenaires_contact"
+          >Nous contacter</a
+        >
+        <a href="/estimation/" class="btn btn--ghost-light btn--lg" data-cta="partenaires_parcours"
+          >Voir le parcours client</a
+        >
       </div>
     </div>
   </section>

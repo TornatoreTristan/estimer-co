@@ -128,6 +128,18 @@
   var fermer = barre.querySelector("[data-sticky-cta-close]");
   if (fermer) {
     fermer.addEventListener("click", function () {
+      // Mesuré parce qu'un taux de fermeture élevé se lit de deux façons
+      // opposées — barre mal placée, ou visiteur déjà convaincu qui vient de
+      // cliquer sur le CTA. Sans l'événement, on ne peut trancher qu'à
+      // l'intuition.
+      //
+      // Le test de présence n'est pas une précaution de style : sans conteneur
+      // de tags configuré, `tracking.js` n'est pas injecté du tout (cf.
+      // `Tracking.astro`), et un appel direct lèverait ici.
+      if (typeof embTrack === "function") {
+        embTrack("sticky_cta_dismiss", { page_path: embCheminCourant() });
+      }
+
       memoriserFermeture();
       barre.setAttribute("data-state", "hidden");
       visible = false;

@@ -20,6 +20,88 @@
 // pas remplacés par d'autres valeurs inventées. Le bloc « marché local » ne
 // montre plus que ce qui provient réellement de la réponse de l'API.
 
+// ============================================================================
+// MESURE — c'est ICI que la conversion est comptée, pas au clic « Envoyer »
+// ============================================================================
+//
+// `finalizeSubmit()` (estimation-ui.js) enchaîne de façon synchrone : envoi du
+// lead, persistance, puis `window.location.href = "/rapport/"`. Un événement
+// poussé juste avant cette ligne serait une COURSE avec la navigation — Google
+// Tag Manager peut n'avoir pas encore instancié ses balises quand le navigateur
+// commence à quitter la page. On perdrait une part non mesurable des
+// conversions, et c'est le pire des défauts : invisible, il fausse le coût par
+// conversion de toutes les campagnes sans jamais lever d'alerte.
+//
+// `/rapport/` est la vraie page de confirmation du parcours. La conversion y est
+// donc émise au chargement, en relisant le `lead_id` inscrit dans
+// `lastEstimation` au moment de la soumission.
+//
+// CE QUI OBLIGE À DÉDUPLIQUER : cette page est réatteignable de quatre façons —
+// rechargement, retour arrière depuis le bfcache (cf. estimation-ui.js, §
+// « Retour arrière depuis /rapport/ »), bouton « Relancer le calcul » plus bas,
+// et simple revisite d'un ancien visiteur dont le `lastEstimation` traîne encore
+// dans le navigateur. Sans verrou, chacune compterait une conversion de plus.
+//
+// @param {object} donnees        `lastEstimation` complet
+// @param {object|null} estimation son bloc `estimation`, éventuellement absent
+// @param {string|null} statut     'ok' | 'static-fallback' | 'deferred'
+function mesurerRapport(donnees, estimation, statut) {
+  // Aucun conteneur de tags configuré : `tracking.js` n'est pas injecté.
+  if (typeof embTrack !== "function") return;
+
+  const leadId = donnees.lead_id || "";
+
+  embTrack("report_view", { lead_id: leadId, estimation_status: statut });
+
+  // Parcours antérieur au lot T1 : le rapport s'affiche, mais il n'y a aucune
+  // conversion à rattacher — mieux vaut ne rien compter que compter à tort.
+  if (!leadId) return;
+
+  const cleVerrou = "emb.lead." + leadId + ".tracked";
+  let dejaCompte = false;
+  try {
+    dejaCompte = localStorage.getItem(cleVerrou) === "1";
+  } catch (erreur) {
+    // Stockage indisponible (Safari en navigation privée) : le verrou local
+    // saute, mais `lead_id` part en `transaction_id` de la conversion. C'est
+    // Google Ads qui dédoublonne alors, et c'est précisément pour ce cas que
+    // l'action de conversion est réglée sur « une seule » (plan §7.1).
+    dejaCompte = false;
+  }
+  if (dejaCompte) return;
+
+  const valeurBien =
+    estimation && isFinite(estimation.estimationMoyenne) && estimation.estimationMoyenne > 0
+      ? Math.round(estimation.estimationMoyenne)
+      : undefined;
+
+  embTrack("generate_lead", {
+    lead_id: leadId,
+    lead_type: "estimation",
+    value: embLeadValue(donnees.isOwner, donnees.wantToSell, valeurBien),
+    currency: "EUR",
+    lead_quality: embLeadQuality(donnees.isOwner, donnees.wantToSell),
+    property_type: donnees.propertyType,
+    surface_bucket: embSurfaceBucket(donnees.surface),
+    rooms: donnees.rooms,
+    dpe: donnees.dpe,
+    postal_code: donnees.postalCode,
+    departement_code: embDepartement(donnees.postalCode),
+    estimation_value: valeurBien,
+    estimation_status: statut,
+    is_owner: donnees.isOwner,
+    want_to_sell: donnees.wantToSell,
+  });
+
+  // Après la poussée, jamais avant : si l'écriture échouait d'abord, on
+  // perdrait la conversion pour de bon plutôt que d'en risquer une en double.
+  try {
+    localStorage.setItem(cleVerrou, "1");
+  } catch (erreur) {
+    /* voir plus haut : le dédoublonnage retombe sur `transaction_id` */
+  }
+}
+
 // Récupérer les données depuis localStorage
       const lastEstimation = JSON.parse(localStorage.getItem("lastEstimation"));
 
@@ -130,6 +212,8 @@
           estimation && Array.isArray(estimation.comparables) ? estimation.comparables : [];
         const isStaticFallback = estimationStatus === "static-fallback";
         const isDeferred = estimationStatus === "deferred" || !estimation;
+
+        mesurerRapport(lastEstimation, estimation, estimationStatus);
 
         // Remplir les détails de la propriété
         const propertyDetails = document.getElementById("propertyDetails");
@@ -931,6 +1015,16 @@
         try {
           const doc = buildEstimationPdf(lastEstimation);
           doc.save(buildEstimationPdfFileName(lastEstimation));
+
+          // Après `save()`, et pas au clic : un PDF qui a échoué n'est pas un
+          // téléchargement. Ce signal sert de conversion secondaire (plan
+          // §7.1) — le compter à tort gonflerait un indicateur d'engagement.
+          if (typeof embTrack === "function") {
+            embTrack("report_pdf_download", {
+              lead_id: lastEstimation.lead_id,
+              estimation_status: lastEstimation.estimationStatus,
+            });
+          }
         } catch (error) {
           console.error("Erreur PDF:", error);
           alert("Une erreur est survenue. Veuillez réessayer.");
