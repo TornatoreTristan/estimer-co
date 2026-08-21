@@ -66,7 +66,7 @@ balises est un identifiant qu'on oubliera de corriger dans la huitième.
 |---|---|---|
 | `CONST — GA4 Measurement ID` | `G-B066RRFQL5` | ✅ **déjà versionnée** — rien à saisir |
 | `CONST — Google Ads Conversion ID` | `18402972391` | ✅ **déjà versionnée** — rien à saisir |
-| `CONST — Meta Pixel ID` | 15 chiffres | à fournir (Meta Events Manager) |
+| `CONST — Meta Pixel ID` | `1775996150258086` | ✅ **déjà versionnée** — rien à saisir |
 
 Ces identifiants ne sont pas des secrets : ils figurent en clair dans le HTML
 livré dès que les balises tirent. Les versionner dans le générateur supprime une
@@ -101,9 +101,9 @@ conversions :
 
 | Constante | Action Ads | État |
 |---|---|---|
-| `LIBELLE_ESTIMATION` | Estimation - Lead | à fournir |
-| `LIBELLE_CONTACT` | Contact - message | à fournir |
-| `LIBELLE_PARTENARIAT` | Contact - partenariat | à fournir |
+| `LIBELLE_ESTIMATION` | Estimation - Lead | ✅ renseigné |
+| `LIBELLE_CONTACT` | Contact - message | ✅ renseigné |
+| `LIBELLE_PARTENARIAT` | Contact - partenariat | ✅ renseigné |
 | `LIBELLE_PDF` | *(reportée)* | — |
 | `LIBELLE_MICRO` | *(reportée)* | — |
 
