@@ -148,7 +148,7 @@ test("chaque conversion a bien son déclencheur dédié", () => {
     "CE — contact_lead (partenariat)",
     "CE — report_pdf_download",
     "CE — report_view",
-    "CE — micro : étape 3 atteinte",
+    "CE — micro étape 3 atteinte",
   ];
   const noms = VERSION.trigger.map((t) => t.name);
   for (const attendu of attendus) {
@@ -408,7 +408,7 @@ test("les conversions améliorées ne sont activées que là où le site fournit
    * dans Google Ads — un voyant rouge qu'on finit par ne plus regarder, et
    * derrière lequel une vraie panne passerait inaperçue.
    */
-  const AVEC_EMPREINTES = ["Ads — Conversion : estimation", "Ads — Conversion : contact"];
+  const AVEC_EMPREINTES = ["Ads — Conversion estimation", "Ads — Conversion contact"];
 
   for (const balise of VERSION.tag.filter((t) => t.type === "awct")) {
     const attendu = AVEC_EMPREINTES.includes(balise.name);
@@ -441,7 +441,7 @@ test("les empreintes de contact ne partent qu'aux conversions améliorées", () 
     "le mode automatique ferait parcourir le DOM par Google, donc lire l'e-mail en clair"
   );
 
-  const autorisees = new Set(["Ads — Conversion : estimation", "Ads — Conversion : contact"]);
+  const autorisees = new Set(["Ads — Conversion estimation", "Ads — Conversion contact"]);
   for (const balise of VERSION.tag) {
     if (autorisees.has(balise.name)) continue;
     const contenu = JSON.stringify(balise);
@@ -650,7 +650,7 @@ test("toute balise en pause l'est pour une raison lisible", () => {
    * oublié de réveiller — et une mesure qu'on croit avoir alors qu'elle
    * n'existe pas.
    */
-  const REPORTEES = ["Ads — Conversion : PDF", "Ads — Conversion : micro étape 3"];
+  const REPORTEES = ["Ads — Conversion PDF", "Ads — Conversion micro étape 3"];
 
   for (const balise of VERSION.tag.filter((t) => t.paused)) {
     const libelle = balise.parameter.find((p) => p.key === "conversionLabel");
@@ -706,12 +706,33 @@ test("les trois conversions issues d'un formulaire sont actives", () => {
   // Ce sont elles qui portent la mesure : si l'une repassait en pause sans
   // qu'on l'ait voulu, les campagnes tourneraient sans rien remonter.
   for (const nom of [
-    "Ads — Conversion : estimation",
-    "Ads — Conversion : contact",
-    "Ads — Conversion : partenariat",
+    "Ads — Conversion estimation",
+    "Ads — Conversion contact",
+    "Ads — Conversion partenariat",
   ]) {
     const balise = VERSION.tag.find((t) => t.name === nom);
     assert.ok(balise, `balise manquante : ${nom}`);
     assert.notEqual(balise.paused, true, `${nom} : en pause alors qu'elle doit mesurer`);
   }
+});
+
+test("aucun nom d'entité ne contient un caractère que GTM refuse", () => {
+  /*
+   * Constaté en conditions réelles : « The name contains invalid character:
+   * ":" ». Le coût n'est pas une entité mal nommée, c'est l'import ENTIER
+   * rejeté — et l'interface ne signale que la PREMIÈRE occurrence, donc un
+   * aller-retour par nom fautif si on la laisse les trouver une à une.
+   */
+  const entites = [
+    ...VERSION.variable,
+    ...VERSION.trigger,
+    ...VERSION.tag,
+    ...VERSION.folder,
+  ];
+
+  const fautifs = entites
+    .map((e) => e.name)
+    .filter((nom) => /[:<>"\\]/.test(nom));
+
+  assert.deepEqual(fautifs, [], "GTM refusera le fichier entier sur ces noms");
 });

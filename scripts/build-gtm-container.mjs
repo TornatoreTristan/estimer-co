@@ -200,12 +200,14 @@ const balises = [];
 const dossiers = [];
 
 function dossier(name) {
+  verifierNom(name);
   const folderId = String(prochainFolderId++);
   dossiers.push({ ...ZERO, folderId, name, fingerprint: "0" });
   return folderId;
 }
 
 function variable(name, type, parameter, parentFolderId) {
+  verifierNom(name);
   variables.push({
     ...ZERO,
     variableId: String(prochainVariableId++),
@@ -219,6 +221,7 @@ function variable(name, type, parameter, parentFolderId) {
 }
 
 function declencheur(name, corps, parentFolderId) {
+  verifierNom(name);
   const triggerId = String(prochainTriggerId++);
   declencheurs.push({
     ...ZERO,
@@ -231,7 +234,29 @@ function declencheur(name, corps, parentFolderId) {
   return triggerId;
 }
 
+/**
+ * Caractères que GTM refuse dans un nom d'entité.
+ *
+ * Constaté en conditions réelles : « The name contains invalid character:
+ * ":" ». Le coût n'est pas une entité mal nommée mais l'import ENTIER rejeté,
+ * et l'interface ne signale que la PREMIÈRE occurrence — d'où un aller-retour
+ * par nom fautif si l'on attend qu'elle les trouve. Le générateur refuse donc
+ * d'écrire un fichier qu'on sait irrecevable.
+ */
+const CARACTERES_INTERDITS = /[:<>"\\]/;
+
+function verifierNom(name) {
+  const fautif = name.match(CARACTERES_INTERDITS);
+  if (fautif) {
+    throw new Error(
+      `Nom d'entité refusé par GTM : « ${name} » contient « ${fautif[0]} »`
+    );
+  }
+  return name;
+}
+
 function balise(name, type, parameter, options) {
+  verifierNom(name);
   const opts = options || {};
   balises.push({
     ...ZERO,
@@ -534,7 +559,7 @@ const D_PDF = declencheur(
  * visiteur.
  */
 const D_MICRO_ETAPE_3 = declencheur(
-  "CE — micro : étape 3 atteinte",
+  "CE — micro étape 3 atteinte",
   {
     type: "CUSTOM_EVENT",
     customEventFilter: [filtreEvenement("EQUALS", "estimation_step_view")],
@@ -698,7 +723,7 @@ function conversionAds(nom, declencheurId, valeur, libelle, options) {
 }
 
 conversionAds(
-  "Ads — Conversion : estimation",
+  "Ads — Conversion estimation",
   D_GENERATE_LEAD,
   ref(nomDlv("value")),
   LIBELLE_ESTIMATION,
@@ -706,7 +731,7 @@ conversionAds(
 );
 
 conversionAds(
-  "Ads — Conversion : contact",
+  "Ads — Conversion contact",
   D_CONTACT_HORS_PARTENARIAT,
   ref(nomDlv("value")),
   LIBELLE_CONTACT,
@@ -726,7 +751,7 @@ conversionAds(
  * d'un réglage annonçant 10.
  */
 conversionAds(
-  "Ads — Conversion : partenariat",
+  "Ads — Conversion partenariat",
   D_CONTACT_PARTENARIAT,
   ref(nomDlv("value")),
   LIBELLE_PARTENARIAT
@@ -747,8 +772,8 @@ conversionAds(
  * le signal à fort volume qui aide les enchères à sortir de leur phase
  * d'apprentissage tant que les vrais leads sont rares (plan §6.3).
  */
-conversionAds("Ads — Conversion : PDF", D_PDF, "0", LIBELLE_PDF, { enPause: true });
-conversionAds("Ads — Conversion : micro étape 3", D_MICRO_ETAPE_3, "0", LIBELLE_MICRO, {
+conversionAds("Ads — Conversion PDF", D_PDF, "0", LIBELLE_PDF, { enPause: true });
+conversionAds("Ads — Conversion micro étape 3", D_MICRO_ETAPE_3, "0", LIBELLE_MICRO, {
   enPause: true,
 });
 
