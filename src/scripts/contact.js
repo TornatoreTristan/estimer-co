@@ -92,15 +92,28 @@
             // Le hachage des coordonnées est asynchrone (Web Crypto). Il rend
             // toujours la main sous 500 ms, et son échec ne prive le visiteur
             // ni de son accusé de réception, ni nous de la conversion.
-            if (typeof embUserData === "function") {
-              embUserData(email, document.getElementById("phone").value).then(
-                terminer,
-                function () {
-                  terminer(null);
-                }
-              );
+            // Le consentement est réappliqué de façon asynchrone à chaque
+            // chargement de page : sans cette attente, la conversion partirait
+            // sous le défaut « refusé » (cf. `embAttendreConsentement`). Ici le
+            // coût est nul en pratique — l'appel à l'API a déjà duré plusieurs
+            // centaines de millisecondes, le signal est arrivé depuis longtemps.
+            const avecEmpreintes = function () {
+              if (typeof embUserData === "function") {
+                embUserData(email, document.getElementById("phone").value).then(
+                  terminer,
+                  function () {
+                    terminer(null);
+                  }
+                );
+              } else {
+                terminer(null);
+              }
+            };
+
+            if (typeof embAttendreConsentement === "function") {
+              embAttendreConsentement().then(avecEmpreintes, avecEmpreintes);
             } else {
-              terminer(null);
+              avecEmpreintes();
             }
           }
 

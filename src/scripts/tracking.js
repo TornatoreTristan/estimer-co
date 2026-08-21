@@ -514,6 +514,89 @@ var MOTIF_EMPREINTE = /^[0-9a-f]{64}$/;
  */
 var DELAI_MAX_HACHAGE = 500;
 
+// ============================================================================
+// 3ter. ATTENDRE QUE LE CONSENTEMENT SOIT CONNU
+// ============================================================================
+//
+// ---------------------------------------------------------------------------
+// LE PROBLÈME, CONSTATÉ EN MODE APERÇU
+// ---------------------------------------------------------------------------
+// Sur `/rapport/`, l'ordre réel des événements était celui-ci :
+//
+//     Valeur par défaut du consentement   (tout à `denied`)
+//     report_view
+//     generate_lead          <- la conversion part ICI
+//     consent_update         <- le choix mémorisé n'arrive qu'APRÈS
+//
+// `ConsentBanner.astro` charge sa bibliothèque par `import()` dynamique, donc
+// sur un tour de boucle ultérieur, pendant que `rapport-report.js` s'exécute
+// immédiatement. La conversion partait donc systématiquement sous le défaut
+// `denied`, y compris chez un visiteur qui avait accepté des mois plus tôt.
+//
+// Deux conséquences, aucune visible sans passer par le mode Aperçu :
+//   - les balises tierces (Meta) étaient bloquées à CHAQUE conversion, donc
+//     jamais déclenchées ;
+//   - les balises Google partaient en mode « denied », sans cookie : la
+//     conversion remonte, mais son attribution est dégradée.
+//
+// ---------------------------------------------------------------------------
+// POURQUOI UN DÉLAI PLUTÔT QU'UNE ATTENTE FRANCHE
+// ---------------------------------------------------------------------------
+// Un visiteur qui n'a jamais tranché ne produira JAMAIS de `consent_update` :
+// le bandeau attend son clic. Attendre indéfiniment lui coûterait sa
+// conversion. On attend donc le signal, ou `DELAI_MAX_CONSENTEMENT`, au
+// premier des deux — et au pire on retombe sur le comportement d'avant.
+
+/** Attente maximale du signal de consentement, en millisecondes. */
+var DELAI_MAX_CONSENTEMENT = 2000;
+
+/** Intervalle de scrutation du dataLayer. */
+var PAS_SCRUTATION_CONSENTEMENT = 50;
+
+/** Vrai si un `consent_update` figure déjà dans le dataLayer. */
+function embConsentementConnu() {
+  try {
+    var file = (typeof window !== "undefined" && window.dataLayer) || [];
+    for (var i = 0; i < file.length; i++) {
+      if (file[i] && file[i].event === "consent_update") return true;
+    }
+  } catch (erreur) {
+    /* dataLayer illisible : on considère l'état inconnu */
+  }
+  return false;
+}
+
+/**
+ * Rend la main dès que le consentement est connu, ou au bout de
+ * `DELAI_MAX_CONSENTEMENT`.
+ *
+ * Scrutation plutôt qu'interception de `dataLayer.push` : Google Tag Manager
+ * remplace lui-même cette méthode par la sienne, et s'insérer dans cette
+ * chaîne pour une simple lecture reviendrait à risquer de casser toute la
+ * mesure pour économiser quelques millisecondes.
+ *
+ * @returns {Promise<boolean>} vrai si le signal est arrivé, faux si l'on a
+ *   renoncé à l'attendre. Ne rejette jamais.
+ */
+function embAttendreConsentement() {
+  return new Promise(function (resolve) {
+    if (embConsentementConnu()) return resolve(true);
+    if (typeof setTimeout !== "function") return resolve(false);
+
+    var ecoule = 0;
+    var minuteur = setInterval(function () {
+      ecoule += PAS_SCRUTATION_CONSENTEMENT;
+      if (embConsentementConnu()) {
+        clearInterval(minuteur);
+        resolve(true);
+      } else if (ecoule >= DELAI_MAX_CONSENTEMENT) {
+        clearInterval(minuteur);
+        resolve(false);
+      }
+    }, PAS_SCRUTATION_CONSENTEMENT);
+  });
+}
+
 /**
  * Empreinte SHA-256 hexadécimale d'une valeur déjà normalisée.
  *
