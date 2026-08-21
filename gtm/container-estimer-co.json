@@ -1947,15 +1947,6 @@
         "accountId": "0",
         "containerId": "0",
         "triggerId": "1",
-        "name": "Initialisation — Toutes les pages",
-        "fingerprint": "0",
-        "type": "init",
-        "parentFolderId": "1"
-      },
-      {
-        "accountId": "0",
-        "containerId": "0",
-        "triggerId": "2",
         "name": "Toutes les pages",
         "fingerprint": "0",
         "type": "pageview",
@@ -1964,7 +1955,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "triggerId": "3",
+        "triggerId": "2",
         "name": "CE — Tous événements métier",
         "fingerprint": "0",
         "type": "customEvent",
@@ -1990,7 +1981,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "triggerId": "4",
+        "triggerId": "3",
         "name": "CE — generate_lead",
         "fingerprint": "0",
         "type": "customEvent",
@@ -2016,7 +2007,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "triggerId": "5",
+        "triggerId": "4",
         "name": "CE — report_view",
         "fingerprint": "0",
         "type": "customEvent",
@@ -2042,7 +2033,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "triggerId": "6",
+        "triggerId": "5",
         "name": "CE — contact_lead (hors partenariat)",
         "fingerprint": "0",
         "type": "customEvent",
@@ -2090,7 +2081,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "triggerId": "7",
+        "triggerId": "6",
         "name": "CE — contact_lead (partenariat)",
         "fingerprint": "0",
         "type": "customEvent",
@@ -2133,7 +2124,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "triggerId": "8",
+        "triggerId": "7",
         "name": "CE — report_pdf_download",
         "fingerprint": "0",
         "type": "customEvent",
@@ -2159,7 +2150,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "triggerId": "9",
+        "triggerId": "8",
         "name": "CE — micro : étape 3 atteinte",
         "fingerprint": "0",
         "type": "customEvent",
@@ -2293,7 +2284,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "3"
+          "2"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2345,7 +2336,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "2"
+          "1"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2406,7 +2397,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "4"
+          "3"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2467,7 +2458,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "6"
+          "5"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2523,7 +2514,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "7"
+          "6"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2579,7 +2570,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "8"
+          "7"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2636,7 +2627,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "9"
+          "8"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2668,7 +2659,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "2"
+          "1"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2699,7 +2690,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "2"
+          "1"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2747,7 +2738,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "4"
+          "3"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2801,7 +2792,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "6"
+          "5"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -2855,7 +2846,7 @@
         ],
         "fingerprint": "0",
         "firingTriggerId": [
-          "5"
+          "4"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
