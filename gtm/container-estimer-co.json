@@ -2151,7 +2151,7 @@
         "accountId": "0",
         "containerId": "0",
         "triggerId": "8",
-        "name": "CE — micro : étape 3 atteinte",
+        "name": "CE — micro étape 3 atteinte",
         "fingerprint": "0",
         "type": "CUSTOM_EVENT",
         "customEventFilter": [
@@ -2351,7 +2351,7 @@
         "accountId": "0",
         "containerId": "0",
         "tagId": "5",
-        "name": "Ads — Conversion : estimation",
+        "name": "Ads — Conversion estimation",
         "type": "awct",
         "parameter": [
           {
@@ -2412,7 +2412,7 @@
         "accountId": "0",
         "containerId": "0",
         "tagId": "6",
-        "name": "Ads — Conversion : contact",
+        "name": "Ads — Conversion contact",
         "type": "awct",
         "parameter": [
           {
@@ -2473,7 +2473,7 @@
         "accountId": "0",
         "containerId": "0",
         "tagId": "7",
-        "name": "Ads — Conversion : partenariat",
+        "name": "Ads — Conversion partenariat",
         "type": "awct",
         "parameter": [
           {
@@ -2529,7 +2529,7 @@
         "accountId": "0",
         "containerId": "0",
         "tagId": "8",
-        "name": "Ads — Conversion : PDF",
+        "name": "Ads — Conversion PDF",
         "type": "awct",
         "parameter": [
           {
@@ -2586,7 +2586,7 @@
         "accountId": "0",
         "containerId": "0",
         "tagId": "9",
-        "name": "Ads — Conversion : micro étape 3",
+        "name": "Ads — Conversion micro étape 3",
         "type": "awct",
         "parameter": [
           {
