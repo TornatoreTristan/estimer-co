@@ -2314,6 +2314,27 @@
             "type": "TEMPLATE",
             "key": "tagId",
             "value": "{{CONST — GA4 Measurement ID}}"
+          },
+          {
+            "type": "LIST",
+            "key": "configSettingsTable",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "cookie_expires"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "34128000"
+                  }
+                ]
+              }
+            ]
           }
         ],
         "fingerprint": "0",

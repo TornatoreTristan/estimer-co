@@ -50,6 +50,33 @@ const CONTENEUR_PUBLIC_ID = "GTM-5TB8F4CS";
  */
 const ZERO = { accountId: "0", containerId: "0" };
 
+/**
+ * Durée de vie des cookies GA4 (`_ga`, `_ga_<ID>`), en secondes.
+ *
+ * ---------------------------------------------------------------------------
+ * CE RÉGLAGE N'EST PAS UNE OPTIMISATION, C'EST UNE OBLIGATION
+ * ---------------------------------------------------------------------------
+ * GA4 pose `_ga` pour DEUX ANS par défaut. Or la politique de confidentialité
+ * annonce au visiteur « 13 mois maximum » pour les traceurs
+ * (`src/pages/politique-de-confidentialite.astro`, section « Durées de
+ * conservation »), ce qui est aussi la recommandation de la CNIL.
+ *
+ * Sans cette ligne, le site déposerait un traceur d'une durée que sa propre
+ * politique interdit — un écart invisible depuis l'interface de GTM, et
+ * précisément ce qu'un contrôle vient regarder.
+ *
+ * 395 jours : la valeur conventionnelle pour « 13 mois », juste en deçà de la
+ * moyenne réelle (395,4 jours). `scripts/test-gtm-container.mjs` relit la durée
+ * ANNONCÉE dans la politique et échoue si le conteneur la dépasse : les deux ne
+ * peuvent plus diverger en silence.
+ *
+ * À savoir : changer cette valeur n'agit que sur les dépôts À VENIR. Un cookie
+ * déjà posé pour deux ans le reste jusqu'à sa prochaine réécriture — d'où
+ * l'intérêt de la poser avant la première publication du conteneur.
+ */
+const DUREE_COOKIE_GA4_JOURS = 395;
+const DUREE_COOKIE_GA4_SECONDES = DUREE_COOKIE_GA4_JOURS * 24 * 60 * 60;
+
 // ===========================================================================
 // 1. VARIABLES INTÉGRÉES (§6.1)
 // ===========================================================================
@@ -529,7 +556,15 @@ const CONSENTEMENT_PUBLICITE = {
 balise(
   "GA4 — Configuration",
   "googtag",
-  [param.texte("tagId", ref(V_GA4_ID))],
+  [
+    param.texte("tagId", ref(V_GA4_ID)),
+    param.liste("configSettingsTable", [
+      param.map([
+        param.texte("parameter", "cookie_expires"),
+        param.texte("parameterValue", String(DUREE_COOKIE_GA4_SECONDES)),
+      ]),
+    ]),
+  ],
   { declencheurs: [D_INIT], dossier: F_GA4, consentement: CONSENTEMENT_NATIF }
 );
 

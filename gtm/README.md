@@ -137,6 +137,24 @@ paramètres sont collectés mais n'apparaissent dans aucun rapport.**
 > `departement_code` (101 valeurs) est le bon grain d'analyse ; le code postal
 > reste envoyé et exploitable via BigQuery ou l'API.
 
+### Conservation des données
+
+*Admin* → *Paramètres des données* → *Conservation des données* → **14 mois**
+(le maximum d'une propriété standard ; le défaut est de 2 mois, ce qui interdit
+toute comparaison d'une année sur l'autre).
+
+Ce réglage porte sur les données **dérivées** des traceurs, couvertes par la
+clause « 25 mois pour les statistiques agrégées » de la politique. À ne pas
+confondre avec la **durée du cookie `_ga` lui-même**, plafonnée à 395 jours par
+la balise de configuration du conteneur (`cookie_expires`) pour tenir les
+« 13 mois maximum » annoncés au visiteur.
+
+> **À vérifier après l'import** : ouvrir `GA4 — Configuration` et contrôler que
+> le paramètre `cookie_expires` vaut bien `34128000`. Sans lui, GA4 retombe sur
+> ses **deux ans** par défaut — soit un traceur d'une durée que la politique du
+> site interdit. `scripts/test-gtm-container.mjs` verrouille la valeur côté
+> dépôt, mais seule l'interface dira si l'import l'a conservée.
+
 À faire aussi, tant qu'on y est :
 
 - *Collecte de données* → **désactiver « Interactions avec les formulaires »**
