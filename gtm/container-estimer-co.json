@@ -1272,93 +1272,6 @@
         "accountId": "0",
         "containerId": "0",
         "variableId": "48",
-        "name": "LOOKUP — Ads Conversion Label",
-        "type": "smm",
-        "parameter": [
-          {
-            "type": "TEMPLATE",
-            "key": "input",
-            "value": "{{Event}}"
-          },
-          {
-            "type": "LIST",
-            "key": "map",
-            "list": [
-              {
-                "type": "MAP",
-                "map": [
-                  {
-                    "type": "TEMPLATE",
-                    "key": "key",
-                    "value": "generate_lead"
-                  },
-                  {
-                    "type": "TEMPLATE",
-                    "key": "value",
-                    "value": "LABEL_ESTIMATION"
-                  }
-                ]
-              },
-              {
-                "type": "MAP",
-                "map": [
-                  {
-                    "type": "TEMPLATE",
-                    "key": "key",
-                    "value": "contact_lead"
-                  },
-                  {
-                    "type": "TEMPLATE",
-                    "key": "value",
-                    "value": "LABEL_CONTACT"
-                  }
-                ]
-              },
-              {
-                "type": "MAP",
-                "map": [
-                  {
-                    "type": "TEMPLATE",
-                    "key": "key",
-                    "value": "report_pdf_download"
-                  },
-                  {
-                    "type": "TEMPLATE",
-                    "key": "value",
-                    "value": "LABEL_PDF"
-                  }
-                ]
-              },
-              {
-                "type": "MAP",
-                "map": [
-                  {
-                    "type": "TEMPLATE",
-                    "key": "key",
-                    "value": "estimation_step_view"
-                  },
-                  {
-                    "type": "TEMPLATE",
-                    "key": "value",
-                    "value": "LABEL_MICRO"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "BOOLEAN",
-            "key": "setDefaultValue",
-            "value": "false"
-          }
-        ],
-        "fingerprint": "0",
-        "parentFolderId": "5"
-      },
-      {
-        "accountId": "0",
-        "containerId": "0",
-        "variableId": "49",
         "name": "UD — Données fournies par l'utilisateur",
         "type": "gtud",
         "parameter": [
@@ -1384,7 +1297,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "50",
+        "variableId": "49",
         "name": "SETTINGS — Params communs",
         "type": "gtes",
         "parameter": [
@@ -2458,7 +2371,7 @@
           {
             "type": "TEMPLATE",
             "key": "conversionLabel",
-            "value": "{{LOOKUP — Ads Conversion Label}}"
+            "value": "LABEL_ESTIMATION"
           },
           {
             "type": "TEMPLATE",
@@ -2502,6 +2415,7 @@
         "consentSettings": {
           "consentStatus": "NOT_SET"
         },
+        "paused": true,
         "parentFolderId": "3"
       },
       {
@@ -2519,7 +2433,7 @@
           {
             "type": "TEMPLATE",
             "key": "conversionLabel",
-            "value": "{{LOOKUP — Ads Conversion Label}}"
+            "value": "LABEL_CONTACT"
           },
           {
             "type": "TEMPLATE",
@@ -2563,6 +2477,7 @@
         "consentSettings": {
           "consentStatus": "NOT_SET"
         },
+        "paused": true,
         "parentFolderId": "3"
       },
       {
@@ -2580,7 +2495,7 @@
           {
             "type": "TEMPLATE",
             "key": "conversionLabel",
-            "value": "{{LOOKUP — Ads Conversion Label}}"
+            "value": "LABEL_PARTENARIAT"
           },
           {
             "type": "TEMPLATE",
@@ -2619,6 +2534,7 @@
         "consentSettings": {
           "consentStatus": "NOT_SET"
         },
+        "paused": true,
         "parentFolderId": "3"
       },
       {
@@ -2636,7 +2552,7 @@
           {
             "type": "TEMPLATE",
             "key": "conversionLabel",
-            "value": "{{LOOKUP — Ads Conversion Label}}"
+            "value": "LABEL_PDF"
           },
           {
             "type": "TEMPLATE",
@@ -2675,6 +2591,7 @@
         "consentSettings": {
           "consentStatus": "NOT_SET"
         },
+        "paused": true,
         "parentFolderId": "3"
       },
       {
@@ -2692,7 +2609,7 @@
           {
             "type": "TEMPLATE",
             "key": "conversionLabel",
-            "value": "{{LOOKUP — Ads Conversion Label}}"
+            "value": "LABEL_MICRO"
           },
           {
             "type": "TEMPLATE",
@@ -2731,6 +2648,7 @@
         "consentSettings": {
           "consentStatus": "NOT_SET"
         },
+        "paused": true,
         "parentFolderId": "3"
       },
       {

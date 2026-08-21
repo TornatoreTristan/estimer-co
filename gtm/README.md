@@ -20,7 +20,7 @@ gestes à faire.
 
 ## 1. Ce que l'import couvre — et ce qu'il ne couvre pas
 
-**Couvert** (50 variables, 9 déclencheurs, 14 balises, 5 dossiers) : tout le §6
+**Couvert** (49 variables, 9 déclencheurs, 14 balises, 5 dossiers) : tout le §6
 du plan. Variables de couche de données, déclencheurs, balises GA4, Google Ads
 et Meta, réglages de consentement, dossiers.
 
@@ -85,21 +85,40 @@ directement dans l'interface.
 > générateur versionné, et chargerait un second `gtag.js`. La balise `Ads —
 > Configuration` du conteneur remplit ce rôle.
 
-Puis les **libellés de conversion**, dans `LOOKUP — Ads Conversion Label` (une
-ligne par événement, à remplacer après le §4) :
+## 3bis. Les libellés de conversion
 
-| Événement | Libellé |
-|---|---|
-| `generate_lead` | `LABEL_ESTIMATION` → celui de « Estimation — lead » |
-| `contact_lead` | `LABEL_CONTACT` → celui de « Contact — message » |
-| `report_pdf_download` | `LABEL_PDF` |
-| `estimation_step_view` | `LABEL_MICRO` |
+Chaque action de conversion Ads a son **libellé** (une chaîne alphanumérique du
+type `nX2wCMbv8...`), à ne pas confondre avec l'« identifiant associé au type de
+conversion » que l'interface affiche en évidence — ce dernier est un numéro
+interne à l'API, il n'a rien à faire dans une balise.
 
-> La conversion « Contact — partenariat » réutilise volontairement le libellé de
-> `contact_lead` : les deux balises tirent sur le même événement et se
-> distinguent par le sujet du message. Si vous préférez deux actions Ads
-> distinctes, il faut alors deux entrées dans la table — auquel cas modifier le
-> **générateur**, pas l'interface.
+On le trouve sur la page de l'action → **Configurer la balise** → *Google Tag
+Manager*. Dans un snippet, c'est la partie après la barre oblique :
+`'send_to': 'AW-18402972391/LE_LIBELLÉ'`.
+
+Ils se renseignent dans `scripts/build-gtm-container.mjs`, en haut du bloc des
+conversions :
+
+| Constante | Action Ads | État |
+|---|---|---|
+| `LIBELLE_ESTIMATION` | Estimation - Lead | à fournir |
+| `LIBELLE_CONTACT` | Contact - message | à fournir |
+| `LIBELLE_PARTENARIAT` | Contact - partenariat | à fournir |
+| `LIBELLE_PDF` | *(reportée)* | — |
+| `LIBELLE_MICRO` | *(reportée)* | — |
+
+> **Une balise dont le libellé est encore un gabarit `LABEL_…` est
+> automatiquement mise EN PAUSE** par le générateur. C'est mécanique et non
+> confié à la vigilance : une conversion qui tire avec un faux libellé ne
+> remonte rien, sans lever la moindre erreur — les campagnes tournent, le budget
+> part, et la colonne « Conversions » reste à zéro sans qu'on sache pourquoi.
+> Renseigner le libellé réveille la balise, il n'y a rien d'autre à penser.
+
+> **Pas de table de correspondance par événement.** Elle a existé, elle
+> supposait « un événement = une action ». « Contact - message » et
+> « Contact - partenariat » sont deux actions Ads déclenchées par le même
+> `contact_lead`, séparées par le sujet : la table leur aurait servi le même
+> libellé. Chaque balise porte donc le sien.
 
 ---
 
@@ -107,13 +126,23 @@ ligne par événement, à remplacer après le §4) :
 
 Ads → *Objectifs* → *Conversions* → **Nouvelle action** → *Site Web* → configuration **manuelle**.
 
-| Nom | Catégorie | Valeur | Comptage | Fenêtre clic | Objectif |
-|---|---|---|---|---|---|
-| Estimation — lead | Envoyer un formulaire de prospect | Utiliser une valeur différente | **Une seule** | 30 j | **Principal** |
-| Contact — message | Contacter | Utiliser une valeur différente | Une seule | 30 j | Principal |
-| Contact — partenariat | Autre | Ne pas utiliser | Une seule | 30 j | **Secondaire** |
-| Rapport — PDF | Télécharger | Ne pas utiliser | Une seule | 30 j | Secondaire |
-| Tunnel — étape 3 | Autre | Ne pas utiliser | Une seule | 7 j | Secondaire |
+| Nom | Catégorie | Valeur | Comptage | Fenêtre clic | Objectif | État |
+|---|---|---|---|---|---|---|
+| Estimation - Lead | Envoyer un formulaire de prospect | Différente (défaut 100 €) | **Une seule** | 30 j | **Principal** | ✅ créée |
+| Contact - message | Contacter | Différente (défaut 50 €) | Une seule | 30 j | Principal | ✅ créée |
+| Contact - partenariat | Envoyer un formulaire de prospect | Ne pas utiliser | Une seule | 30 j | **Secondaire** | ✅ créée |
+| Rapport — PDF | Télécharger | Ne pas utiliser | Une seule | 30 j | Secondaire | ⏸ reportée |
+| Tunnel — étape 3 | Autre | Ne pas utiliser | Une seule | 7 j | Secondaire | ⏸ reportée |
+
+Les deux dernières sont **reportées** (décision du 21/08/2026 : on démarre avec
+les trois conversions issues d'un formulaire). Leurs balises sont en pause dans
+le conteneur — pas supprimées : les remettre en service ne demandera qu'un
+libellé et un ré-import.
+
+Ce qu'on se prive en attendant : la micro-conversion d'étape 3 est le signal à
+fort volume qui aide les enchères à sortir de leur phase d'apprentissage tant
+que les vrais leads sont rares. À reconsidérer si les campagnes plafonnent sous
+une trentaine de conversions par mois.
 
 Deux points qui coûtent cher s'ils sont manqués :
 

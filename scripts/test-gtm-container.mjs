@@ -548,3 +548,107 @@ test("le mode opératoire annonce le bon inventaire", () => {
     "inventaire annoncé dans gtm/README.md et contenu réel du conteneur désaccordés"
   );
 });
+
+// ===========================================================================
+// 8. Libellés de conversion et balises en pause
+// ===========================================================================
+
+/** Nom de l'événement sur lequel une balise se déclenche. */
+function evenementDeclencheur(balise) {
+  const declencheur = VERSION.trigger.find((t) => t.triggerId === balise.firingTriggerId[0]);
+  if (!declencheur || !declencheur.customEventFilter) return null;
+  return declencheur.customEventFilter[0].parameter.find((p) => p.key === "arg1").value;
+}
+
+test("aucune conversion active ne porte un libellé gabarit", () => {
+  /*
+   * Une balise de conversion qui tire avec `LABEL_ESTIMATION` au lieu du vrai
+   * libellé ne remonte rien, sans lever la moindre erreur. C'est la panne la
+   * plus coûteuse du dispositif : les campagnes tournent, le budget part, et
+   * la colonne « Conversions » reste à zéro sans qu'on sache pourquoi.
+   *
+   * Les balises EN PAUSE y échappent : leur libellé viendra le jour où
+   * l'action correspondante sera créée côté Ads.
+   */
+  const enGabarit = VERSION.tag
+    .filter((t) => t.type === "awct" && !t.paused)
+    .filter((t) => /^LABEL_/.test(t.parameter.find((p) => p.key === "conversionLabel").value))
+    .map((t) => t.name);
+
+  assert.deepEqual(
+    enGabarit,
+    [],
+    "ces conversions sont actives mais leur libellé n'a jamais été renseigné"
+  );
+});
+
+test("deux conversions sur un même événement ont deux libellés distincts", () => {
+  /*
+   * « Contact - message » et « Contact - partenariat » sont deux actions Ads
+   * différentes déclenchées par le MÊME événement `contact_lead`, séparées par
+   * le sujet du message. C'est ce cas qui a fait retirer la table de
+   * correspondance indexée par événement : elle leur aurait servi le même
+   * libellé, donc compté les candidatures de partenaires comme des demandes de
+   * contact.
+   */
+  const parEvenement = new Map();
+
+  for (const balise of VERSION.tag.filter((t) => t.type === "awct")) {
+    const evenement = evenementDeclencheur(balise);
+    const libelle = balise.parameter.find((p) => p.key === "conversionLabel").value;
+    if (!parEvenement.has(evenement)) parEvenement.set(evenement, new Set());
+    parEvenement.get(evenement).add(libelle);
+  }
+
+  for (const [evenement, libelles] of parEvenement) {
+    const balises = VERSION.tag.filter(
+      (t) => t.type === "awct" && evenementDeclencheur(t) === evenement
+    );
+    assert.equal(
+      libelles.size,
+      balises.length,
+      `${evenement} : ${balises.length} conversions pour ${libelles.size} libellé(s) — deux actions Ads ne peuvent pas partager un libellé`
+    );
+  }
+});
+
+test("toute balise en pause l'est pour une raison lisible", () => {
+  /*
+   * Deux raisons légitimes, et deux seulement :
+   *
+   *   - la conversion a été REPORTÉE (l'action n'existe pas encore côté Ads) ;
+   *   - son libellé n'est pas encore renseigné, donc elle ne peut rien remonter.
+   *
+   * Une balise en pause pour aucune de ces raisons est une balise qu'on a
+   * oublié de réveiller — et une mesure qu'on croit avoir alors qu'elle
+   * n'existe pas.
+   */
+  const REPORTEES = ["Ads — Conversion : PDF", "Ads — Conversion : micro étape 3"];
+
+  for (const balise of VERSION.tag.filter((t) => t.paused)) {
+    const libelle = balise.parameter.find((p) => p.key === "conversionLabel");
+    const sansLibelle = libelle && /^LABEL_/.test(libelle.value);
+    assert.ok(
+      REPORTEES.includes(balise.name) || sansLibelle,
+      `${balise.name} : en pause sans raison — reportée ? libellé manquant ?`
+    );
+  }
+
+  // Et l'inverse : une conversion reportée ne doit pas être active.
+  for (const nom of REPORTEES) {
+    const balise = VERSION.tag.find((t) => t.name === nom);
+    assert.ok(balise, `balise manquante : ${nom}`);
+    assert.equal(balise.paused, true, `${nom} : reportée mais active`);
+  }
+});
+
+test("la table de correspondance par événement a bien disparu", () => {
+  // Elle reposait sur « un événement = une action de conversion », hypothèse
+  // fausse depuis la création de deux actions sur `contact_lead`. La
+  // réintroduire ramènerait le défaut.
+  assert.equal(
+    VERSION.variable.some((v) => v.type === "smm"),
+    false,
+    "aucune table de correspondance ne doit indexer les libellés par événement"
+  );
+});
