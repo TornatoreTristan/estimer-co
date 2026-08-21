@@ -52,6 +52,23 @@
           }
 
           function onSuccess() {
+            // Sur le SUCCÈS, jamais sur la soumission : un message que l'API a
+            // refusé n'est pas un lead, et le compter reviendrait à payer des
+            // clics publicitaires pour des formulaires qui n'aboutissent pas.
+            //
+            // Le `lead_id` est frappé ici plutôt qu'à l'envoi : c'est une
+            // conversion sans page de confirmation ni redirection, il ne sert
+            // donc qu'à dédoublonner entre Google Ads et Meta (plan §2.4).
+            if (typeof embTrack === "function") {
+              embTrack("contact_lead", {
+                lead_id: embLeadId(),
+                lead_type: "contact",
+                contact_subject: subjectValue,
+                value: embContactValue(subjectValue),
+                currency: "EUR",
+              });
+            }
+
             alert(
               "Merci ! Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais."
             );

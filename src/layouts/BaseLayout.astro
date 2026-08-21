@@ -4,6 +4,7 @@ import ConsentBanner from '../components/ConsentBanner.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import StickyCta from '../components/StickyCta.astro';
+import Tracking from '../components/Tracking.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -23,6 +24,9 @@ const { title, description } = Astro.props;
         `gtag('consent','default', denied)` posé par ce composant ne vaut que
         s'il précède le moindre tag. Ne rien insérer au-dessus. */}
     <Analytics />
+    {/* Juste derrière, et avant tout script de page : les scripts de parcours
+        appellent `embTrack()` sans se garder. Cf. `Tracking.astro`. */}
+    <Tracking />
     <meta name="generator" content={Astro.generator} />
     {description && <meta name="description" content={description} />}
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />

@@ -87,6 +87,10 @@ const LEAD_SCRIPT_PATH = path.join(__dirname, "..", "src", "scripts", "lead-api.
 const LEAD_SOURCE = readFileSync(LEAD_SCRIPT_PATH, "utf8");
 const LEAD_SCRIPT = new vm.Script(LEAD_SOURCE, { filename: "lead-api.js" });
 
+const TRACKING_SCRIPT_PATH = path.join(__dirname, "..", "src", "scripts", "tracking.js");
+const TRACKING_SOURCE = readFileSync(TRACKING_SCRIPT_PATH, "utf8");
+const TRACKING_SCRIPT = new vm.Script(TRACKING_SOURCE, { filename: "tracking.js" });
+
 /**
  * @param {{document?: object}} [globals] `document` minimal optionnel, pour
  *   exercer les quelques fonctions qui en dépendent (`getSelectedOptionText`)
@@ -1068,6 +1072,23 @@ function createSubmitHarness(config) {
    * script : `estimation-ui.js` doit alors se rabattre sur EmailJS plutôt que
    * de casser toute la soumission sur une `ReferenceError`.
    */
+  /*
+   * `tracking.js` (socle de mesure) est écrit dans le `<head>` par
+   * `Tracking.astro`, donc AVANT tout script de page — et seulement si un
+   * conteneur de tags est configuré. Les scénarios qui ne demandent pas la
+   * mesure neutralisent donc `embTrack`, comme le fait `withoutLeadApi` pour
+   * `requestLead` : c'est ce que voient les gardes `typeof … === "function"`
+   * d'`estimation-ui.js`, et c'est aussi ce qui empêche un scénario d'hériter
+   * du `dataLayer` du précédent (`runInThisContext` crée des globales non
+   * configurables, impossibles à supprimer).
+   */
+  if (cfg.mesure) {
+    windowStub.dataLayer = [];
+    TRACKING_SCRIPT.runInThisContext();
+  } else {
+    globalThis.embTrack = undefined;
+  }
+
   PLACES_SCRIPT.runInThisContext();
   WIZARD_SCRIPT.runInThisContext();
   API_SCRIPT.runInThisContext();
@@ -1099,6 +1120,15 @@ function createSubmitHarness(config) {
       return leadCalls.length ? leadCalls[leadCalls.length - 1].body : null;
     },
     redirects: redirects,
+    /** Événements poussés dans le dataLayer (scénarios `mesure: true`). */
+    pousses(nom) {
+      const tous = windowStub.dataLayer || [];
+      return nom
+        ? tous.filter(function (charge) {
+            return charge && charge.event === nom;
+          })
+        : tous;
+    },
     focusLog: focusLog,
     consoleErrors: consoleErrors,
     submitBtn: submitBtn,
@@ -1683,4 +1713,149 @@ test("chemin d'erreur imprévu — le formulaire redevient soumettable (drapeau 
       assert.equal(h.fetchCalls.length, 2, "le formulaire n'est pas resté bloqué");
     }
   );
+});
+
+// ===========================================================================
+// Mesure du tunnel — specs/plan-taggage-conversions.md §4.2
+// ===========================================================================
+//
+// L'entonnoir d'estimation est l'objet même du plan de taggage : c'est lui qui
+// dira où les visiteurs achetés en publicité abandonnent. Un événement de trop
+// ou de moins, et le taux d'abandon d'une étape devient faux sans que rien ne
+// le signale.
+
+test("mesure — l'entrée dans le tunnel n'est annoncée qu'une fois", async () => {
+  await withSubmitHarness({ mesure: true }, async (h) => {
+    const demarrages = h.pousses("estimation_start");
+
+    assert.equal(demarrages.length, 1);
+    assert.equal(demarrages[0].entry_point, "direct");
+    // `false` est une information, pas une absence : le filtre d'`embTrack`
+    // n'écarte que null / undefined / chaîne vide.
+    assert.equal(demarrages[0].has_address_prefill, false);
+
+    // Et une seule vue d'étape à l'arrivée : la séquence d'initialisation
+    // (restauration, pré-remplissage) appelle `next()`/`goToStep()` plusieurs
+    // fois, ce que le verrou `mesureActive` doit absorber en silence.
+    const vues = h.pousses("estimation_step_view");
+    assert.equal(vues.length, 1);
+    assert.deepEqual(vues[0], {
+      event: "estimation_step_view",
+      step_number: 1,
+      step_key: "address",
+      step_direction: "forward",
+    });
+  });
+});
+
+test("mesure — chaque étape franchie produit une vue, dans le bon sens", async () => {
+  await withSubmitHarness({ mesure: true }, async (h) => {
+    h.setField("address", "12 rue de la Paix, 75001 Paris, France");
+    h.setField("postalCode", "75001");
+    h.setField("city", "Paris");
+    h.clickNext();
+    h.setField("propertyType", "appartement");
+    h.clickNext();
+
+    assert.deepEqual(
+      h.pousses("estimation_step_view").map((e) => [e.step_number, e.step_key, e.step_direction]),
+      [
+        [1, "address", "forward"],
+        [2, "property", "forward"],
+        [3, "characteristics", "forward"],
+      ]
+    );
+
+    // Retour arrière : c'est une vue d'étape, pas un abandon.
+    h.element("wizardPrev").dispatch("click", {});
+    const vues = h.pousses("estimation_step_view");
+    assert.deepEqual(
+      [vues[vues.length - 1].step_number, vues[vues.length - 1].step_direction],
+      [2, "backward"]
+    );
+  });
+});
+
+test("mesure — l'adresse validée est mesurée une fois, quel qu'en soit le chemin", async () => {
+  await withSubmitHarness({ mesure: true }, async (h) => {
+    h.setField("address", "12 rue de la Paix, 75001 Paris, France");
+    h.setField("postalCode", "75001");
+    h.setField("city", "Paris");
+    h.clickNext();
+
+    const adresses = h.pousses("estimation_address_selected");
+    assert.equal(adresses.length, 1);
+    assert.equal(adresses[0].postal_code, "75001");
+    assert.equal(adresses[0].city, "Paris");
+    assert.equal(adresses[0].departement_code, "75");
+    // Saisie libre, sans suggestion Google retenue.
+    assert.equal(adresses[0].address_source, "manual");
+    // La rue elle-même n'a rien à faire dans le dataLayer (plan §2.6).
+    assert.equal("address" in adresses[0], false);
+
+    // Aller-retour sur l'étape 1 : l'adresse n'est pas « re-validée ».
+    h.element("wizardPrev").dispatch("click", {});
+    h.clickNext();
+    assert.equal(h.pousses("estimation_address_selected").length, 1);
+  });
+});
+
+test("mesure — un champ manquant remonte les NOMS des champs fautifs", async () => {
+  await withSubmitHarness({ mesure: true }, async (h) => {
+    h.setField("address", "12 rue de la Paix");
+    // Ni code postal ni ville : la validation de l'étape 1 doit bloquer.
+    h.clickNext();
+
+    const erreurs = h.pousses("estimation_step_error");
+    assert.equal(erreurs.length, 1);
+    assert.equal(erreurs[0].step_number, 1);
+    assert.equal(erreurs[0].step_key, "address");
+    assert.ok(erreurs[0].error_count >= 1);
+    assert.ok(
+      erreurs[0].error_fields.split("|").every((champ) => /^[a-zA-Z]+$/.test(champ)),
+      "des noms de champs, jamais les messages affichés ni la saisie"
+    );
+
+    // L'étape n'a pas changé : aucune vue supplémentaire.
+    assert.equal(h.pousses("estimation_step_view").length, 1);
+  });
+});
+
+test("mesure — la soumission porte le lead_id et la qualification du lead", async () => {
+  await withSubmitHarness({ mesure: true, apiBaseUrl: "" }, async (h) => {
+    h.fillValidForm();
+    h.submit();
+    await h.settle();
+
+    const soumissions = h.pousses("estimation_submit");
+    assert.equal(soumissions.length, 1);
+
+    const soumission = soumissions[0];
+    assert.match(soumission.lead_id, /.{8,}/, "un identifiant non vide");
+    assert.equal(soumission.property_type, "appartement");
+    assert.equal(soumission.surface_bucket, "060-089");
+    assert.equal(soumission.departement_code, "75");
+    assert.equal(soumission.lead_quality, "hot");
+    for (const interdit of ["name", "email", "phone", "address"]) {
+      assert.equal(interdit in soumission, false, `« ${interdit} » ne doit pas être poussé`);
+    }
+
+    // Le même identifiant est persisté : c'est lui que `/rapport/` relira pour
+    // n'émettre la conversion qu'une fois (plan §2.4).
+    assert.equal(h.lastEstimation().lead_id, soumission.lead_id);
+  });
+});
+
+test("mesure — sans conteneur de tags, le tunnel ne pousse rien et fonctionne", async () => {
+  await withSubmitHarness({ apiBaseUrl: "" }, async (h) => {
+    h.fillValidForm();
+    h.submit();
+    await h.settle();
+
+    assert.equal(h.pousses().length, 0, "aucun dataLayer sans socle de mesure");
+    // Et surtout : le parcours va jusqu'au bout. Une mesure absente ne doit
+    // jamais coûter un lead.
+    assert.deepEqual(h.redirects, ["/rapport/"]);
+    assert.equal(h.lastEstimation().lead_id, "");
+  });
 });

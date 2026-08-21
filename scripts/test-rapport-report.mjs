@@ -54,6 +54,7 @@ function loadScript(name) {
 const PDF_SCRIPT = loadScript("pdf-report.js");
 const API_SCRIPT = loadScript("estimation-api.js");
 const REPORT_SCRIPT = loadScript("rapport-report.js");
+const TRACKING_SCRIPT = loadScript("tracking.js");
 
 // ============================================================================
 // Faux DOM minimal
@@ -191,10 +192,17 @@ function strasbourgLastEstimation() {
 /**
  * Exécute `rapport-report.js` sur un `lastEstimation` donné et renvoie les
  * éléments produits.
+ *
+ * @param {object} lastEstimation
+ * @param {{ store?: Map<string,string>, mesure?: boolean }} [options]
+ *   `store` partagé entre deux appels = deux chargements de `/rapport` dans le
+ *   MÊME navigateur (rechargement, retour arrière). `mesure` charge en plus
+ *   `tracking.js`, comme le fait `Tracking.astro` dans le `<head>`.
  */
-function renderReport(lastEstimation) {
+function renderReport(lastEstimation, options) {
+  const opts = options || {};
   const elements = new Map();
-  const store = new Map();
+  const store = opts.store || new Map();
   store.set("lastEstimation", JSON.stringify(lastEstimation));
 
   const sandbox = {
@@ -226,13 +234,20 @@ function renderReport(lastEstimation) {
   };
   vm.createContext(sandbox);
 
-  // Ordre de production de la page `/rapport` (cf. rapport.astro).
+  // Ordre de production de la page `/rapport` (cf. rapport.astro) : le socle
+  // de mesure d'abord — il est écrit dans le `<head>`, avant tout script de
+  // page —, puis les scripts de la page.
+  if (opts.mesure) TRACKING_SCRIPT.runInContext(sandbox);
   PDF_SCRIPT.runInContext(sandbox);
   API_SCRIPT.runInContext(sandbox);
   REPORT_SCRIPT.runInContext(sandbox);
 
   return {
     sandbox: sandbox,
+    /** Événements réellement poussés dans le dataLayer par ce chargement. */
+    pousses() {
+      return sandbox.window.dataLayer || [];
+    },
     get(id) {
       return elements.get(id) || null;
     },
@@ -627,4 +642,131 @@ test("PDF — méthodologie : sans `coefficientSources`, rien ne change (non-ré
       return entry.text.indexOf("dégressivité du prix au m²") !== -1;
     })
   );
+});
+
+// ============================================================================
+// Mesure de la conversion — specs/plan-taggage-conversions.md §2.3, §9.3
+// ============================================================================
+//
+// La conversion principale du site est émise ICI et non au clic « Envoyer »,
+// parce que `finalizeSubmit()` redirige immédiatement et qu'un événement poussé
+// juste avant la navigation est une course perdue d'avance avec le navigateur.
+// La contrepartie est le double comptage, que ces tests verrouillent.
+
+/** Événements d'un nom donné parmi ceux poussés dans le dataLayer. */
+function evenements(rendu, nom) {
+  return rendu.pousses().filter(function (charge) {
+    return charge && charge.event === nom;
+  });
+}
+
+test("mesure — la conversion est émise une fois, et une seule", () => {
+  const donnees = baseLastEstimation({ lead_id: "11111111-2222-4333-8444-555555555555" });
+  // Un seul magasin partagé = un seul navigateur, trois chargements de la page
+  // (arrivée, rechargement, retour arrière depuis le bfcache).
+  const navigateur = new Map();
+
+  const premier = renderReport(donnees, { store: navigateur, mesure: true });
+  const second = renderReport(donnees, { store: navigateur, mesure: true });
+  const troisieme = renderReport(donnees, { store: navigateur, mesure: true });
+
+  assert.equal(evenements(premier, "generate_lead").length, 1, "arrivée : la conversion compte");
+  assert.equal(evenements(second, "generate_lead").length, 0, "rechargement : plus rien");
+  assert.equal(evenements(troisieme, "generate_lead").length, 0, "retour arrière : plus rien");
+
+  // `report_view` n'est pas une conversion : chaque affichage du rapport est un
+  // affichage, et doit rester compté comme tel.
+  for (const rendu of [premier, second, troisieme]) {
+    assert.equal(evenements(rendu, "report_view").length, 1);
+  }
+});
+
+test("mesure — deux estimations distinctes valent deux conversions", () => {
+  const navigateur = new Map();
+
+  const premier = renderReport(
+    baseLastEstimation({ lead_id: "aaaaaaaa-1111-4111-8111-111111111111" }),
+    { store: navigateur, mesure: true }
+  );
+  const second = renderReport(
+    baseLastEstimation({ lead_id: "bbbbbbbb-2222-4222-8222-222222222222" }),
+    { store: navigateur, mesure: true }
+  );
+
+  assert.equal(evenements(premier, "generate_lead").length, 1);
+  assert.equal(
+    evenements(second, "generate_lead").length,
+    1,
+    "le verrou porte sur le lead, pas sur la page"
+  );
+});
+
+test("mesure — un rapport sans lead_id ne compte aucune conversion", () => {
+  // `lastEstimation` écrit par une version du site antérieure au lot T1 : le
+  // rapport s'affiche, mais il n'y a rien à rattacher. Compter à tort serait
+  // pire que ne pas compter.
+  const rendu = renderReport(baseLastEstimation(), { mesure: true });
+
+  assert.equal(evenements(rendu, "report_view").length, 1);
+  assert.equal(evenements(rendu, "generate_lead").length, 0);
+});
+
+test("mesure — la conversion porte sa valeur et sa qualification", () => {
+  const rendu = renderReport(
+    baseLastEstimation({ lead_id: "cccccccc-3333-4333-8333-333333333333" }),
+    { mesure: true }
+  );
+
+  const conversion = evenements(rendu, "generate_lead")[0];
+
+  assert.equal(conversion.lead_type, "estimation");
+  assert.equal(conversion.currency, "EUR");
+  assert.equal(conversion.lead_quality, "hot", "propriétaire décidé à vendre");
+  assert.equal(conversion.estimation_value, 850000);
+  // 100 × 3 (hot) × min(2,5 ; 850 000/250 000) -> le plafond s'applique.
+  assert.equal(conversion.value, 750);
+  assert.equal(conversion.property_type, "appartement");
+  assert.equal(conversion.surface_bucket, "060-089");
+  assert.equal(conversion.departement_code, "75");
+  assert.equal(conversion.estimation_status, "ok");
+});
+
+test("mesure — une estimation non calculée n'invente pas de valeur de bien", () => {
+  const donnees = baseLastEstimation({
+    lead_id: "dddddddd-4444-4444-8444-444444444444",
+    estimationStatus: "deferred",
+    estimation: null,
+  });
+
+  const conversion = evenements(renderReport(donnees, { mesure: true }), "generate_lead")[0];
+
+  assert.equal("estimation_value" in conversion, false, "aucun prix affiché, aucun prix poussé");
+  // Coefficient de bien neutre : 100 × 3 × 1.
+  assert.equal(conversion.value, 300);
+  assert.equal(conversion.estimation_status, "deferred");
+});
+
+test("mesure — aucune donnée personnelle n'accompagne la conversion", () => {
+  // Le garde-fou de bout en bout : `lastEstimation` CONTIENT les coordonnées du
+  // prospect (le rapport et le PDF en ont besoin). Rien de tout cela ne doit
+  // atteindre le dataLayer, qui est lisible par n'importe quelle extension
+  // installée chez le visiteur.
+  const donnees = baseLastEstimation({
+    lead_id: "eeeeeeee-5555-4555-8555-555555555555",
+    name: "Jean Dupont",
+    email: "jean.dupont@example.com",
+    phone: "0612345678",
+    address: "12 rue de la Paix",
+  });
+
+  const rendu = renderReport(donnees, { mesure: true });
+  const pousses = JSON.stringify(rendu.pousses());
+
+  for (const secret of ["Jean Dupont", "jean.dupont@example.com", "0612345678", "rue de la Paix"]) {
+    assert.equal(
+      pousses.indexOf(secret),
+      -1,
+      `« ${secret} » ne doit jamais transiter par le dataLayer`
+    );
+  }
 });
