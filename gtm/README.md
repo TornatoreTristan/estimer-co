@@ -20,7 +20,7 @@ gestes à faire.
 
 ## 1. Ce que l'import couvre — et ce qu'il ne couvre pas
 
-**Couvert** (49 variables, 8 déclencheurs, 14 balises, 5 dossiers) : tout le §6
+**Couvert** (47 variables, 8 déclencheurs, 14 balises, 5 dossiers) : tout le §6
 du plan. Variables de couche de données, déclencheurs, balises GA4, Google Ads
 et Meta, réglages de consentement, dossiers.
 
