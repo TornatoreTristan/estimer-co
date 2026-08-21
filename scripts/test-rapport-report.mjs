@@ -211,6 +211,10 @@ function renderReport(lastEstimation, options) {
     console: { log() {}, error() {}, warn() {} },
     setTimeout: function () {},
     clearTimeout: function () {},
+    // Vrais minuteurs : `embAttendreConsentement` scrute le dataLayer, et on
+    // veut exercer ce chemin plutôt que son repli sur erreur.
+    setInterval: setInterval,
+    clearInterval: clearInterval,
     document: {
       getElementById(id) {
         if (!elements.has(id)) elements.set(id, makeElement(id));
@@ -226,6 +230,13 @@ function renderReport(lastEstimation, options) {
       // La vraie Web Crypto de Node : le hachage des coordonnées doit être
       // réellement exercé, pas contourné par un bouchon complaisant.
       crypto: opts.sansWebCrypto ? {} : globalThis.crypto,
+      /*
+       * Consentement DÉJÀ connu, sauf demande contraire : c'est le cas d'un
+       * visiteur revenant sur le site, dont le choix stocké est restitué au
+       * chargement. Sans cette amorce, `embAttendreConsentement` scruterait
+       * pendant deux secondes à chaque test.
+       */
+      dataLayer: opts.consentementInconnu ? [] : [{ event: "consent_update" }],
     },
     TextEncoder,
     localStorage: {
@@ -726,11 +737,12 @@ test("mesure — deux estimations distinctes valent deux conversions", async () 
   );
 });
 
-test("mesure — un rapport sans lead_id ne compte aucune conversion", () => {
+test("mesure — un rapport sans lead_id ne compte aucune conversion", async () => {
   // `lastEstimation` écrit par une version du site antérieure au lot T1 : le
   // rapport s'affiche, mais il n'y a rien à rattacher. Compter à tort serait
   // pire que ne pas compter.
   const rendu = renderReport(baseLastEstimation(), { mesure: true });
+  await attendreConversion();
 
   assert.equal(evenements(rendu, "report_view").length, 1);
   assert.equal(evenements(rendu, "generate_lead").length, 0);
@@ -849,4 +861,35 @@ test("mesure — un hachage impossible ne coûte jamais la conversion", async ()
   assert.equal(conversions.length, 1, "la conversion part malgré tout");
   assert.equal("user_data" in conversions[0], false);
   assert.equal(conversions[0].value, 750, "et elle porte toujours sa valeur");
+});
+
+test("mesure — rien ne part tant que le consentement n'est pas connu", async () => {
+  /*
+   * DÉFAUT CONSTATÉ EN MODE APERÇU, ET CORRIGÉ ICI.
+   *
+   * Le choix du visiteur est stocké dans un cookie, mais RÉAPPLIQUÉ à chaque
+   * chargement de page, de façon asynchrone — le bandeau charge sa
+   * bibliothèque par `import()` dynamique. L'ordre observé était :
+   *
+   *     défaut « denied » -> report_view -> generate_lead -> consent_update
+   *
+   * La conversion partait donc toujours sous le défaut refusé, même chez
+   * quelqu'un ayant accepté de longue date : balises tierces bloquées à chaque
+   * fois, balises Google en mode dégradé, et un diagnostic GTM annonçant
+   * « 100 % des signaux refusés ».
+   */
+  const rendu = renderReport(
+    baseLastEstimation({ lead_id: "77777777-8888-4888-8888-888888888888" }),
+    { mesure: true, consentementInconnu: true }
+  );
+
+  await attendreConversion();
+
+  assert.deepEqual(rendu.pousses(), [], "aucun événement avant que le choix soit connu");
+
+  // Le bandeau finit de charger et restitue le choix mémorisé.
+  rendu.sandbox.window.dataLayer.push({ event: "consent_update" });
+  await new Promise((resolve) => setTimeout(resolve, 120));
+
+  assert.equal(evenements(rendu, "generate_lead").length, 1, "la conversion part ensuite");
 });

@@ -49,6 +49,19 @@ function mesurerRapport(donnees, estimation, statut) {
   // Aucun conteneur de tags configuré : `tracking.js` n'est pas injecté.
   if (typeof embTrack !== "function") return;
 
+  // Rien ne part avant que l'état du consentement soit connu — voir le bloc
+  // explicatif plus bas, et `embAttendreConsentement` dans `tracking.js`.
+  if (typeof embAttendreConsentement === "function") {
+    embAttendreConsentement().then(
+      () => mesurerRapportMaintenant(donnees, estimation, statut),
+      () => mesurerRapportMaintenant(donnees, estimation, statut)
+    );
+  } else {
+    mesurerRapportMaintenant(donnees, estimation, statut);
+  }
+}
+
+function mesurerRapportMaintenant(donnees, estimation, statut) {
   const leadId = donnees.lead_id || "";
 
   embTrack("report_view", { lead_id: leadId, estimation_status: statut });
