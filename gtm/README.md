@@ -30,7 +30,9 @@ et Meta, réglages de consentement, dossiers.
   alimente, il ne les crée pas ;
 - les **dimensions personnalisées GA4** (§5) — sans elles, les paramètres sont
   collectés mais **invisibles dans les rapports** ;
-- le **pixel Meta** lui-même (§6), qui doit exister côté Meta Business.
+- le **pixel Meta** lui-même (§6), qui doit exister côté Meta Business ;
+- la **variable de données fournies par l'utilisateur** (§5bis) — GTM refuse son
+  type à l'import, elle se crée à la main.
 
 Tant que ces trois-là ne sont pas faits, les balises tirent dans le vide.
 
@@ -210,39 +212,40 @@ la balise de configuration du conteneur (`cookie_expires`) pour tenir les
 
 ---
 
-## 5bis. Vérifier la variable de conversions améliorées
+## 5bis. Créer la variable de conversions améliorées
 
-⚠️ **`UD — Données fournies par l'utilisateur` est l'entité la plus susceptible
-d'être mal reconstituée par l'import.** Le nom exact des champs de ce type de
-variable n'est pas documenté hors de l'interface.
+⚠️ **Cette variable n'est PAS dans le fichier d'import.** GTM refuse le type
+`gtud` à l'import (« Type d'entité inconnu ») : les types récents ne se
+transportent pas, ils ne se créent que dans l'interface. Le fichier a donc été
+purgé de cette variable, et les conversions améliorées y sont désactivées.
 
-Après l'import, l'ouvrir et vérifier qu'elle contient bien :
+Le site, lui, pousse déjà les empreintes SHA-256 (`embUserData` dans
+`src/scripts/tracking.js`). Il ne manque que le branchement.
 
-| Champ | Valeur |
-|---|---|
-| Type de saisie | **Manuel** |
-| E-mail | `{{DLV — user_data.sha256_email_address}}` |
-| Téléphone | `{{DLV — user_data.sha256_phone_number}}` |
+**Deux minutes :**
 
-Si elle est vide ou incomplète, la refaire à la main prend deux minutes
-(*Variables* → *Nouvelle* → **Données fournies par l'utilisateur** → mode
-*Manuel*), sous le **même nom** — les deux balises de conversion la référencent.
+1. *Variables* → *Nouvelle* → **Données fournies par l'utilisateur**
+2. Nom : `UD — Données fournies par l'utilisateur`
+3. Type de saisie : **Manuel**
+4. E-mail : `{{DLV — user_data.sha256_email_address}}`
+5. Téléphone : `{{DLV — user_data.sha256_phone_number}}`
+6. Sur `Ads — Conversion estimation` et `Ads — Conversion contact` : cocher
+   **Inclure les données fournies par l'utilisateur**, et y pointer cette
+   variable
 
 **Mode « Manuel » et jamais « Automatique ».** Le mode automatique demande à
 Google de parcourir le DOM à la recherche de champs de formulaire, c'est-à-dire
-de lire l'adresse e-mail en clair sur la page. Ici, le site calcule lui-même une
-empreinte SHA-256 (`embUserData` dans `src/scripts/tracking.js`) : Google ne voit
-jamais la donnée d'origine.
+de lire l'adresse e-mail en clair sur la page. Ici, le site calcule lui-même
+l'empreinte : Google ne voit jamais la donnée d'origine. C'est tout l'objet du
+lot T3.
 
-Côté Google Ads, activer les conversions améliorées sur les deux actions
-concernées (**Estimation — lead** et **Contact — message**), en choisissant
-l'implémentation **par Google Tag Manager** — et accepter les conditions
-d'utilisation des données client, sans quoi le diagnostic reste en attente
-indéfiniment.
+Côté Google Ads, activer les conversions améliorées sur **Estimation - Lead** et
+**Contact - message**, implémentation **par Google Tag Manager**, et accepter
+les conditions d'utilisation des données client — sans quoi le diagnostic reste
+en attente indéfiniment.
 
-Les trois autres conversions (partenariat, PDF, micro-étape 3) n'ont
-**volontairement pas** de conversions améliorées : aucun formulaire ne leur
-fournit de coordonnées, et les activer laisserait un diagnostic en erreur
+Les trois autres conversions n'en ont volontairement pas : aucun formulaire ne
+leur fournit de coordonnées, et les activer laisserait un diagnostic en erreur
 permanent — un voyant rouge derrière lequel une vraie panne passerait inaperçue.
 
 ## 6. Meta
