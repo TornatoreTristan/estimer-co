@@ -426,21 +426,83 @@ test("les empreintes de contact ne partent qu'aux conversions améliorées", () 
   }
 });
 
-test("les identifiants de compte sont des gabarits, pas des valeurs réelles", () => {
-  // Un identifiant réel committé par mégarde enverrait les conversions d'une
-  // recette dans un compte de production. Les gabarits sont invalides à
-  // dessein : une balise mal configurée ne remonte rien, ce qui se voit.
-  const gabarits = {
-    "CONST — GA4 Measurement ID": /^G-X+$/,
-    "CONST — Google Ads Conversion ID": /^0+$/,
-    "CONST — Meta Pixel ID": /^0+$/,
+test("chaque identifiant de compte a la forme de sa plateforme", () => {
+  /*
+   * On vérifie la FORME, pas la présence d'un gabarit : ces identifiants
+   * figurent de toute façon en clair dans le HTML livré, les versionner ne
+   * divulgue rien et évite de les ressaisir à chaque import.
+   *
+   * Ce que ce test attrape vraiment, c'est le mauvais identifiant au mauvais
+   * endroit — et surtout le `AW-` collé dans l'identifiant de conversion, que
+   * les balises `awct` et `sp` attendent en NOMBRE SEUL. Avec le préfixe, la
+   * balise passe la validation de GTM et ne remonte jamais rien : panne
+   * parfaitement silencieuse, et plusieurs jours de budget dépensés à l'aveugle
+   * avant que quelqu'un s'en aperçoive.
+   *
+   * `0…` reste accepté : c'est un compte pas encore créé.
+   */
+  const formats = {
+    "CONST — GA4 Measurement ID": /^(G-[A-Z0-9]{6,12}|0+)$/,
+    "CONST — Google Ads Conversion ID": /^\d{9,12}$/,
+    "CONST — Meta Pixel ID": /^\d{15,16}$/,
   };
 
-  for (const [nom, motif] of Object.entries(gabarits)) {
+  for (const [nom, motif] of Object.entries(formats)) {
     const variable = VERSION.variable.find((v) => v.name === nom);
     assert.ok(variable, `constante manquante : ${nom}`);
+
     const valeur = variable.parameter.find((p) => p.key === "value").value;
-    assert.match(valeur, motif, `${nom} : identifiant réel committé ?`);
+    assert.match(valeur, motif, `${nom} : « ${valeur} » n'a pas la forme attendue`);
+  }
+
+  const ads = VERSION.variable.find((v) => v.name === "CONST — Google Ads Conversion ID");
+  assert.equal(
+    ads.parameter.find((p) => p.key === "value").value.startsWith("AW-"),
+    false,
+    "l'identifiant de conversion se donne SANS le préfixe AW-, que la balise ajoute elle-même"
+  );
+});
+
+test("le préfixe AW- est mis là où il faut, et nulle part ailleurs", () => {
+  /*
+   * Asymétrie déroutante mais réelle, et source de pannes silencieuses : la
+   * balise Google (`googtag`) veut `AW-18402972391`, les balises de conversion
+   * (`awct`) et de remarketing (`sp`) veulent `18402972391`. Une seule
+   * constante porte la valeur, chacun la préfixe selon son besoin — et ce test
+   * verrouille qui préfixe quoi.
+   */
+  const config = VERSION.tag.find((t) => t.name === "Ads — Configuration");
+  assert.ok(config, "la balise Google de Google Ads doit exister");
+  assert.equal(
+    config.parameter.find((p) => p.key === "tagId").value,
+    "AW-{{CONST — Google Ads Conversion ID}}"
+  );
+
+  for (const balise of VERSION.tag.filter((t) => t.type === "awct" || t.type === "sp")) {
+    const id = balise.parameter.find((p) => p.key === "conversionId").value;
+    assert.equal(
+      id,
+      "{{CONST — Google Ads Conversion ID}}",
+      `${balise.name} : avec le préfixe, cette balise passe la validation de GTM et ne remonte jamais rien`
+    );
+  }
+});
+
+test("les balises de configuration ne comptent aucune conversion", () => {
+  // `googtag` configure, `awct` mesure. Confondre les deux, c'est le double
+  // comptage. Les deux balises de configuration se déclenchent à
+  // l'initialisation et ne portent ni libellé, ni valeur, ni identifiant de
+  // transaction.
+  for (const nom of ["GA4 — Configuration", "Ads — Configuration"]) {
+    const balise = VERSION.tag.find((t) => t.name === nom);
+    assert.equal(balise.type, "googtag", nom);
+    for (const interdit of ["conversionLabel", "conversionValue", "orderId"]) {
+      assert.equal(
+        balise.parameter.some((p) => p.key === interdit),
+        false,
+        `${nom} : « ${interdit} » n'a rien à faire sur une balise de configuration`
+      );
+    }
   }
 });
 
@@ -462,4 +524,167 @@ test("le conteneur cible est bien celui du site", () => {
   // Un horodatage rendrait le fichier différent à chaque génération, donc
   // impossible à comparer d'un commit à l'autre.
   assert.equal(JSON.parse(BRUT).exportTime, "");
+});
+
+test("le mode opératoire annonce le bon inventaire", () => {
+  // Ce compteur a déjà dérivé deux fois. Un README qui annonce 13 balises
+  // quand le conteneur en porte 14 n'est pas une coquille : c'est la première
+  // chose que lira celui qui vérifiera l'aperçu d'import, et un écart le
+  // laissera croire que l'import a échoué.
+  const readme = readFileSync(path.join(RACINE, "gtm", "README.md"), "utf8");
+  const annonce = readme.match(
+    /\((\d+) variables, (\d+) déclencheurs, (\d+) balises, (\d+) dossiers\)/
+  );
+  assert.ok(annonce, "gtm/README.md doit annoncer l'inventaire du conteneur");
+
+  assert.deepEqual(
+    annonce.slice(1, 5).map(Number),
+    [
+      VERSION.variable.length,
+      VERSION.trigger.length,
+      VERSION.tag.length,
+      VERSION.folder.length,
+    ],
+    "inventaire annoncé dans gtm/README.md et contenu réel du conteneur désaccordés"
+  );
+});
+
+// ===========================================================================
+// 8. Libellés de conversion et balises en pause
+// ===========================================================================
+
+/** Nom de l'événement sur lequel une balise se déclenche. */
+function evenementDeclencheur(balise) {
+  const declencheur = VERSION.trigger.find((t) => t.triggerId === balise.firingTriggerId[0]);
+  if (!declencheur || !declencheur.customEventFilter) return null;
+  return declencheur.customEventFilter[0].parameter.find((p) => p.key === "arg1").value;
+}
+
+test("aucune conversion active ne porte un libellé gabarit", () => {
+  /*
+   * Une balise de conversion qui tire avec `LABEL_ESTIMATION` au lieu du vrai
+   * libellé ne remonte rien, sans lever la moindre erreur. C'est la panne la
+   * plus coûteuse du dispositif : les campagnes tournent, le budget part, et
+   * la colonne « Conversions » reste à zéro sans qu'on sache pourquoi.
+   *
+   * Les balises EN PAUSE y échappent : leur libellé viendra le jour où
+   * l'action correspondante sera créée côté Ads.
+   */
+  const enGabarit = VERSION.tag
+    .filter((t) => t.type === "awct" && !t.paused)
+    .filter((t) => /^LABEL_/.test(t.parameter.find((p) => p.key === "conversionLabel").value))
+    .map((t) => t.name);
+
+  assert.deepEqual(
+    enGabarit,
+    [],
+    "ces conversions sont actives mais leur libellé n'a jamais été renseigné"
+  );
+});
+
+test("deux conversions sur un même événement ont deux libellés distincts", () => {
+  /*
+   * « Contact - message » et « Contact - partenariat » sont deux actions Ads
+   * différentes déclenchées par le MÊME événement `contact_lead`, séparées par
+   * le sujet du message. C'est ce cas qui a fait retirer la table de
+   * correspondance indexée par événement : elle leur aurait servi le même
+   * libellé, donc compté les candidatures de partenaires comme des demandes de
+   * contact.
+   */
+  const parEvenement = new Map();
+
+  for (const balise of VERSION.tag.filter((t) => t.type === "awct")) {
+    const evenement = evenementDeclencheur(balise);
+    const libelle = balise.parameter.find((p) => p.key === "conversionLabel").value;
+    if (!parEvenement.has(evenement)) parEvenement.set(evenement, new Set());
+    parEvenement.get(evenement).add(libelle);
+  }
+
+  for (const [evenement, libelles] of parEvenement) {
+    const balises = VERSION.tag.filter(
+      (t) => t.type === "awct" && evenementDeclencheur(t) === evenement
+    );
+    assert.equal(
+      libelles.size,
+      balises.length,
+      `${evenement} : ${balises.length} conversions pour ${libelles.size} libellé(s) — deux actions Ads ne peuvent pas partager un libellé`
+    );
+  }
+});
+
+test("toute balise en pause l'est pour une raison lisible", () => {
+  /*
+   * Deux raisons légitimes, et deux seulement :
+   *
+   *   - la conversion a été REPORTÉE (l'action n'existe pas encore côté Ads) ;
+   *   - son libellé n'est pas encore renseigné, donc elle ne peut rien remonter.
+   *
+   * Une balise en pause pour aucune de ces raisons est une balise qu'on a
+   * oublié de réveiller — et une mesure qu'on croit avoir alors qu'elle
+   * n'existe pas.
+   */
+  const REPORTEES = ["Ads — Conversion : PDF", "Ads — Conversion : micro étape 3"];
+
+  for (const balise of VERSION.tag.filter((t) => t.paused)) {
+    const libelle = balise.parameter.find((p) => p.key === "conversionLabel");
+    const sansLibelle = libelle && /^LABEL_/.test(libelle.value);
+    assert.ok(
+      REPORTEES.includes(balise.name) || sansLibelle,
+      `${balise.name} : en pause sans raison — reportée ? libellé manquant ?`
+    );
+  }
+
+  // Et l'inverse : une conversion reportée ne doit pas être active.
+  for (const nom of REPORTEES) {
+    const balise = VERSION.tag.find((t) => t.name === nom);
+    assert.ok(balise, `balise manquante : ${nom}`);
+    assert.equal(balise.paused, true, `${nom} : reportée mais active`);
+  }
+});
+
+test("la table de correspondance par événement a bien disparu", () => {
+  // Elle reposait sur « un événement = une action de conversion », hypothèse
+  // fausse depuis la création de deux actions sur `contact_lead`. La
+  // réintroduire ramènerait le défaut.
+  assert.equal(
+    VERSION.variable.some((v) => v.type === "smm"),
+    false,
+    "aucune table de correspondance ne doit indexer les libellés par événement"
+  );
+});
+
+test("un libellé actif a la forme d'un vrai libellé Google Ads", () => {
+  /*
+   * Complément du test précédent : « pas un gabarit » ne suffit pas. Un
+   * libellé tronqué à la copie, ou saisi avec un caractère de trop, produit
+   * exactement la même panne silencieuse — la balise tire, Google ne
+   * reconnaît rien, la colonne « Conversions » reste à zéro.
+   *
+   * Les libellés Ads sont des chaînes base64-URL d'une vingtaine de
+   * caractères. Ce contrôle n'attrape pas une confusion `l`/`I` — seul un
+   * test en conditions réelles (mode Aperçu, puis diagnostic Ads sous 48 h)
+   * la révélera.
+   */
+  for (const balise of VERSION.tag.filter((t) => t.type === "awct" && !t.paused)) {
+    const libelle = balise.parameter.find((p) => p.key === "conversionLabel").value;
+    assert.match(
+      libelle,
+      /^[A-Za-z0-9_-]{10,40}$/,
+      `${balise.name} : « ${libelle} » n'a pas la forme d'un libellé de conversion`
+    );
+  }
+});
+
+test("les trois conversions issues d'un formulaire sont actives", () => {
+  // Ce sont elles qui portent la mesure : si l'une repassait en pause sans
+  // qu'on l'ait voulu, les campagnes tourneraient sans rien remonter.
+  for (const nom of [
+    "Ads — Conversion : estimation",
+    "Ads — Conversion : contact",
+    "Ads — Conversion : partenariat",
+  ]) {
+    const balise = VERSION.tag.find((t) => t.name === nom);
+    assert.ok(balise, `balise manquante : ${nom}`);
+    assert.notEqual(balise.paused, true, `${nom} : en pause alors qu'elle doit mesurer`);
+  }
 });

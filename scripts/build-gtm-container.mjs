@@ -245,6 +245,7 @@ function balise(name, type, parameter, options) {
     monitoringMetadata: { type: "MAP" },
     consentSettings: opts.consentement || { consentStatus: "NOT_SET" },
     ...(opts.setupTag ? { setupTag: opts.setupTag } : {}),
+    ...(opts.enPause ? { paused: true } : {}),
     ...(opts.dossier ? { parentFolderId: opts.dossier } : {}),
   });
 }
@@ -283,19 +284,23 @@ const F_VARIABLES = dossier("90 — Variables");
 // ===========================================================================
 
 /*
- * LES TROIS SEULES VALEURS À RENSEIGNER À LA MAIN APRÈS L'IMPORT.
+ * LES TROIS IDENTIFIANTS DE COMPTE.
  *
- * Elles sont regroupées en constantes précisément pour cela : un identifiant
- * recopié dans huit balises est un identifiant qu'on oubliera de corriger dans
- * la huitième. Les valeurs ci-dessous sont des GABARITS VOLONTAIREMENT
- * INVALIDES — une balise qui tire avec un identifiant fantaisiste ne remonte
- * rien, ce qui est bien moins grave que d'envoyer des conversions dans le
- * compte de quelqu'un d'autre.
+ * Regroupés en constantes précisément pour cela : un identifiant recopié dans
+ * huit balises est un identifiant qu'on oubliera de corriger dans la huitième.
+ *
+ * Aucun n'est un secret — tous les trois figurent en clair dans le HTML livré
+ * dès que les balises tirent. Les versionner ici évite de les ressaisir à
+ * chaque import, qui est exactement l'étape manuelle que ce générateur existe
+ * pour supprimer. Ceux qui restent à `0` ne sont pas encore créés ; le test de
+ * format (`scripts/test-gtm-container.mjs`) refuse en revanche toute valeur
+ * dont la FORME ne correspond pas à sa plateforme — c'est lui qui attrape le
+ * `AW-` collé dans l'identifiant de conversion, panne silencieuse s'il en est.
  */
 const V_GA4_ID = variable(
   "CONST — GA4 Measurement ID",
   "c",
-  [param.texte("value", "G-XXXXXXXXXX")],
+  [param.texte("value", "G-B066RRFQL5")],
   F_VARIABLES
 );
 
@@ -307,14 +312,14 @@ const V_GA4_ID = variable(
 const V_ADS_ID = variable(
   "CONST — Google Ads Conversion ID",
   "c",
-  [param.texte("value", "000000000")],
+  [param.texte("value", "18402972391")],
   F_VARIABLES
 );
 
 const V_META_ID = variable(
   "CONST — Meta Pixel ID",
   "c",
-  [param.texte("value", "000000000000000")],
+  [param.texte("value", "1775996150258086")],
   F_VARIABLES
 );
 
@@ -339,37 +344,41 @@ for (const cle of VARIABLES_DATALAYER) {
 }
 
 /*
- * Libellés de conversion Google Ads, regroupés dans une table plutôt que
- * recopiés dans chaque balise : ils se renseignent tous au même endroit, en
- * face du nom de l'événement qu'ils mesurent.
+ * LIBELLÉS DE CONVERSION GOOGLE ADS.
+ *
+ * Ils vivaient dans une table de correspondance indexée par `{{Event}}`, ce
+ * qui supposait « un événement = une action de conversion ». L'hypothèse est
+ * tombée le jour où deux actions Ads distinctes — « Contact - message » et
+ * « Contact - partenariat » — ont été créées sur le MÊME événement
+ * `contact_lead`, distinguées par le sujet du message. La table leur aurait
+ * servi le même libellé, donc compté les candidatures de partenaires comme des
+ * demandes de contact.
+ *
+ * Chaque balise porte donc son libellé, et les cinq tiennent côte à côte plus
+ * bas — plus lisible qu'une table plus une indirection, et sans hypothèse
+ * cachée sur la relation entre événements et actions.
+ *
+ * Les valeurs `LABEL_…` sont des gabarits : `scripts/test-gtm-container.mjs`
+ * refuse qu'une balise ACTIVE en porte un. Une conversion qui tire avec un
+ * libellé fantôme ne remonte rien, en silence.
  */
-const V_LOOKUP_LABELS = variable(
-  "LOOKUP — Ads Conversion Label",
-  "smm",
-  [
-    param.texte("input", ref("Event")),
-    param.liste("map", [
-      param.map([
-        param.texte("key", "generate_lead"),
-        param.texte("value", "LABEL_ESTIMATION"),
-      ]),
-      param.map([
-        param.texte("key", "contact_lead"),
-        param.texte("value", "LABEL_CONTACT"),
-      ]),
-      param.map([
-        param.texte("key", "report_pdf_download"),
-        param.texte("value", "LABEL_PDF"),
-      ]),
-      param.map([
-        param.texte("key", "estimation_step_view"),
-        param.texte("value", "LABEL_MICRO"),
-      ]),
-    ]),
-    param.booleen("setDefaultValue", false),
-  ],
-  F_VARIABLES
-);
+/**
+ * Un libellé encore à l'état de gabarit met sa balise EN PAUSE, automatiquement.
+ *
+ * Une balise de conversion qui tire avec `LABEL_ESTIMATION` au lieu du vrai
+ * libellé ne remonte rien, sans lever la moindre erreur — les campagnes
+ * tournent, le budget part, et la colonne « Conversions » reste à zéro sans
+ * qu'on sache pourquoi. La règle est donc mécanique plutôt que confiée à la
+ * vigilance : pas de libellé, pas de balise active. Renseigner le libellé la
+ * réveille, sans rien d'autre à penser.
+ */
+const libelleManquant = (libelle) => /^LABEL_/.test(libelle);
+
+const LIBELLE_ESTIMATION = "tkZ4CMXkt-UcEOelnMdE"; // Estimation - Lead
+const LIBELLE_CONTACT = "YG-DCMikw-UcEOelnMdE"; // Contact - message
+const LIBELLE_PARTENARIAT = "pwClCKysw-UcEOelnMdE"; // Contact - partenariat
+const LIBELLE_PDF = "LABEL_PDF"; // action non créée — balise en pause
+const LIBELLE_MICRO = "LABEL_MICRO"; // action non créée — balise en pause
 
 /*
  * Données fournies par l'utilisateur — conversions améliorées (lot T3).
@@ -586,9 +595,40 @@ balise(
 );
 
 /*
- * Le Google tag pose déjà le lien de conversion, mais le Conversion Linker
- * reste un filet peu coûteux sur la capture du `gclid` — notamment quand un
- * visiteur atterrit sur une page avant que le Google tag n'ait fini de charger.
+ * Balise Google de Google Ads (`AW-…`).
+ *
+ * Les cinq balises de conversion `awct` fonctionnent sans elle : elles portent
+ * l'identifiant et le libellé, et c'est un montage supporté de longue date.
+ * Elle est ajoutée pour deux raisons concrètes :
+ *
+ *   - c'est le socle attendu par Google aujourd'hui, et son absence fait
+ *     souvent rester le diagnostic Ads en « balise inactive » — un voyant rouge
+ *     permanent derrière lequel une vraie panne finit par passer inaperçue ;
+ *   - elle fiabilise la pose des cookies propriétaires de Google Ads, dont
+ *     dépendent l'attribution et les conversions améliorées.
+ *
+ * Une balise par identifiant : GA4 (`G-…`) et Ads (`AW-…`) ne se cumulent pas
+ * dans un même `googtag`. Aucune des deux ne compte de conversion — ce sont des
+ * balises de configuration, pas de mesure.
+ */
+// `AW-` + la constante : c'est la balise Google qui veut le préfixe, alors que
+// les balises de conversion veulent le nombre seul. Un seul endroit porte la
+// valeur, chacun la préfixe comme il en a besoin.
+balise("Ads — Configuration", "googtag", [param.texte("tagId", "AW-" + ref(V_ADS_ID))], {
+  declencheurs: [D_INIT],
+  dossier: F_ADS,
+  consentement: CONSENTEMENT_NATIF,
+});
+
+/*
+ * Conversion Linker.
+ *
+ * Redondant avec la balise Google ci-dessus, qui assure désormais la même
+ * capture du `gclid`. On le garde comme repli : il se déclenche sur toutes les
+ * pages, là où la balise Google dépend de l'initialisation, et il coûte
+ * quelques octets. Le supprimer serait un nettoyage à part entière, à faire
+ * une fois le diagnostic Ads au vert — pas au moment de la première mise en
+ * service, où l'on veut le maximum de filets.
  */
 balise("Ads — Conversion Linker", "gclidw", [param.booleen("enableCrossDomain", false)], {
   declencheurs: [D_TOUTES_PAGES],
@@ -605,7 +645,7 @@ balise("Ads — Conversion Linker", "gclidw", [param.booleen("enableCrossDomain"
  * garantit qu'un rechargement de la page de rapport ne facture pas deux
  * conversions.
  */
-function conversionAds(nom, declencheurId, valeur, options) {
+function conversionAds(nom, declencheurId, valeur, libelle, options) {
   const opts = options || {};
 
   balise(
@@ -613,7 +653,7 @@ function conversionAds(nom, declencheurId, valeur, options) {
     "awct",
     [
       param.texte("conversionId", ref(V_ADS_ID)),
-      param.texte("conversionLabel", ref(V_LOOKUP_LABELS)),
+      param.texte("conversionLabel", libelle),
       param.texte("conversionValue", valeur),
       param.texte("currencyCode", "EUR"),
       param.texte("orderId", ref(nomDlv("lead_id"))),
@@ -633,19 +673,70 @@ function conversionAds(nom, declencheurId, valeur, options) {
         ? [param.texte("userDataVariable", ref(V_USER_DATA))]
         : []),
     ],
-    { declencheurs: [declencheurId], dossier: F_ADS, consentement: CONSENTEMENT_NATIF }
+    {
+      declencheurs: [declencheurId],
+      dossier: F_ADS,
+      consentement: CONSENTEMENT_NATIF,
+      // Reportée par décision, OU pas encore utilisable faute de libellé.
+      enPause: Boolean(opts.enPause) || libelleManquant(libelle),
+    }
   );
 }
 
-conversionAds("Ads — Conversion : estimation", D_GENERATE_LEAD, ref(nomDlv("value")), {
-  conversionsAmeliorees: true,
+conversionAds(
+  "Ads — Conversion : estimation",
+  D_GENERATE_LEAD,
+  ref(nomDlv("value")),
+  LIBELLE_ESTIMATION,
+  { conversionsAmeliorees: true }
+);
+
+conversionAds(
+  "Ads — Conversion : contact",
+  D_CONTACT_HORS_PARTENARIAT,
+  ref(nomDlv("value")),
+  LIBELLE_CONTACT,
+  { conversionsAmeliorees: true }
+);
+
+/*
+ * Action Ads DISTINCTE de « Contact - message », bien que déclenchée par le
+ * même événement `contact_lead` : c'est le sujet du message qui les sépare.
+ * D'où un libellé propre — et la raison pour laquelle la table de
+ * correspondance par événement a été retirée (voir plus haut).
+ *
+ * Valeur prise dans le dataLayer, comme les deux autres conversions issues
+ * d'un formulaire : `embContactValue` renvoie 10 € pour ce sujet. Google Ads
+ * impose une valeur sur la catégorie de cette action, et une valeur figée ici
+ * à 0 aurait contredit le réglage du compte — 0 € dans les rapports en face
+ * d'un réglage annonçant 10.
+ */
+conversionAds(
+  "Ads — Conversion : partenariat",
+  D_CONTACT_PARTENARIAT,
+  ref(nomDlv("value")),
+  LIBELLE_PARTENARIAT
+);
+
+/*
+ * EN PAUSE — les actions correspondantes n'existent pas encore côté Google Ads
+ * (décision du 21/08/2026 : on démarre avec les trois conversions issues d'un
+ * formulaire).
+ *
+ * En pause plutôt que supprimées : la configuration reste lisible et sa remise
+ * en service ne demandera qu'un drapeau, un libellé, et un ré-import. Les
+ * laisser ACTIVES aurait été le pire choix — elles tireraient avec un libellé
+ * fantôme, ne remonteraient rien, et rempliraient le diagnostic Ads d'erreurs
+ * derrière lesquelles une vraie panne se serait cachée.
+ *
+ * Rappel de ce qu'on se prive en attendant : la micro-conversion d'étape 3 est
+ * le signal à fort volume qui aide les enchères à sortir de leur phase
+ * d'apprentissage tant que les vrais leads sont rares (plan §6.3).
+ */
+conversionAds("Ads — Conversion : PDF", D_PDF, "0", LIBELLE_PDF, { enPause: true });
+conversionAds("Ads — Conversion : micro étape 3", D_MICRO_ETAPE_3, "0", LIBELLE_MICRO, {
+  enPause: true,
 });
-conversionAds("Ads — Conversion : contact", D_CONTACT_HORS_PARTENARIAT, ref(nomDlv("value")), {
-  conversionsAmeliorees: true,
-});
-conversionAds("Ads — Conversion : partenariat", D_CONTACT_PARTENARIAT, "0");
-conversionAds("Ads — Conversion : PDF", D_PDF, "0");
-conversionAds("Ads — Conversion : micro étape 3", D_MICRO_ETAPE_3, "0");
 
 balise(
   "Ads — Remarketing",

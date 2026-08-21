@@ -86,7 +86,7 @@
           {
             "type": "TEMPLATE",
             "key": "value",
-            "value": "G-XXXXXXXXXX"
+            "value": "G-B066RRFQL5"
           }
         ],
         "fingerprint": "0",
@@ -102,7 +102,7 @@
           {
             "type": "TEMPLATE",
             "key": "value",
-            "value": "000000000"
+            "value": "18402972391"
           }
         ],
         "fingerprint": "0",
@@ -118,7 +118,7 @@
           {
             "type": "TEMPLATE",
             "key": "value",
-            "value": "000000000000000"
+            "value": "1775996150258086"
           }
         ],
         "fingerprint": "0",
@@ -1272,93 +1272,6 @@
         "accountId": "0",
         "containerId": "0",
         "variableId": "48",
-        "name": "LOOKUP — Ads Conversion Label",
-        "type": "smm",
-        "parameter": [
-          {
-            "type": "TEMPLATE",
-            "key": "input",
-            "value": "{{Event}}"
-          },
-          {
-            "type": "LIST",
-            "key": "map",
-            "list": [
-              {
-                "type": "MAP",
-                "map": [
-                  {
-                    "type": "TEMPLATE",
-                    "key": "key",
-                    "value": "generate_lead"
-                  },
-                  {
-                    "type": "TEMPLATE",
-                    "key": "value",
-                    "value": "LABEL_ESTIMATION"
-                  }
-                ]
-              },
-              {
-                "type": "MAP",
-                "map": [
-                  {
-                    "type": "TEMPLATE",
-                    "key": "key",
-                    "value": "contact_lead"
-                  },
-                  {
-                    "type": "TEMPLATE",
-                    "key": "value",
-                    "value": "LABEL_CONTACT"
-                  }
-                ]
-              },
-              {
-                "type": "MAP",
-                "map": [
-                  {
-                    "type": "TEMPLATE",
-                    "key": "key",
-                    "value": "report_pdf_download"
-                  },
-                  {
-                    "type": "TEMPLATE",
-                    "key": "value",
-                    "value": "LABEL_PDF"
-                  }
-                ]
-              },
-              {
-                "type": "MAP",
-                "map": [
-                  {
-                    "type": "TEMPLATE",
-                    "key": "key",
-                    "value": "estimation_step_view"
-                  },
-                  {
-                    "type": "TEMPLATE",
-                    "key": "value",
-                    "value": "LABEL_MICRO"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "BOOLEAN",
-            "key": "setDefaultValue",
-            "value": "false"
-          }
-        ],
-        "fingerprint": "0",
-        "parentFolderId": "5"
-      },
-      {
-        "accountId": "0",
-        "containerId": "0",
-        "variableId": "49",
         "name": "UD — Données fournies par l'utilisateur",
         "type": "gtud",
         "parameter": [
@@ -1384,7 +1297,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "50",
+        "variableId": "49",
         "name": "SETTINGS — Params communs",
         "type": "gtes",
         "parameter": [
@@ -2395,6 +2308,32 @@
         "accountId": "0",
         "containerId": "0",
         "tagId": "3",
+        "name": "Ads — Configuration",
+        "type": "googtag",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "tagId",
+            "value": "AW-{{CONST — Google Ads Conversion ID}}"
+          }
+        ],
+        "fingerprint": "0",
+        "firingTriggerId": [
+          "1"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        },
+        "parentFolderId": "3"
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "tagId": "4",
         "name": "Ads — Conversion Linker",
         "type": "gclidw",
         "parameter": [
@@ -2420,7 +2359,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "4",
+        "tagId": "5",
         "name": "Ads — Conversion : estimation",
         "type": "awct",
         "parameter": [
@@ -2432,7 +2371,7 @@
           {
             "type": "TEMPLATE",
             "key": "conversionLabel",
-            "value": "{{LOOKUP — Ads Conversion Label}}"
+            "value": "tkZ4CMXkt-UcEOelnMdE"
           },
           {
             "type": "TEMPLATE",
@@ -2481,7 +2420,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "5",
+        "tagId": "6",
         "name": "Ads — Conversion : contact",
         "type": "awct",
         "parameter": [
@@ -2493,7 +2432,7 @@
           {
             "type": "TEMPLATE",
             "key": "conversionLabel",
-            "value": "{{LOOKUP — Ads Conversion Label}}"
+            "value": "YG-DCMikw-UcEOelnMdE"
           },
           {
             "type": "TEMPLATE",
@@ -2542,7 +2481,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "6",
+        "tagId": "7",
         "name": "Ads — Conversion : partenariat",
         "type": "awct",
         "parameter": [
@@ -2554,12 +2493,12 @@
           {
             "type": "TEMPLATE",
             "key": "conversionLabel",
-            "value": "{{LOOKUP — Ads Conversion Label}}"
+            "value": "pwClCKysw-UcEOelnMdE"
           },
           {
             "type": "TEMPLATE",
             "key": "conversionValue",
-            "value": "0"
+            "value": "{{DLV — value}}"
           },
           {
             "type": "TEMPLATE",
@@ -2598,7 +2537,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "7",
+        "tagId": "8",
         "name": "Ads — Conversion : PDF",
         "type": "awct",
         "parameter": [
@@ -2610,7 +2549,7 @@
           {
             "type": "TEMPLATE",
             "key": "conversionLabel",
-            "value": "{{LOOKUP — Ads Conversion Label}}"
+            "value": "LABEL_PDF"
           },
           {
             "type": "TEMPLATE",
@@ -2649,12 +2588,13 @@
         "consentSettings": {
           "consentStatus": "NOT_SET"
         },
+        "paused": true,
         "parentFolderId": "3"
       },
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "8",
+        "tagId": "9",
         "name": "Ads — Conversion : micro étape 3",
         "type": "awct",
         "parameter": [
@@ -2666,7 +2606,7 @@
           {
             "type": "TEMPLATE",
             "key": "conversionLabel",
-            "value": "{{LOOKUP — Ads Conversion Label}}"
+            "value": "LABEL_MICRO"
           },
           {
             "type": "TEMPLATE",
@@ -2705,12 +2645,13 @@
         "consentSettings": {
           "consentStatus": "NOT_SET"
         },
+        "paused": true,
         "parentFolderId": "3"
       },
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "9",
+        "tagId": "10",
         "name": "Ads — Remarketing",
         "type": "sp",
         "parameter": [
@@ -2741,7 +2682,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "10",
+        "tagId": "11",
         "name": "Meta — Pixel de base",
         "type": "html",
         "parameter": [
@@ -2789,7 +2730,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "11",
+        "tagId": "12",
         "name": "Meta — Lead",
         "type": "html",
         "parameter": [
@@ -2843,7 +2784,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "12",
+        "tagId": "13",
         "name": "Meta — Contact",
         "type": "html",
         "parameter": [
@@ -2897,7 +2838,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "tagId": "13",
+        "tagId": "14",
         "name": "Meta — ViewContent",
         "type": "html",
         "parameter": [

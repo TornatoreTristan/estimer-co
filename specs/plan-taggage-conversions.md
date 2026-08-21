@@ -340,8 +340,15 @@ du modèle. Deux façons de la fixer :
 
 En attendant l'arbitrage, poser `VALEUR_BASE_LEAD = 100` : l'échelle relative
 entre leads est correcte, ce qui est tout ce dont Smart Bidding a besoin en
-phase d'observation. `contact_lead` : `50` hors partenariat, `0` pour
-`partenariat` (conversion d'observation, non comptée).
+phase d'observation. `contact_lead` : `50` hors partenariat, **`10` pour
+`partenariat`**.
+
+> Ce dernier chiffre valait `0` au cadrage. Google Ads n'offre pas « ne pas
+> utiliser de valeur » sur la catégorie retenue pour cette action : le site
+> s'aligne donc sur les 10 € réglés dans le compte, plutôt que de laisser les
+> rapports afficher 0 € en face d'un réglage annonçant 10. Sans effet sur les
+> enchères — c'est le statut de conversion **secondaire** qui tient cette
+> conversion hors de l'optimisation, pas sa valeur.
 
 > ⚠️ La valeur envoyée doit rester **cohérente dans le temps**. Un changement
 > d'échelle en cours de campagne relance l'apprentissage à zéro. Décider avant

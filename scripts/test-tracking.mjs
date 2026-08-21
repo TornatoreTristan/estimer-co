@@ -430,11 +430,14 @@ test("embContactValue neutralise la candidature partenaire", () => {
     assert.equal(embContactValue("information"), 50);
     assert.equal(embContactValue("autre"), 50);
     assert.equal(embContactValue(""), 50);
-    // Lead B2B : autre budget, autres campagnes. Lui donner une valeur
-    // apprendrait aux enchères à acheter du trafic de professionnels avec le
-    // budget destiné aux propriétaires vendeurs.
-    assert.equal(embContactValue("partenariat"), 0);
-    assert.equal(embContactValue("Partenariat"), 0);
+    // Lead B2B : autre budget, autres campagnes, donc une valeur nettement
+    // plus basse. Ce qui l'empêche de peser sur les enchères n'est pas sa
+    // valeur mais son statut de conversion secondaire côté Ads. La valeur
+    // s'aligne sur celle réglée dans le compte, où « ne pas utiliser de
+    // valeur » n'est pas proposé pour cette catégorie d'action.
+    assert.equal(embContactValue("partenariat"), 10);
+    assert.equal(embContactValue("Partenariat"), 10);
+    assert.ok(embContactValue("partenariat") < embContactValue("estimation"));
   });
 });
 

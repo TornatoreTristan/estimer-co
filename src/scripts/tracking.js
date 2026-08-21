@@ -111,8 +111,26 @@ var LONGUEUR_MAX_LIBELLE = 80;
  */
 var VALEUR_BASE_LEAD = 100;
 
-/** Valeur d'un message de contact, hors candidature partenaire (plan §5.2). */
+/** Valeur d'un message de contact (plan §5.2). */
 var VALEUR_BASE_CONTACT = 50;
+
+/**
+ * Valeur d'une candidature de partenaire.
+ *
+ * Elle valait zéro : un lead B2B relève d'un autre budget, et lui donner une
+ * valeur apprendrait aux enchères à acheter du trafic de professionnels avec
+ * l'argent destiné aux propriétaires vendeurs.
+ *
+ * Google Ads impose une valeur sur la catégorie retenue pour cette action —
+ * « ne pas utiliser de valeur » n'y est pas proposé. On aligne donc le site sur
+ * les 10 € réglés côté Ads plutôt que de laisser les deux se contredire, ce qui
+ * afficherait 0 € dans les rapports en face d'un réglage annonçant 10.
+ *
+ * Sans conséquence sur les enchères : l'action est réglée en « secondaire »,
+ * donc hors de la colonne « Conversions » et hors de l'optimisation. Et 10 €
+ * face aux 50 et 100 des autres conversions garde le bon ordre de grandeur.
+ */
+var VALEUR_BASE_PARTENARIAT = 10;
 
 /**
  * Coefficients de qualification (plan §5.1).
@@ -435,18 +453,19 @@ function embLeadValue(isOwner, wantToSell, valeurBien) {
 /**
  * Valeur monétaire d'un message de contact, en euros (plan §5.2).
  *
- * Une candidature de partenaire vaut zéro **pour la publicité**, ce qui ne dit
- * rien de sa valeur commerciale : c'est un lead B2B, qui relève d'un autre
- * budget et d'autres campagnes. Lui donner une valeur ici apprendrait aux
- * enchères à acheter du trafic de professionnels avec le budget destiné aux
- * propriétaires vendeurs. C'est aussi pourquoi cette conversion reste
- * « secondaire » côté Google Ads (plan §7.1).
+ * Une candidature de partenaire vaut nettement moins qu'une demande
+ * d'estimation : c'est un lead B2B, qui relève d'un autre budget et d'autres
+ * campagnes. Ce qui l'empêche de peser sur les enchères n'est pas sa valeur
+ * mais son statut de conversion « secondaire » côté Google Ads (plan §7.1) —
+ * hors de la colonne « Conversions », hors de l'optimisation.
  *
  * @param {string} sujet code du sujet (`estimation`, `partenariat`…)
  * @returns {number}
  */
 function embContactValue(sujet) {
-  return String(sujet || "").toLowerCase() === "partenariat" ? 0 : VALEUR_BASE_CONTACT;
+  return String(sujet || "").toLowerCase() === "partenariat"
+    ? VALEUR_BASE_PARTENARIAT
+    : VALEUR_BASE_CONTACT;
 }
 
 // ============================================================================
