@@ -198,6 +198,8 @@ function strasbourgLastEstimation() {
  *   `store` partagé entre deux appels = deux chargements de `/rapport` dans le
  *   MÊME navigateur (rechargement, retour arrière). `mesure` charge en plus
  *   `tracking.js`, comme le fait `Tracking.astro` dans le `<head>`.
+ *   `sansWebCrypto` simule une page servie en HTTP, où le hachage est
+ *   impossible.
  */
 function renderReport(lastEstimation, options) {
   const opts = options || {};
@@ -218,7 +220,14 @@ function renderReport(lastEstimation, options) {
         return null;
       },
     },
-    window: { location: { href: "" }, addEventListener() {} },
+    window: {
+      location: { href: "" },
+      addEventListener() {},
+      // La vraie Web Crypto de Node : le hachage des coordonnées doit être
+      // réellement exercé, pas contourné par un bouchon complaisant.
+      crypto: opts.sansWebCrypto ? {} : globalThis.crypto,
+    },
+    TextEncoder,
     localStorage: {
       getItem(key) {
         return store.has(key) ? store.get(key) : null;
@@ -653,6 +662,17 @@ test("PDF — méthodologie : sans `coefficientSources`, rien ne change (non-ré
 // juste avant la navigation est une course perdue d'avance avec le navigateur.
 // La contrepartie est le double comptage, que ces tests verrouillent.
 
+/**
+ * Laisse se vider la file de micro-tâches.
+ *
+ * Depuis le lot T3, `generate_lead` part APRÈS le hachage SHA-256 des
+ * coordonnées, qui passe par la Web Crypto — donc de façon asynchrone. Sans
+ * cette attente, le test inspecterait le dataLayer avant que la conversion
+ * n'y soit. Elle modélise aussi la réalité : trois chargements successifs de
+ * la page, et non trois rendus simultanés.
+ */
+const attendreConversion = () => new Promise((resolve) => setImmediate(resolve));
+
 /** Événements d'un nom donné parmi ceux poussés dans le dataLayer. */
 function evenements(rendu, nom) {
   return rendu.pousses().filter(function (charge) {
@@ -660,15 +680,18 @@ function evenements(rendu, nom) {
   });
 }
 
-test("mesure — la conversion est émise une fois, et une seule", () => {
+test("mesure — la conversion est émise une fois, et une seule", async () => {
   const donnees = baseLastEstimation({ lead_id: "11111111-2222-4333-8444-555555555555" });
   // Un seul magasin partagé = un seul navigateur, trois chargements de la page
   // (arrivée, rechargement, retour arrière depuis le bfcache).
   const navigateur = new Map();
 
   const premier = renderReport(donnees, { store: navigateur, mesure: true });
+  await attendreConversion();
   const second = renderReport(donnees, { store: navigateur, mesure: true });
+  await attendreConversion();
   const troisieme = renderReport(donnees, { store: navigateur, mesure: true });
+  await attendreConversion();
 
   assert.equal(evenements(premier, "generate_lead").length, 1, "arrivée : la conversion compte");
   assert.equal(evenements(second, "generate_lead").length, 0, "rechargement : plus rien");
@@ -681,17 +704,19 @@ test("mesure — la conversion est émise une fois, et une seule", () => {
   }
 });
 
-test("mesure — deux estimations distinctes valent deux conversions", () => {
+test("mesure — deux estimations distinctes valent deux conversions", async () => {
   const navigateur = new Map();
 
   const premier = renderReport(
     baseLastEstimation({ lead_id: "aaaaaaaa-1111-4111-8111-111111111111" }),
     { store: navigateur, mesure: true }
   );
+  await attendreConversion();
   const second = renderReport(
     baseLastEstimation({ lead_id: "bbbbbbbb-2222-4222-8222-222222222222" }),
     { store: navigateur, mesure: true }
   );
+  await attendreConversion();
 
   assert.equal(evenements(premier, "generate_lead").length, 1);
   assert.equal(
@@ -711,11 +736,12 @@ test("mesure — un rapport sans lead_id ne compte aucune conversion", () => {
   assert.equal(evenements(rendu, "generate_lead").length, 0);
 });
 
-test("mesure — la conversion porte sa valeur et sa qualification", () => {
+test("mesure — la conversion porte sa valeur et sa qualification", async () => {
   const rendu = renderReport(
     baseLastEstimation({ lead_id: "cccccccc-3333-4333-8333-333333333333" }),
     { mesure: true }
   );
+  await attendreConversion();
 
   const conversion = evenements(rendu, "generate_lead")[0];
 
@@ -731,14 +757,16 @@ test("mesure — la conversion porte sa valeur et sa qualification", () => {
   assert.equal(conversion.estimation_status, "ok");
 });
 
-test("mesure — une estimation non calculée n'invente pas de valeur de bien", () => {
+test("mesure — une estimation non calculée n'invente pas de valeur de bien", async () => {
   const donnees = baseLastEstimation({
     lead_id: "dddddddd-4444-4444-8444-444444444444",
     estimationStatus: "deferred",
     estimation: null,
   });
 
-  const conversion = evenements(renderReport(donnees, { mesure: true }), "generate_lead")[0];
+  const rendu = renderReport(donnees, { mesure: true });
+  await attendreConversion();
+  const conversion = evenements(rendu, "generate_lead")[0];
 
   assert.equal("estimation_value" in conversion, false, "aucun prix affiché, aucun prix poussé");
   // Coefficient de bien neutre : 100 × 3 × 1.
@@ -746,7 +774,7 @@ test("mesure — une estimation non calculée n'invente pas de valeur de bien", 
   assert.equal(conversion.estimation_status, "deferred");
 });
 
-test("mesure — aucune donnée personnelle n'accompagne la conversion", () => {
+test("mesure — aucune donnée personnelle n'accompagne la conversion", async () => {
   // Le garde-fou de bout en bout : `lastEstimation` CONTIENT les coordonnées du
   // prospect (le rapport et le PDF en ont besoin). Rien de tout cela ne doit
   // atteindre le dataLayer, qui est lisible par n'importe quelle extension
@@ -760,6 +788,7 @@ test("mesure — aucune donnée personnelle n'accompagne la conversion", () => {
   });
 
   const rendu = renderReport(donnees, { mesure: true });
+  await attendreConversion();
   const pousses = JSON.stringify(rendu.pousses());
 
   for (const secret of ["Jean Dupont", "jean.dupont@example.com", "0612345678", "rue de la Paix"]) {
@@ -769,4 +798,55 @@ test("mesure — aucune donnée personnelle n'accompagne la conversion", () => {
       `« ${secret} » ne doit jamais transiter par le dataLayer`
     );
   }
+});
+
+test("mesure — la conversion porte les empreintes de contact, jamais les coordonnées", async () => {
+  const { createHash } = await import("node:crypto");
+  const empreinte = (texte) => createHash("sha256").update(texte, "utf8").digest("hex");
+
+  const donnees = baseLastEstimation({
+    lead_id: "ffffffff-6666-4666-8666-666666666666",
+    email: "Jean.Dupont@Example.com",
+    phone: "06 12 34 56 78",
+  });
+
+  const rendu = renderReport(donnees, { mesure: true });
+  await attendreConversion();
+
+  const conversion = evenements(rendu, "generate_lead")[0];
+
+  // Comparaison champ par champ : l'objet vient du contexte `vm`, son
+  // prototype n'est pas celui du realm de test — `deepStrictEqual` le refuse
+  // alors même que le contenu est identique.
+  //
+  // Normalisation Google : minuscules pour l'e-mail, E.164 pour le téléphone.
+  // Envoyer « 06 12 34 56 78 » tel quel produirait une empreinte que Google ne
+  // rapprocherait de rien — et l'échec serait parfaitement silencieux.
+  assert.equal(
+    conversion.user_data.sha256_email_address,
+    empreinte("jean.dupont@example.com")
+  );
+  assert.equal(conversion.user_data.sha256_phone_number, empreinte("+33612345678"));
+  assert.deepEqual(Object.keys(conversion.user_data).sort(), [
+    "sha256_email_address",
+    "sha256_phone_number",
+  ]);
+});
+
+test("mesure — un hachage impossible ne coûte jamais la conversion", async () => {
+  // Page servie en HTTP, navigateur ancien : `crypto.subtle` n'existe pas. La
+  // conversion doit partir quand même, simplement sans conversion améliorée.
+  const donnees = baseLastEstimation({
+    lead_id: "99999999-7777-4777-8777-777777777777",
+    email: "jean@example.com",
+    phone: "0612345678",
+  });
+
+  const rendu = renderReport(donnees, { mesure: true, sansWebCrypto: true });
+  await attendreConversion();
+
+  const conversions = evenements(rendu, "generate_lead");
+  assert.equal(conversions.length, 1, "la conversion part malgré tout");
+  assert.equal("user_data" in conversions[0], false);
+  assert.equal(conversions[0].value, 750, "et elle porte toujours sa valeur");
 });

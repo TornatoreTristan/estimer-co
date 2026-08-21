@@ -64,7 +64,18 @@ export const TRACKING_ACTIF = GTM_CONTAINER_ID !== '';
  * À incrémenter dès qu'on ajoute une finalité, un destinataire ou une
  * catégorie de traceurs — jamais pour une correction de formulation.
  */
-export const CONSENT_REVISION = 1;
+export const CONSENT_REVISION = 2;
+/*
+ * Historique des révisions — à tenir, sans quoi personne ne saura plus sur quoi
+ * portait un consentement recueilli sous une version antérieure :
+ *
+ *   1 (20/08/2026) — mise en service : GA4, Google Ads, Meta Ads.
+ *   2 (21/08/2026) — conversions améliorées. Une empreinte SHA-256 de l'adresse
+ *     e-mail et du téléphone est désormais jointe aux événements de conversion
+ *     publicitaire. C'est une nouvelle catégorie de données transmises à un
+ *     destinataire, donc un nouveau consentement à recueillir : les choix
+ *     exprimés sous la révision 1 ne le couvraient pas.
+ */
 
 /**
  * Durée de conservation du choix exprimé, en jours (6 mois).

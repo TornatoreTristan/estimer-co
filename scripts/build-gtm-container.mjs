@@ -345,6 +345,33 @@ const V_LOOKUP_LABELS = variable(
 );
 
 /*
+ * Données fournies par l'utilisateur — conversions améliorées (lot T3).
+ *
+ * Mode MANUEL et non automatique : le mode automatique demande à Google de
+ * PARCOURIR LE DOM à la recherche de champs de formulaire, ce qui reviendrait
+ * à lui laisser lire l'adresse e-mail en clair sur la page. Ici, le site
+ * fournit des empreintes SHA-256 qu'il a calculées lui-même (cf. `embUserData`
+ * dans `src/scripts/tracking.js`) : Google ne voit jamais la donnée d'origine.
+ *
+ * ⚠️ C'EST L'ENTITÉ DU CONTENEUR LA PLUS SUSCEPTIBLE DE DEMANDER UNE RETOUCHE
+ * APRÈS L'IMPORT. Le nom exact des champs de ce type de variable n'est pas
+ * documenté de façon vérifiable hors de l'interface. Si l'import la rend
+ * incomplète, la reconstruire à la main prend deux minutes (mode « Manuel »,
+ * puis les deux variables ci-dessous dans « E-mail » et « Téléphone ») — la
+ * marche à suivre est dans `gtm/README.md`.
+ */
+const V_USER_DATA = variable(
+  "UD — Données fournies par l'utilisateur",
+  "gtud",
+  [
+    param.texte("mode", "MANUAL"),
+    param.texte("email", ref(nomDlv("user_data.sha256_email_address"))),
+    param.texte("phone_number", ref(nomDlv("user_data.sha256_phone_number"))),
+  ],
+  F_VARIABLES
+);
+
+/*
  * Variable de paramètres d'événement GA4 : c'est elle qui permet UNE SEULE
  * balise d'événement pour tout le site. Ajouter un paramètre au plan revient
  * à ajouter une ligne à `VARIABLES_DATALAYER`, pas à créer une balise.
@@ -543,7 +570,9 @@ balise("Ads — Conversion Linker", "gclidw", [param.booleen("enableCrossDomain"
  * garantit qu'un rechargement de la page de rapport ne facture pas deux
  * conversions.
  */
-function conversionAds(nom, declencheurId, valeur) {
+function conversionAds(nom, declencheurId, valeur, options) {
+  const opts = options || {};
+
   balise(
     nom,
     "awct",
@@ -554,17 +583,31 @@ function conversionAds(nom, declencheurId, valeur) {
       param.texte("currencyCode", "EUR"),
       param.texte("orderId", ref(nomDlv("lead_id"))),
       param.booleen("enableConversionLinker", true),
-      // Conversions améliorées : lot T3. Les activer ici enverrait des champs
-      // que rien n'alimente, et Google Ads afficherait un diagnostic en erreur
-      // permanent — un voyant rouge qu'on finit par ne plus regarder.
-      param.booleen("enableEnhancedConversions", false),
+      /*
+       * Conversions améliorées activées UNIQUEMENT là où le site fournit
+       * réellement des empreintes de contact — c'est-à-dire sur les deux
+       * conversions qui naissent d'un formulaire.
+       *
+       * Les activer sur le téléchargement de PDF ou la micro-conversion
+       * d'étape 3 enverrait des champs vides et laisserait un diagnostic en
+       * erreur permanent dans Google Ads : un voyant rouge qu'on finit par ne
+       * plus regarder, et derrière lequel une vraie panne passerait inaperçue.
+       */
+      param.booleen("enableEnhancedConversions", Boolean(opts.conversionsAmeliorees)),
+      ...(opts.conversionsAmeliorees
+        ? [param.texte("userDataVariable", ref(V_USER_DATA))]
+        : []),
     ],
     { declencheurs: [declencheurId], dossier: F_ADS, consentement: CONSENTEMENT_NATIF }
   );
 }
 
-conversionAds("Ads — Conversion : estimation", D_GENERATE_LEAD, ref(nomDlv("value")));
-conversionAds("Ads — Conversion : contact", D_CONTACT_HORS_PARTENARIAT, ref(nomDlv("value")));
+conversionAds("Ads — Conversion : estimation", D_GENERATE_LEAD, ref(nomDlv("value")), {
+  conversionsAmeliorees: true,
+});
+conversionAds("Ads — Conversion : contact", D_CONTACT_HORS_PARTENARIAT, ref(nomDlv("value")), {
+  conversionsAmeliorees: true,
+});
 conversionAds("Ads — Conversion : partenariat", D_CONTACT_PARTENARIAT, "0");
 conversionAds("Ads — Conversion : PDF", D_PDF, "0");
 conversionAds("Ads — Conversion : micro étape 3", D_MICRO_ETAPE_3, "0");

@@ -553,15 +553,24 @@ Mise en œuvre retenue, conforme au §2.6 :
    champs alimentés par `{{user_data.sha256_email_address}}` et
    `{{user_data.sha256_phone_number}}`, rattachée aux balises 4 et 5.
 
-> **Point de conformité à traiter avant activation** : la politique de
-> confidentialité mentionne « les identifiants techniques nécessaires à leur
-> rapprochement » (`politique-de-confidentialite.astro:474`). Un e-mail haché
-> reste une donnée personnelle au sens du RGPD. Faire évoluer cette phrase pour
-> nommer explicitement « une empreinte cryptographique de votre adresse e-mail
-> et de votre numéro de téléphone », et **incrémenter `CONSENT_REVISION`**
-> (`src/lib/analytics.ts:67`) — l'ajout d'une finalité invalide les
-> consentements déjà recueillis, c'est précisément le cas prévu par ce
-> compteur.
+> **Point de conformité — traité, mais à faire valider juridiquement.** Un
+> e-mail haché reste une donnée personnelle au sens du RGPD : le hachage ne
+> dispense ni du consentement, ni de la mention. Ont donc été modifiés en même
+> temps que le code :
+>
+> - la section « publicité » de la politique de confidentialité, qui nomme
+>   désormais explicitement l'empreinte SHA-256 de l'adresse e-mail et du
+>   téléphone, précise qu'elle est calculée **dans le navigateur avant tout
+>   envoi**, et rappelle qu'elle reste une donnée personnelle ;
+> - la ligne « Google » du tableau des destinataires ;
+> - la description de la catégorie « Publicité » dans le bandeau ;
+> - `CONSENT_REVISION`, passé de 1 à 2 — ce qui **invalide tous les
+>   consentements déjà recueillis et réaffiche le bandeau à chaque visiteur**.
+>   C'est l'effet recherché : les choix exprimés sous la révision 1 ne
+>   portaient pas sur cette catégorie de données.
+>
+> **La rédaction juridique reste à valider par le responsable RGPD.** Elle est
+> écrite pour être exacte, pas pour faire autorité.
 
 ---
 
@@ -769,7 +778,7 @@ de l'expliquer tous les mois.
 | **T0 — Socle** ✅ | `tracking.js`, `Tracking.astro`, attributs `data-cta` / `data-partner-*`, renommage `consent_update`, événements `cta_click` / `partner_click_out` / `sticky_cta_dismiss`, `scripts/test-tracking.mjs` (22 cas, en CI) | — | Le dataLayer parle |
 | **T1 — Tunnel et conversions** ✅ | Événements du §4.2, `generate_lead` sur `/rapport/`, `contact_lead`, `lead_id`, modèle de valeur, 16 tests supplémentaires | T0 | **Mesure de bout en bout : campagnes ouvrables** |
 | **T2 — GTM et plateformes** ◐ | Conteneur généré et versionné (`gtm/`, §6 couvert intégralement) ; **restent manuels** : actions Ads (§7.1), dimensions GA4 (§9.4), pixel Meta (§8) — aucun de ces objets n'a de format d'import | T1 | Conversions remontées |
-| **T3 — Conversions améliorées** | Hachage SHA-256, variable *user_data*, mise à jour de la politique, `CONSENT_REVISION` +1 | T2 | +5 à 15 % de conversions attribuées |
+| **T3 — Conversions améliorées** ✅ | Hachage SHA-256 côté client, variable *user_data* dans le conteneur, mise à jour de la politique, `CONSENT_REVISION` → 2 | T2 | +5 à 15 % de conversions attribuées |
 | **T4 — Serveur** *(optionnel)* | `PUBLIC_GTM_SERVER_URL` → conteneur serveur, Meta CAPI, résilience aux bloqueurs | T3 | Fiabilité de la mesure |
 | **T5 — Hors ligne** *(optionnel)* | `gclid` + `ga_client_id` transmis à `POST /v1/leads`, import des conversions hors ligne (lead → mandat signé) | T4 + CRM | Optimisation sur la **vraie** valeur |
 

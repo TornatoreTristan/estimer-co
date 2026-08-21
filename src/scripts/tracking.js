@@ -173,19 +173,26 @@ function embTrack(nom, params) {
         if (embChampInterdit(cle)) {
           // Bruyant à dessein : c'est une erreur de développement à corriger,
           // pas un cas limite à absorber en silence.
-          if (typeof console !== "undefined" && console.warn) {
-            console.warn(
-              "[tracking] paramètre « " +
-                cle +
-                " » écarté : donnée personnelle interdite dans le dataLayer."
-            );
-          }
+          embAvertir(
+            "paramètre « " + cle + " » écarté : donnée personnelle interdite dans le dataLayer."
+          );
           continue;
         }
 
         var valeur = params[cle];
         if (valeur === null || valeur === undefined || valeur === "") continue;
         if (typeof valeur === "number" && !isFinite(valeur)) continue;
+
+        // Seul objet imbriqué que le plan de taggage autorise : le bloc
+        // d'empreintes des conversions améliorées. Il est vérifié champ par
+        // champ plutôt que recopié tel quel — c'est le seul endroit du site où
+        // une donnée dérivée d'un e-mail approche le dataLayer, et une erreur
+        // de câblage y ferait passer l'adresse en clair.
+        if (typeof valeur === "object") {
+          var nettoye = embNettoyerUserData(cle, valeur);
+          if (nettoye) charge[cle] = nettoye;
+          continue;
+        }
 
         charge[cle] = valeur;
       }
@@ -196,6 +203,54 @@ function embTrack(nom, params) {
   } catch (erreur) {
     // Silence volontaire : voir l'en-tête, règle 2.
     return false;
+  }
+}
+
+/**
+ * Valide le seul objet imbriqué autorisé dans un événement : `user_data`.
+ *
+ * Tout le reste est refusé — non par principe, mais parce qu'un objet accepté
+ * sans contrôle est un objet dont personne ne relit le contenu, et que le
+ * `lastEstimation` d'où viennent la plupart de nos paramètres contient nom,
+ * e-mail, téléphone et adresse postale.
+ *
+ * @returns {Object|null} l'objet nettoyé, ou `null` s'il n'a rien à pousser
+ */
+function embNettoyerUserData(cle, valeur) {
+  if (cle !== "user_data" || Array.isArray(valeur)) {
+    embAvertir("objet « " + cle + " » écarté : seul « user_data » peut être imbriqué.");
+    return null;
+  }
+
+  var nettoye = {};
+  var retenus = 0;
+
+  for (var sousCle in valeur) {
+    if (!Object.prototype.hasOwnProperty.call(valeur, sousCle)) continue;
+
+    var empreinte = valeur[sousCle];
+    if (empreinte === null || empreinte === undefined || empreinte === "") continue;
+
+    // Une valeur qui ne ressemble pas à une empreinte SHA-256 est, par
+    // élimination, une donnée en clair. On l'écarte bruyamment.
+    if (typeof empreinte !== "string" || !MOTIF_EMPREINTE.test(empreinte)) {
+      embAvertir(
+        "user_data." + sousCle + " écarté : ce n'est pas une empreinte SHA-256."
+      );
+      continue;
+    }
+
+    nettoye[sousCle] = empreinte;
+    retenus++;
+  }
+
+  return retenus > 0 ? nettoye : null;
+}
+
+/** Signale une erreur de câblage. Bruyant à dessein : c'est à corriger. */
+function embAvertir(message) {
+  if (typeof console !== "undefined" && console.warn) {
+    console.warn("[tracking] " + message);
   }
 }
 
@@ -392,6 +447,169 @@ function embLeadValue(isOwner, wantToSell, valeurBien) {
  */
 function embContactValue(sujet) {
   return String(sujet || "").toLowerCase() === "partenariat" ? 0 : VALEUR_BASE_CONTACT;
+}
+
+// ============================================================================
+// 3bis. CONVERSIONS AMÉLIORÉES — empreintes des coordonnées (lot T3)
+// ============================================================================
+//
+// Les conversions améliorées rattachent une conversion à un clic publicitaire
+// même quand le cookie a disparu — prévention du pistage d'Apple, navigation
+// d'un appareil à l'autre. Elles sont aussi le prérequis technique d'un futur
+// import de conversions hors ligne.
+//
+// ---------------------------------------------------------------------------
+// POURQUOI ON HACHE ICI, ET PAS CHEZ GOOGLE
+// ---------------------------------------------------------------------------
+// Google accepte les coordonnées en clair et les hache lui-même dans le
+// navigateur. Ce serait plus simple, et ce serait un mauvais choix : l'adresse
+// e-mail transiterait alors par `window.dataLayer`, que n'importe quelle
+// extension installée chez le visiteur peut lire. On envoie donc une empreinte
+// SHA-256, que Google accepte tout aussi bien.
+//
+// Une empreinte reste une donnée personnelle au sens du RGPD : elle identifie
+// indirectement la personne, c'est même sa raison d'être. Le hachage ne
+// dispense de rien — ni du consentement (`ad_user_data`, exigé par la balise),
+// ni de la mention dans la politique de confidentialité. Il évite seulement
+// que la donnée soit lisible en clair par un tiers sur le poste du visiteur.
+//
+// ---------------------------------------------------------------------------
+// CE QUI NE DOIT JAMAIS ARRIVER
+// ---------------------------------------------------------------------------
+// Qu'un échec de hachage coûte la conversion. `embUserData` ne rejette jamais,
+// et abandonne au bout de `DELAI_MAX_HACHAGE` : une conversion sans empreinte
+// vaut infiniment mieux qu'une conversion perdue, ou qu'une page bloquée sur
+// une promesse qui ne se résout pas. C'est aussi ce qui protège les contextes
+// où `crypto.subtle` n'existe pas — page servie en HTTP, navigateur ancien.
+
+/** Forme d'une empreinte SHA-256 en hexadécimal minuscule. */
+var MOTIF_EMPREINTE = /^[0-9a-f]{64}$/;
+
+/**
+ * Abandon du hachage, en millisecondes.
+ *
+ * Un SHA-256 sur une chaîne courte se compte en microsecondes ; ce délai n'est
+ * pas dimensionné pour le calcul mais pour l'imprévu — une implémentation qui
+ * ne rend jamais la main bloquerait le `contact_lead`, donc l'accusé de
+ * réception affiché au visiteur.
+ */
+var DELAI_MAX_HACHAGE = 500;
+
+/**
+ * Empreinte SHA-256 hexadécimale d'une valeur déjà normalisée.
+ *
+ * @param {string} valeur
+ * @returns {Promise<string>} l'empreinte, ou "" si le calcul est impossible.
+ *   Ne rejette jamais.
+ */
+function embHash(valeur) {
+  try {
+    var texte = String(valeur === null || valeur === undefined ? "" : valeur);
+    if (!texte) return Promise.resolve("");
+
+    var crypto = typeof window !== "undefined" ? window.crypto : null;
+    // `crypto.subtle` n'existe que dans un contexte sécurisé (HTTPS, ou
+    // localhost). En HTTP, on renvoie "" plutôt que de lever.
+    if (!crypto || !crypto.subtle || typeof crypto.subtle.digest !== "function") {
+      return Promise.resolve("");
+    }
+    if (typeof TextEncoder !== "function") return Promise.resolve("");
+
+    var octets = new TextEncoder().encode(texte);
+
+    return Promise.resolve(crypto.subtle.digest("SHA-256", octets)).then(
+      function (empreinte) {
+        var vue = new Uint8Array(empreinte);
+        var hex = "";
+        for (var i = 0; i < vue.length; i++) {
+          hex += (vue[i] + 0x100).toString(16).slice(1);
+        }
+        return hex;
+      },
+      function () {
+        return "";
+      }
+    );
+  } catch (erreur) {
+    return Promise.resolve("");
+  }
+}
+
+/**
+ * Normalisation Google d'une adresse e-mail : espaces retirés, minuscules.
+ *
+ * On s'en tient là. Le retrait des points dans les adresses `gmail.com`, que
+ * Google documente pour Customer Match, n'est PAS demandé pour les conversions
+ * améliorées — l'appliquer produirait une empreinte différente de celle que
+ * Google calcule de son côté, donc aucun rapprochement.
+ */
+function embNormaliserEmail(valeur) {
+  var texte = String(valeur === null || valeur === undefined ? "" : valeur).trim().toLowerCase();
+  return texte.indexOf("@") > 0 ? texte : "";
+}
+
+/**
+ * Normalisation d'un numéro de téléphone au format E.164 (`+33612345678`).
+ *
+ * Google exige ce format, indicatif pays compris. Un `06 12 34 56 78` envoyé
+ * tel quel produit une empreinte que rien ne rapprochera jamais — l'échec est
+ * silencieux, d'où cette conversion explicite. Le site ne s'adresse qu'à la
+ * France (`componentRestrictions: { country: "fr" }` côté Google Places), le
+ * `+33` est donc le défaut correct pour un numéro national.
+ */
+function embNormaliserTelephone(valeur) {
+  var brut = String(valeur === null || valeur === undefined ? "" : valeur).trim();
+  if (!brut) return "";
+
+  var international = brut.charAt(0) === "+";
+  var chiffres = brut.replace(/\D/g, "");
+  if (!chiffres) return "";
+
+  if (international) return "+" + chiffres;
+  // Préfixe international composé (00 33 …).
+  if (chiffres.indexOf("00") === 0) return "+" + chiffres.slice(2);
+  // Numéro national français : 0X XX XX XX XX -> +33 X XX XX XX XX.
+  if (chiffres.length === 10 && chiffres.charAt(0) === "0") return "+33" + chiffres.slice(1);
+  // Déjà sans le 0 initial, indicatif inclus.
+  if (chiffres.length === 11 && chiffres.indexOf("33") === 0) return "+" + chiffres;
+
+  // Tout le reste est inexploitable : mieux vaut ne rien envoyer qu'envoyer
+  // une empreinte qui ne correspondra à rien.
+  return "";
+}
+
+/**
+ * Bloc `user_data` des conversions améliorées.
+ *
+ * @param {string} email
+ * @param {string} telephone
+ * @returns {Promise<Object>} objet d'empreintes, éventuellement vide.
+ *   Ne rejette jamais, et rend toujours la main sous `DELAI_MAX_HACHAGE`.
+ */
+function embUserData(email, telephone) {
+  var abandon = new Promise(function (resolve) {
+    if (typeof setTimeout === "function") setTimeout(function () { resolve({}); }, DELAI_MAX_HACHAGE);
+  });
+
+  var calcul = Promise.all([
+    embHash(embNormaliserEmail(email)),
+    embHash(embNormaliserTelephone(telephone)),
+  ]).then(
+    function (empreintes) {
+      var donnees = {};
+      // Garde-fou de forme, et pas de la coquetterie : si une valeur en clair
+      // arrivait ici par erreur de câblage, elle ne ressemblerait pas à une
+      // empreinte et serait écartée avant d'atteindre le dataLayer.
+      if (MOTIF_EMPREINTE.test(empreintes[0])) donnees.sha256_email_address = empreintes[0];
+      if (MOTIF_EMPREINTE.test(empreintes[1])) donnees.sha256_phone_number = empreintes[1];
+      return donnees;
+    },
+    function () {
+      return {};
+    }
+  );
+
+  return Promise.race([calcul, abandon]);
 }
 
 /**

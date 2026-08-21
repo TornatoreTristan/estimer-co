@@ -51,7 +51,7 @@ const SECTIONS = [
   { id: 'modifications', titre: 'Modifications de cette politique' },
 ] as const;
 
-const DATE_MAJ = new Date('2026-08-20');
+const DATE_MAJ = new Date('2026-08-21');
 
 /** Une ligne = un traitement inscrit au registre. */
 const TRAITEMENTS = [
@@ -299,7 +299,11 @@ const TRAITEMENTS = [
           <tr>
             <th scope="row">Google (Analytics, Ads, Tag Manager)</th>
             <td>Mesure d'audience et mesure de l'efficacité publicitaire, soumises à votre consentement.</td>
-            <td>Données de navigation, identifiants techniques de mesure.</td>
+            <td>
+              Données de navigation, identifiants techniques de mesure, et — pour la seule mesure
+              de conversion publicitaire — une empreinte cryptographique de l'adresse e-mail et du
+              téléphone, jamais ces coordonnées en clair.
+            </td>
           </tr>
           <tr>
             <th scope="row">Meta Platforms</th>
@@ -473,7 +477,17 @@ const TRAITEMENTS = [
       <li>
         nous pouvons transmettre des <strong>événements de conversion</strong> à ces plateformes
         depuis notre propre serveur, avec les identifiants techniques nécessaires à leur
-        rapprochement.
+        rapprochement&nbsp;;
+      </li>
+      <li>
+        lorsque vous nous laissez vos coordonnées (demande d'estimation ou message), nous joignons
+        à l'événement de conversion une <strong>empreinte cryptographique</strong> (SHA-256) de
+        votre adresse e-mail et de votre numéro de téléphone. Cette empreinte est calculée
+        <strong>dans votre navigateur, avant tout envoi</strong>&nbsp;: ni Google ni Meta ne
+        reçoivent ces coordonnées en clair. Elle leur sert uniquement à reconnaître qu'une
+        conversion correspond à une annonce sur laquelle vous aviez cliqué, y compris depuis un
+        autre appareil. Cette empreinte reste une donnée personnelle, et elle n'est transmise
+        qu'avec votre consentement à la catégorie « Publicité et mesure de conversion ».
       </li>
     </ul>
     <p>
