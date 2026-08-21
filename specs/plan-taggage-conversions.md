@@ -470,7 +470,30 @@ seraient quinze copies du même objet. Ajouter un événement au plan ne demande
 alors que d'étendre l'expression régulière du déclencheur et, si besoin, la
 variable de paramètres.
 
-### 6.6 Dossiers du conteneur
+### 6.6 Le conteneur est généré, pas configuré à la souris
+
+Tout le §6 est produit par `scripts/build-gtm-container.mjs` et versionné dans
+`gtm/container-estimer-co.json`, importable tel quel. Le mode opératoire complet
+(import, identifiants à renseigner, recette, publication) est dans
+[`gtm/README.md`](../gtm/README.md).
+
+**Pourquoi ce détour plutôt que de configurer directement dans l'interface** :
+un conteneur configuré à la souris ne vit que chez Google. Il n'est ni relisible
+en revue, ni comparable d'une version à l'autre, ni reconstructible après une
+fausse manœuvre — et personne ne peut répondre à « qui a changé ce déclencheur,
+quand, et pourquoi » autrement qu'en fouillant l'historique des versions.
+Accessoirement, les 44 variables de couche de données tiennent ici en une liste ;
+à la main, ce sont 44 formulaires identiques à remplir.
+
+`scripts/test-gtm-container.mjs` verrouille en CI ce qui est vérifiable sans
+Google — et notamment **la dérive entre le code et le conteneur** : le test relit
+les événements réellement poussés par `src/scripts/` et échoue si le déclencheur
+GA4 en laisse passer un. Ce qu'il ne peut PAS faire, c'est garantir que Google
+acceptera l'import : seule l'interface fait autorité sur le format. D'où
+l'obligation d'importer dans un espace de travail neuf et de passer par le mode
+Aperçu avant toute publication.
+
+### 6.7 Dossiers du conteneur
 
 `00 — Socle`, `10 — GA4`, `20 — Google Ads`, `30 — Meta`, `90 — Variables`.
 Nommage des versions : `AAAA-MM-JJ — objet du changement`. Aucune publication
@@ -745,7 +768,7 @@ de l'expliquer tous les mois.
 |---|---|---|---|
 | **T0 — Socle** ✅ | `tracking.js`, `Tracking.astro`, attributs `data-cta` / `data-partner-*`, renommage `consent_update`, événements `cta_click` / `partner_click_out` / `sticky_cta_dismiss`, `scripts/test-tracking.mjs` (22 cas, en CI) | — | Le dataLayer parle |
 | **T1 — Tunnel et conversions** ✅ | Événements du §4.2, `generate_lead` sur `/rapport/`, `contact_lead`, `lead_id`, modèle de valeur, 16 tests supplémentaires | T0 | **Mesure de bout en bout : campagnes ouvrables** |
-| **T2 — GTM et plateformes** | Variables, déclencheurs, balises (§6), actions Ads (§7.1), pixel Meta (§8), dimensions GA4 (§9.4) | T1 | Conversions remontées |
+| **T2 — GTM et plateformes** ◐ | Conteneur généré et versionné (`gtm/`, §6 couvert intégralement) ; **restent manuels** : actions Ads (§7.1), dimensions GA4 (§9.4), pixel Meta (§8) — aucun de ces objets n'a de format d'import | T1 | Conversions remontées |
 | **T3 — Conversions améliorées** | Hachage SHA-256, variable *user_data*, mise à jour de la politique, `CONSENT_REVISION` +1 | T2 | +5 à 15 % de conversions attribuées |
 | **T4 — Serveur** *(optionnel)* | `PUBLIC_GTM_SERVER_URL` → conteneur serveur, Meta CAPI, résilience aux bloqueurs | T3 | Fiabilité de la mesure |
 | **T5 — Hors ligne** *(optionnel)* | `gclid` + `ga_client_id` transmis à `POST /v1/leads`, import des conversions hors ligne (lead → mandat signé) | T4 + CRM | Optimisation sur la **vraie** valeur |
