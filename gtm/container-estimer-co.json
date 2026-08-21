@@ -2498,7 +2498,7 @@
           {
             "type": "TEMPLATE",
             "key": "conversionValue",
-            "value": "0"
+            "value": "{{DLV — value}}"
           },
           {
             "type": "TEMPLATE",

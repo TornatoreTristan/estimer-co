@@ -705,15 +705,16 @@ conversionAds(
  * D'où un libellé propre — et la raison pour laquelle la table de
  * correspondance par événement a été retirée (voir plus haut).
  *
- * Valeur à 0 : lead B2B, autre budget. Lui en donner une apprendrait aux
- * enchères à acheter du trafic de professionnels avec l'argent destiné aux
- * propriétaires vendeurs. L'action est réglée en « secondaire » côté Ads, donc
- * hors de la colonne « Conversions ».
+ * Valeur prise dans le dataLayer, comme les deux autres conversions issues
+ * d'un formulaire : `embContactValue` renvoie 10 € pour ce sujet. Google Ads
+ * impose une valeur sur la catégorie de cette action, et une valeur figée ici
+ * à 0 aurait contredit le réglage du compte — 0 € dans les rapports en face
+ * d'un réglage annonçant 10.
  */
 conversionAds(
   "Ads — Conversion : partenariat",
   D_CONTACT_PARTENARIAT,
-  "0",
+  ref(nomDlv("value")),
   LIBELLE_PARTENARIAT
 );
 
