@@ -83,7 +83,8 @@ Lot 0 :
 - `.pages.yml` — configuration de l'app hébergée [Pages CMS](https://pagescms.org),
   connectée en écriture directe sur ce repo GitHub (accès restreint aux
   collaborateurs ayant les droits d'écriture). Chaque sauvegarde y crée un
-  commit sur `main`, ce qui déclenche `.github/workflows/deploy.yml`.
+  commit sur `main`, ce qui déclenche le redéploiement Coolify (voir
+  « Déploiement » plus bas) et donc la mise en ligne de l'édition.
 - `scripts/migrate-legacy-data.mjs` — migration one-off, déjà exécutée, qui a
   généré les 144 fichiers (13 régions + 101 départements + 30 partenaires)
   depuis `src/data/prix.ts` / `src/data/partenaires.ts`, toutes en
@@ -99,12 +100,34 @@ Lot 0 :
 
 ## Déploiement
 
-`.github/workflows/deploy.yml` construit le site (`astro build`, précédé de
-`node scripts/validate-content.mjs`) et le déploie sur GitHub Pages à chaque
-push sur `main`. Prérequis : dans les réglages du repo, **Settings > Pages >
-Build and deployment > Source = "GitHub Actions"**, et les variables
-`PUBLIC_*` (voir `.env.example`) renseignées dans **Settings > Secrets and
-variables > Actions** (aucune valeur réelle n'est commitée).
+Le site est construit par le `Dockerfile` (Astro puis nginx) et déployé par
+**Coolify**, sur webhook de push `main` — même mécanisme que l'API du dossier
+`api/`, avec un service distinct. C'est ce webhook, et lui seul, qui met
+estimer.co à jour.
+
+Les variables `PUBLIC_*` (voir `.env.example`) se règlent donc dans
+**l'environnement de build du service Coolify**, et non dans les réglages
+GitHub. Deux d'entre elles ont des conséquences visibles si on les oublie :
+
+- `PUBLIC_API_URL` — vide, le build échoue volontairement (`astro.config.mjs`)
+  plutôt que de livrer un site en repli statique permanent.
+- `PUBLIC_GTM_CONTAINER_ID` — vide, le site ne charge aucun script Google,
+  n'affiche aucun bandeau de consentement, et la politique de confidentialité
+  indique qu'aucun traceur n'est actif. C'est un état cohérent, pas une panne
+  (voir `src/lib/analytics.ts`).
+
+> **Ni GitHub Pages, ni GitHub Actions ne publient ce site.** Le workflow
+> `deploy.yml` l'a prétendu un temps sans jamais y parvenir — Pages n'ayant
+> jamais été activé sur le repo. Il a été converti en CI (`site.yml`) : il
+> vérifie, il ne déploie pas.
+
+## Intégration continue
+
+`.github/workflows/site.yml` s'exécute sur les PR et sur `main` : installation,
+`node scripts/validate-content.mjs`, `npm test`, puis `astro build`. Aucun
+secret n'est nécessaire — le build de vérification n'est jamais publié.
+
+`.github/workflows/api.yml` couvre le dossier `api/` de façon indépendante.
 
 ## Choix de portage
 
