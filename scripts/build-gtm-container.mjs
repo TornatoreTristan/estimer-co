@@ -406,53 +406,29 @@ const LIBELLE_PDF = "LABEL_PDF"; // action non créée — balise en pause
 const LIBELLE_MICRO = "LABEL_MICRO"; // action non créée — balise en pause
 
 /*
- * Données fournies par l'utilisateur — conversions améliorées (lot T3).
+ * DEUX VARIABLES RETIRÉES, PARCE QUE GTM NE SAIT PAS LES IMPORTER.
  *
- * Mode MANUEL et non automatique : le mode automatique demande à Google de
- * PARCOURIR LE DOM à la recherche de champs de formulaire, ce qui reviendrait
- * à lui laisser lire l'adresse e-mail en clair sur la page. Ici, le site
- * fournit des empreintes SHA-256 qu'il a calculées lui-même (cf. `embUserData`
- * dans `src/scripts/tracking.js`) : Google ne voit jamais la donnée d'origine.
+ * Constaté en conditions réelles : « Type d'entité inconnu (ID public du
+ * modèle : gtud) ». Les types récents — `gtud` (données fournies par
+ * l'utilisateur) et `gtes` (paramètres d'événement GA4) — ne se transportent
+ * pas dans un fichier d'import. Ils ne se créent que dans l'interface.
  *
- * ⚠️ C'EST L'ENTITÉ DU CONTENEUR LA PLUS SUSCEPTIBLE DE DEMANDER UNE RETOUCHE
- * APRÈS L'IMPORT. Le nom exact des champs de ce type de variable n'est pas
- * documenté de façon vérifiable hors de l'interface. Si l'import la rend
- * incomplète, la reconstruire à la main prend deux minutes (mode « Manuel »,
- * puis les deux variables ci-dessous dans « E-mail » et « Téléphone ») — la
- * marche à suivre est dans `gtm/README.md`.
+ * Ce qui les remplace :
+ *
+ *   - les paramètres GA4 passent en `eventParameters` directement sur la
+ *     balise d'événement, construction supportée de longue date. On perd la
+ *     mutualisation dans une variable ; on garde UNE seule balise d'événement
+ *     pour tout le site, ce qui était l'essentiel ;
+ *
+ *   - les conversions améliorées sont DÉSACTIVÉES dans le fichier. La variable
+ *     de données utilisateur se crée à la main après l'import — deux minutes,
+ *     marche à suivre dans `gtm/README.md` — puis s'attache aux deux balises
+ *     de conversion issues d'un formulaire.
+ *
+ * Le code du site n'est pas concerné : `embUserData` continue de pousser les
+ * empreintes SHA-256 dans le dataLayer, elles attendent simplement que
+ * quelqu'un les branche.
  */
-const V_USER_DATA = variable(
-  "UD — Données fournies par l'utilisateur",
-  "gtud",
-  [
-    param.texte("mode", "MANUAL"),
-    param.texte("email", ref(nomDlv("user_data.sha256_email_address"))),
-    param.texte("phone_number", ref(nomDlv("user_data.sha256_phone_number"))),
-  ],
-  F_VARIABLES
-);
-
-/*
- * Variable de paramètres d'événement GA4 : c'est elle qui permet UNE SEULE
- * balise d'événement pour tout le site. Ajouter un paramètre au plan revient
- * à ajouter une ligne à `VARIABLES_DATALAYER`, pas à créer une balise.
- */
-const V_PARAMS_GA4 = variable(
-  "SETTINGS — Params communs",
-  "gtes",
-  [
-    param.liste(
-      "eventSettingsTable",
-      PARAMS_GA4.map((cle) =>
-        param.map([
-          param.texte("parameter", cle),
-          param.texte("parameterValue", ref(nomDlv(cle))),
-        ])
-      )
-    ),
-  ],
-  F_VARIABLES
-);
 
 // ===========================================================================
 // 6. DÉCLENCHEURS (§6.3)
@@ -627,7 +603,12 @@ balise(
   [
     param.texte("eventName", ref("Event")),
     param.texte("measurementIdOverride", ref(V_GA4_ID)),
-    param.texte("eventSettingsVariable", ref(V_PARAMS_GA4)),
+    param.liste(
+      "eventParameters",
+      PARAMS_GA4.map((cle) =>
+        param.map([param.texte("name", cle), param.texte("value", ref(nomDlv(cle)))])
+      )
+    ),
     param.booleen("sendEcommerceData", false),
   ],
   { declencheurs: [D_TOUS_EVENEMENTS], dossier: F_GA4, consentement: CONSENTEMENT_NATIF }
@@ -707,10 +688,10 @@ function conversionAds(nom, declencheurId, valeur, libelle, options) {
        * erreur permanent dans Google Ads : un voyant rouge qu'on finit par ne
        * plus regarder, et derrière lequel une vraie panne passerait inaperçue.
        */
-      param.booleen("enableEnhancedConversions", Boolean(opts.conversionsAmeliorees)),
-      ...(opts.conversionsAmeliorees
-        ? [param.texte("userDataVariable", ref(V_USER_DATA))]
-        : []),
+      // Réactivé à la main après l'import, une fois la variable de données
+      // utilisateur créée dans l'interface (cf. gtm/README.md).
+      param.booleen("enableEnhancedConversions", false),
+
     ],
     {
       declencheurs: [declencheurId],

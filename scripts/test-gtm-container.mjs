@@ -247,22 +247,26 @@ test("chaque variable de couche de données lit bien la version 2", () => {
 });
 
 test("les paramètres GA4 pointent tous une variable de couche de données", () => {
-  const settings = VERSION.variable.find((v) => v.name === "SETTINGS — Params communs");
-  const table = settings.parameter.find((p) => p.key === "eventSettingsTable").list;
+  // Ils vivaient dans une variable `gtes` partagée, que GTM ne sait pas
+  // importer (« Type d'entité inconnu »). Ils sont désormais portés par la
+  // balise d'événement elle-même — on perd la mutualisation, on garde UNE
+  // seule balise d'événement pour tout le site, ce qui était l'essentiel.
+  const balise = VERSION.tag.find((t) => t.name === "GA4 — Événement générique");
+  const params = balise.parameter.find((p) => p.key === "eventParameters").list;
 
-  assert.ok(table.length >= 40, `seulement ${table.length} paramètres transmis à GA4`);
+  assert.ok(params.length >= 40, `seulement ${params.length} paramètres transmis à GA4`);
 
-  for (const ligne of table) {
-    const nom = ligne.map.find((p) => p.key === "parameter").value;
-    const valeur = ligne.map.find((p) => p.key === "parameterValue").value;
+  for (const ligne of params) {
+    const nom = ligne.map.find((p) => p.key === "name").value;
+    const valeur = ligne.map.find((p) => p.key === "value").value;
     assert.equal(valeur, `{{DLV — ${nom}}}`, `${nom} : paramètre et variable désaccordés`);
   }
 
   // Les coordonnées hachées vont aux conversions améliorées de Google Ads,
   // pas dans les rapports GA4.
-  const nomsTransmis = table.map((l) => l.map.find((p) => p.key === "parameter").value);
+  const noms = params.map((l) => l.map.find((p) => p.key === "name").value);
   assert.ok(
-    nomsTransmis.every((nom) => !nom.startsWith("user_data.")),
+    noms.every((nom) => !nom.startsWith("user_data.")),
     "aucune donnée de contact, même hachée, ne doit partir dans GA4"
   );
 });
@@ -400,136 +404,38 @@ test("chaque conversion Ads porte le lead_id comme clé de déduplication", () =
   }
 });
 
-test("les conversions améliorées ne sont activées que là où le site fournit des empreintes", () => {
+test("les conversions améliorées sont désactivées dans le fichier d'import", () => {
   /*
-   * Seules les deux conversions nées d'un formulaire disposent d'une adresse
-   * e-mail et d'un téléphone (cf. `embUserData`). Les activer ailleurs
-   * enverrait des champs vides et laisserait un diagnostic en erreur permanent
-   * dans Google Ads — un voyant rouge qu'on finit par ne plus regarder, et
-   * derrière lequel une vraie panne passerait inaperçue.
+   * La variable de données fournies par l'utilisateur (`gtud`) ne se
+   * transporte pas dans un import : GTM répond « Type d'entité inconnu ».
+   * Elle se crée à la main dans l'interface, puis s'attache aux deux
+   * conversions issues d'un formulaire.
+   *
+   * Tant qu'elle n'existe pas, activer le drapeau ici enverrait des champs
+   * vides et laisserait un diagnostic en erreur permanent dans Google Ads.
+   * Le code du site continue, lui, de pousser les empreintes : elles
+   * attendent simplement que quelqu'un les branche.
    */
-  const AVEC_EMPREINTES = ["Ads — Conversion estimation", "Ads — Conversion contact"];
-
   for (const balise of VERSION.tag.filter((t) => t.type === "awct")) {
-    const attendu = AVEC_EMPREINTES.includes(balise.name);
-    const active = balise.parameter.find((p) => p.key === "enableEnhancedConversions");
-    assert.equal(active.value, String(attendu), balise.name);
-
-    const source = balise.parameter.find((p) => p.key === "userDataVariable");
-    if (attendu) {
-      assert.equal(
-        source && source.value,
-        "{{UD — Données fournies par l'utilisateur}}",
-        `${balise.name} : conversions améliorées activées sans source de données`
-      );
-    } else {
-      assert.equal(source, undefined, `${balise.name} : source de données sans objet`);
-    }
+    const actif = balise.parameter.find((p) => p.key === "enableEnhancedConversions");
+    assert.equal(actif.value, "false", balise.name);
+    assert.equal(
+      balise.parameter.some((p) => p.key === "userDataVariable"),
+      false,
+      `${balise.name} : référence à une variable que le fichier ne contient pas`
+    );
   }
 });
 
-test("les empreintes de contact ne partent qu'aux conversions améliorées", () => {
-  // Elles n'ont rien à faire ailleurs : ni dans GA4 (déjà vérifié plus haut),
-  // ni dans une balise Meta, ni dans le remarketing.
-  const source = VERSION.variable.find(
-    (v) => v.name === "UD — Données fournies par l'utilisateur"
-  );
-  assert.ok(source, "la variable de données fournies par l'utilisateur doit exister");
-  assert.equal(
-    source.parameter.find((p) => p.key === "mode").value,
-    "MANUAL",
-    "le mode automatique ferait parcourir le DOM par Google, donc lire l'e-mail en clair"
-  );
-
-  const autorisees = new Set(["Ads — Conversion estimation", "Ads — Conversion contact"]);
+test("aucune empreinte de contact ne transite par une balise", () => {
+  // Ni dans GA4, ni dans Meta, ni dans le remarketing. Le seul consommateur
+  // légitime est la variable de données utilisateur, créée à la main.
   for (const balise of VERSION.tag) {
-    if (autorisees.has(balise.name)) continue;
-    const contenu = JSON.stringify(balise);
     assert.equal(
-      contenu.includes("user_data.sha256") || contenu.includes("UD — Données"),
+      JSON.stringify(balise).includes("user_data.sha256"),
       false,
       `${balise.name} : aucune donnée de contact, même hachée, n'a à transiter ici`
     );
-  }
-});
-
-test("chaque identifiant de compte a la forme de sa plateforme", () => {
-  /*
-   * On vérifie la FORME, pas la présence d'un gabarit : ces identifiants
-   * figurent de toute façon en clair dans le HTML livré, les versionner ne
-   * divulgue rien et évite de les ressaisir à chaque import.
-   *
-   * Ce que ce test attrape vraiment, c'est le mauvais identifiant au mauvais
-   * endroit — et surtout le `AW-` collé dans l'identifiant de conversion, que
-   * les balises `awct` et `sp` attendent en NOMBRE SEUL. Avec le préfixe, la
-   * balise passe la validation de GTM et ne remonte jamais rien : panne
-   * parfaitement silencieuse, et plusieurs jours de budget dépensés à l'aveugle
-   * avant que quelqu'un s'en aperçoive.
-   *
-   * `0…` reste accepté : c'est un compte pas encore créé.
-   */
-  const formats = {
-    "CONST — GA4 Measurement ID": /^(G-[A-Z0-9]{6,12}|0+)$/,
-    "CONST — Google Ads Conversion ID": /^\d{9,12}$/,
-    "CONST — Meta Pixel ID": /^\d{15,16}$/,
-  };
-
-  for (const [nom, motif] of Object.entries(formats)) {
-    const variable = VERSION.variable.find((v) => v.name === nom);
-    assert.ok(variable, `constante manquante : ${nom}`);
-
-    const valeur = variable.parameter.find((p) => p.key === "value").value;
-    assert.match(valeur, motif, `${nom} : « ${valeur} » n'a pas la forme attendue`);
-  }
-
-  const ads = VERSION.variable.find((v) => v.name === "CONST — Google Ads Conversion ID");
-  assert.equal(
-    ads.parameter.find((p) => p.key === "value").value.startsWith("AW-"),
-    false,
-    "l'identifiant de conversion se donne SANS le préfixe AW-, que la balise ajoute elle-même"
-  );
-});
-
-test("le préfixe AW- est mis là où il faut, et nulle part ailleurs", () => {
-  /*
-   * Asymétrie déroutante mais réelle, et source de pannes silencieuses : la
-   * balise Google (`googtag`) veut `AW-18402972391`, les balises de conversion
-   * (`awct`) et de remarketing (`sp`) veulent `18402972391`. Une seule
-   * constante porte la valeur, chacun la préfixe selon son besoin — et ce test
-   * verrouille qui préfixe quoi.
-   */
-  const config = VERSION.tag.find((t) => t.name === "Ads — Configuration");
-  assert.ok(config, "la balise Google de Google Ads doit exister");
-  assert.equal(
-    config.parameter.find((p) => p.key === "tagId").value,
-    "AW-{{CONST — Google Ads Conversion ID}}"
-  );
-
-  for (const balise of VERSION.tag.filter((t) => t.type === "awct" || t.type === "sp")) {
-    const id = balise.parameter.find((p) => p.key === "conversionId").value;
-    assert.equal(
-      id,
-      "{{CONST — Google Ads Conversion ID}}",
-      `${balise.name} : avec le préfixe, cette balise passe la validation de GTM et ne remonte jamais rien`
-    );
-  }
-});
-
-test("les balises de configuration ne comptent aucune conversion", () => {
-  // `googtag` configure, `awct` mesure. Confondre les deux, c'est le double
-  // comptage. Les deux balises de configuration se déclenchent à
-  // l'initialisation et ne portent ni libellé, ni valeur, ni identifiant de
-  // transaction.
-  for (const nom of ["GA4 — Configuration", "Ads — Configuration"]) {
-    const balise = VERSION.tag.find((t) => t.name === nom);
-    assert.equal(balise.type, "googtag", nom);
-    for (const interdit of ["conversionLabel", "conversionValue", "orderId"]) {
-      assert.equal(
-        balise.parameter.some((p) => p.key === interdit),
-        false,
-        `${nom} : « ${interdit} » n'a rien à faire sur une balise de configuration`
-      );
-    }
   }
 });
 
@@ -735,4 +641,25 @@ test("aucun nom d'entité ne contient un caractère que GTM refuse", () => {
     .filter((nom) => /[:<>"\\]/.test(nom));
 
   assert.deepEqual(fautifs, [], "GTM refusera le fichier entier sur ces noms");
+});
+
+test("aucun type d'entité que GTM ne sait pas importer", () => {
+  /*
+   * Constaté trois fois de suite, sur trois familles différentes : un type
+   * inconnu fait rejeter le fichier ENTIER, et l'interface ne nomme que le
+   * premier. `gtud` et `gtes` — les types récents — n'y ont pas survécu.
+   *
+   * Liste blanche des types éprouvés à l'import plutôt que liste noire de ce
+   * qui a échoué : c'est la seule qui protège d'un type qu'on n'a pas encore
+   * essayé.
+   */
+  const VARIABLES = new Set(["c", "v", "smm", "jsm", "u", "d", "k", "f", "e"]);
+  const BALISES = new Set(["googtag", "gaawe", "gclidw", "awct", "sp", "html", "ua"]);
+
+  for (const variable of VERSION.variable) {
+    assert.ok(VARIABLES.has(variable.type), `${variable.name} : type « ${variable.type} »`);
+  }
+  for (const balise of VERSION.tag) {
+    assert.ok(BALISES.has(balise.type), `${balise.name} : type « ${balise.type} »`);
+  }
 });
