@@ -150,6 +150,41 @@ paramètres sont collectés mais n'apparaissent dans aucun rapport.**
 
 ---
 
+## 5bis. Vérifier la variable de conversions améliorées
+
+⚠️ **`UD — Données fournies par l'utilisateur` est l'entité la plus susceptible
+d'être mal reconstituée par l'import.** Le nom exact des champs de ce type de
+variable n'est pas documenté hors de l'interface.
+
+Après l'import, l'ouvrir et vérifier qu'elle contient bien :
+
+| Champ | Valeur |
+|---|---|
+| Type de saisie | **Manuel** |
+| E-mail | `{{DLV — user_data.sha256_email_address}}` |
+| Téléphone | `{{DLV — user_data.sha256_phone_number}}` |
+
+Si elle est vide ou incomplète, la refaire à la main prend deux minutes
+(*Variables* → *Nouvelle* → **Données fournies par l'utilisateur** → mode
+*Manuel*), sous le **même nom** — les deux balises de conversion la référencent.
+
+**Mode « Manuel » et jamais « Automatique ».** Le mode automatique demande à
+Google de parcourir le DOM à la recherche de champs de formulaire, c'est-à-dire
+de lire l'adresse e-mail en clair sur la page. Ici, le site calcule lui-même une
+empreinte SHA-256 (`embUserData` dans `src/scripts/tracking.js`) : Google ne voit
+jamais la donnée d'origine.
+
+Côté Google Ads, activer les conversions améliorées sur les deux actions
+concernées (**Estimation — lead** et **Contact — message**), en choisissant
+l'implémentation **par Google Tag Manager** — et accepter les conditions
+d'utilisation des données client, sans quoi le diagnostic reste en attente
+indéfiniment.
+
+Les trois autres conversions (partenariat, PDF, micro-étape 3) n'ont
+**volontairement pas** de conversions améliorées : aucun formulaire ne leur
+fournit de coordonnées, et les activer laisserait un diagnostic en erreur
+permanent — un voyant rouge derrière lequel une vraie panne passerait inaperçue.
+
 ## 6. Meta
 
 Créer le pixel dans Events Manager, relever son identifiant, le poser dans

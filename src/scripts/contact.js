@@ -51,29 +51,57 @@
             submitBtn.disabled = false;
           }
 
+          /**
+           * Succès de l'envoi : on mesure, PUIS on affiche l'accusé de
+           * réception.
+           *
+           * L'ordre n'est pas négociable. `alert()` bloque le fil
+           * d'exécution : tant que le visiteur n'a pas cliqué « OK », aucune
+           * micro-tâche ne tourne. Mesurer après l'alerte reviendrait à
+           * suspendre la conversion à ce clic — et à la perdre si l'onglet est
+           * fermé sur la boîte de dialogue.
+           */
           function onSuccess() {
-            // Sur le SUCCÈS, jamais sur la soumission : un message que l'API a
-            // refusé n'est pas un lead, et le compter reviendrait à payer des
-            // clics publicitaires pour des formulaires qui n'aboutissent pas.
-            //
-            // Le `lead_id` est frappé ici plutôt qu'à l'envoi : c'est une
-            // conversion sans page de confirmation ni redirection, il ne sert
-            // donc qu'à dédoublonner entre Google Ads et Meta (plan §2.4).
-            if (typeof embTrack === "function") {
-              embTrack("contact_lead", {
-                lead_id: embLeadId(),
-                lead_type: "contact",
-                contact_subject: subjectValue,
-                value: embContactValue(subjectValue),
-                currency: "EUR",
-              });
-            }
+            const terminer = function (userData) {
+              // Sur le SUCCÈS, jamais sur la soumission : un message que l'API
+              // a refusé n'est pas un lead, et le compter reviendrait à payer
+              // des clics publicitaires pour des formulaires qui n'aboutissent
+              // pas.
+              //
+              // Le `lead_id` est frappé ici plutôt qu'à l'envoi : c'est une
+              // conversion sans page de confirmation ni redirection, il ne
+              // sert donc qu'à dédoublonner entre Google Ads et Meta (§2.4).
+              if (typeof embTrack === "function") {
+                embTrack("contact_lead", {
+                  lead_id: embLeadId(),
+                  lead_type: "contact",
+                  contact_subject: subjectValue,
+                  value: embContactValue(subjectValue),
+                  currency: "EUR",
+                  user_data: userData,
+                });
+              }
 
-            alert(
-              "Merci ! Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais."
-            );
-            document.getElementById("contactForm").reset();
-            releaseButton();
+              alert(
+                "Merci ! Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais."
+              );
+              document.getElementById("contactForm").reset();
+              releaseButton();
+            };
+
+            // Le hachage des coordonnées est asynchrone (Web Crypto). Il rend
+            // toujours la main sous 500 ms, et son échec ne prive le visiteur
+            // ni de son accusé de réception, ni nous de la conversion.
+            if (typeof embUserData === "function") {
+              embUserData(email, document.getElementById("phone").value).then(
+                terminer,
+                function () {
+                  terminer(null);
+                }
+              );
+            } else {
+              terminer(null);
+            }
           }
 
           function onFailure(detail) {

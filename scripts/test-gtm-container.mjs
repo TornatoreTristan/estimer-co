@@ -331,13 +331,56 @@ test("chaque conversion Ads porte le lead_id comme clé de déduplication", () =
   }
 });
 
-test("les conversions améliorées restent désactivées tant que rien ne les alimente", () => {
-  // Lot T3. Les activer maintenant enverrait des champs vides et laisserait un
-  // diagnostic en erreur permanent dans Google Ads — un voyant rouge qu'on
-  // finit par ne plus regarder.
+test("les conversions améliorées ne sont activées que là où le site fournit des empreintes", () => {
+  /*
+   * Seules les deux conversions nées d'un formulaire disposent d'une adresse
+   * e-mail et d'un téléphone (cf. `embUserData`). Les activer ailleurs
+   * enverrait des champs vides et laisserait un diagnostic en erreur permanent
+   * dans Google Ads — un voyant rouge qu'on finit par ne plus regarder, et
+   * derrière lequel une vraie panne passerait inaperçue.
+   */
+  const AVEC_EMPREINTES = ["Ads — Conversion : estimation", "Ads — Conversion : contact"];
+
   for (const balise of VERSION.tag.filter((t) => t.type === "awct")) {
-    const ameliorees = balise.parameter.find((p) => p.key === "enableEnhancedConversions");
-    assert.equal(ameliorees.value, "false", `${balise.name}`);
+    const attendu = AVEC_EMPREINTES.includes(balise.name);
+    const active = balise.parameter.find((p) => p.key === "enableEnhancedConversions");
+    assert.equal(active.value, String(attendu), balise.name);
+
+    const source = balise.parameter.find((p) => p.key === "userDataVariable");
+    if (attendu) {
+      assert.equal(
+        source && source.value,
+        "{{UD — Données fournies par l'utilisateur}}",
+        `${balise.name} : conversions améliorées activées sans source de données`
+      );
+    } else {
+      assert.equal(source, undefined, `${balise.name} : source de données sans objet`);
+    }
+  }
+});
+
+test("les empreintes de contact ne partent qu'aux conversions améliorées", () => {
+  // Elles n'ont rien à faire ailleurs : ni dans GA4 (déjà vérifié plus haut),
+  // ni dans une balise Meta, ni dans le remarketing.
+  const source = VERSION.variable.find(
+    (v) => v.name === "UD — Données fournies par l'utilisateur"
+  );
+  assert.ok(source, "la variable de données fournies par l'utilisateur doit exister");
+  assert.equal(
+    source.parameter.find((p) => p.key === "mode").value,
+    "MANUAL",
+    "le mode automatique ferait parcourir le DOM par Google, donc lire l'e-mail en clair"
+  );
+
+  const autorisees = new Set(["Ads — Conversion : estimation", "Ads — Conversion : contact"]);
+  for (const balise of VERSION.tag) {
+    if (autorisees.has(balise.name)) continue;
+    const contenu = JSON.stringify(balise);
+    assert.equal(
+      contenu.includes("user_data.sha256") || contenu.includes("UD — Données"),
+      false,
+      `${balise.name} : aucune donnée de contact, même hachée, n'a à transiter ici`
+    );
   }
 });
 

@@ -1359,6 +1359,32 @@
         "accountId": "0",
         "containerId": "0",
         "variableId": "49",
+        "name": "UD — Données fournies par l'utilisateur",
+        "type": "gtud",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "mode",
+            "value": "MANUAL"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "email",
+            "value": "{{DLV — user_data.sha256_email_address}}"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "phone_number",
+            "value": "{{DLV — user_data.sha256_phone_number}}"
+          }
+        ],
+        "fingerprint": "0",
+        "parentFolderId": "5"
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "variableId": "50",
         "name": "SETTINGS — Params communs",
         "type": "gtes",
         "parameter": [
@@ -2410,7 +2436,12 @@
           {
             "type": "BOOLEAN",
             "key": "enableEnhancedConversions",
-            "value": "false"
+            "value": "true"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "userDataVariable",
+            "value": "{{UD — Données fournies par l'utilisateur}}"
           }
         ],
         "fingerprint": "0",
@@ -2466,7 +2497,12 @@
           {
             "type": "BOOLEAN",
             "key": "enableEnhancedConversions",
-            "value": "false"
+            "value": "true"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "userDataVariable",
+            "value": "{{UD — Données fournies par l'utilisateur}}"
           }
         ],
         "fingerprint": "0",

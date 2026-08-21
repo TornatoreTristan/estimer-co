@@ -75,30 +75,57 @@ function mesurerRapport(donnees, estimation, statut) {
       ? Math.round(estimation.estimationMoyenne)
       : undefined;
 
-  embTrack("generate_lead", {
-    lead_id: leadId,
-    lead_type: "estimation",
-    value: embLeadValue(donnees.isOwner, donnees.wantToSell, valeurBien),
-    currency: "EUR",
-    lead_quality: embLeadQuality(donnees.isOwner, donnees.wantToSell),
-    property_type: donnees.propertyType,
-    surface_bucket: embSurfaceBucket(donnees.surface),
-    rooms: donnees.rooms,
-    dpe: donnees.dpe,
-    postal_code: donnees.postalCode,
-    departement_code: embDepartement(donnees.postalCode),
-    estimation_value: valeurBien,
-    estimation_status: statut,
-    is_owner: donnees.isOwner,
-    want_to_sell: donnees.wantToSell,
-  });
+  /**
+   * Pousse la conversion, avec les empreintes de contact si elles ont pu être
+   * calculées. Appelée dans TOUS les cas, y compris quand le hachage échoue :
+   * une conversion sans conversion améliorée reste une conversion, une
+   * conversion perdue ne se rattrape pas.
+   */
+  const pousserConversion = (userData) => {
+    embTrack("generate_lead", {
+      lead_id: leadId,
+      lead_type: "estimation",
+      value: embLeadValue(donnees.isOwner, donnees.wantToSell, valeurBien),
+      currency: "EUR",
+      lead_quality: embLeadQuality(donnees.isOwner, donnees.wantToSell),
+      property_type: donnees.propertyType,
+      surface_bucket: embSurfaceBucket(donnees.surface),
+      rooms: donnees.rooms,
+      dpe: donnees.dpe,
+      postal_code: donnees.postalCode,
+      departement_code: embDepartement(donnees.postalCode),
+      estimation_value: valeurBien,
+      estimation_status: statut,
+      is_owner: donnees.isOwner,
+      want_to_sell: donnees.wantToSell,
+      user_data: userData,
+    });
 
-  // Après la poussée, jamais avant : si l'écriture échouait d'abord, on
-  // perdrait la conversion pour de bon plutôt que d'en risquer une en double.
-  try {
-    localStorage.setItem(cleVerrou, "1");
-  } catch (erreur) {
-    /* voir plus haut : le dédoublonnage retombe sur `transaction_id` */
+    // Après la poussée, jamais avant : si l'écriture échouait d'abord, on
+    // perdrait la conversion pour de bon plutôt que d'en risquer une en double.
+    try {
+      localStorage.setItem(cleVerrou, "1");
+    } catch (erreur) {
+      /* voir plus haut : le dédoublonnage retombe sur `transaction_id` */
+    }
+  };
+
+  /*
+   * Le hachage SHA-256 passe par la Web Crypto, qui est asynchrone : la
+   * conversion part donc quelques millisecondes après l'affichage. Sans
+   * conséquence ICI, contrairement au clic « Envoyer » — `/rapport/` ne
+   * redirige pas, et le visiteur vient tout juste d'y arriver.
+   *
+   * `embUserData` ne rejette jamais et rend la main sous 500 ms ; le second
+   * argument de `then` n'est qu'une ceinture de plus, parce que la conversion
+   * principale du site ne peut pas dépendre d'une promesse.
+   */
+  if (typeof embUserData === "function") {
+    embUserData(donnees.email, donnees.phone).then(pousserConversion, () =>
+      pousserConversion(null)
+    );
+  } else {
+    pousserConversion(null);
   }
 }
 

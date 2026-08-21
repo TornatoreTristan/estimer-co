@@ -73,7 +73,12 @@ function creerElement(attributs, options) {
  * Monte le bouchon, exécute `tracking.js`, passe le pilotage à `scenario`,
  * puis restaure le realm.
  *
- * @param {{ chemin?: string, pushLeve?: boolean, sansWindow?: boolean }} options
+ * @param {{
+ *   chemin?: string,
+ *   pushLeve?: boolean,
+ *   sansWindow?: boolean,
+ *   crypto?: object,   // défaut : un bouchon SANS `subtle`, soit une page en HTTP
+ * }} options
  */
 function withTracking(options, scenario) {
   const opts = options || {};
@@ -104,7 +109,13 @@ function withTracking(options, scenario) {
   globalThis.window = {
     dataLayer,
     location: { pathname: opts.chemin || "/" },
-    crypto: {
+    /*
+     * Par défaut, un bouchon SANS `subtle` : c'est l'état d'une page servie en
+     * HTTP, où la Web Crypto n'existe pas. Le socle doit y fonctionner en
+     * renonçant aux empreintes, pas en levant. Les tests qui exercent
+     * réellement le hachage passent la vraie implémentation de Node.
+     */
+    crypto: opts.crypto || {
       // Déterministe : ce test vérifie la FORME de l'identifiant et son
       // unicité d'appel en appel, pas la qualité de l'aléa de la plateforme.
       getRandomValues(tableau) {
@@ -116,12 +127,18 @@ function withTracking(options, scenario) {
 
   console.warn = (...args) => avertissements.push(args.join(" "));
 
+  const restaurer = () => {
+    globalThis.document = saved.document;
+    globalThis.window = saved.window;
+    console.warn = saved.warn;
+  };
+
   try {
     SCRIPT.runInThisContext();
 
     if (opts.sansWindow) delete globalThis.window;
 
-    return scenario({
+    const resultat = scenario({
       pousses,
       avertissements,
       /** Rejoue un clic sur `element` à travers la délégation posée sur `document`. */
@@ -138,10 +155,32 @@ function withTracking(options, scenario) {
         return (ecouteurs.click || [])[0] && (ecouteurs.click || [])[0].options;
       },
     });
-  } finally {
-    globalThis.document = saved.document;
-    globalThis.window = saved.window;
-    console.warn = saved.warn;
+
+    /*
+     * Scénario asynchrone : sans cette branche, le `finally` restaurerait le
+     * realm dès que `scenario()` a rendu SA PROMESSE, c'est-à-dire avant que
+     * son corps ait fini de s'exécuter. Le test s'exécuterait alors sur le
+     * `window` du realm voisin, et échouerait pour une raison qui n'apprend
+     * rien sur le code mesuré.
+     */
+    if (resultat && typeof resultat.then === "function") {
+      return resultat.then(
+        (valeur) => {
+          restaurer();
+          return valeur;
+        },
+        (erreur) => {
+          restaurer();
+          throw erreur;
+        }
+      );
+    }
+
+    restaurer();
+    return resultat;
+  } catch (erreur) {
+    restaurer();
+    throw erreur;
   }
 }
 
@@ -568,5 +607,174 @@ test("un clic hors de tout élément tracké ne pousse rien", () => {
     cliquer(creerElement({}, { texte: "Un paragraphe" }));
     cliquer({ target: null });
     assert.equal(pousses.length, 0);
+  });
+});
+
+// ===========================================================================
+// 5. Conversions améliorées — empreintes des coordonnées (lot T3)
+// ===========================================================================
+//
+// Le hachage se fait DANS LE NAVIGATEUR, avant tout envoi. Google accepterait
+// les coordonnées en clair et les hacherait lui-même — ce serait plus simple, et
+// l'adresse e-mail transiterait alors par un `dataLayer` que n'importe quelle
+// extension installée chez le visiteur peut lire.
+
+/** Empreinte SHA-256 hexadécimale, calculée indépendamment du code testé. */
+async function empreinteAttendue(texte) {
+  const { createHash } = await import("node:crypto");
+  return createHash("sha256").update(texte, "utf8").digest("hex");
+}
+
+/** `withTracking` avec la Web Crypto de Node : `embHash` doit vraiment calculer. */
+function withCrypto(scenario) {
+  return withTracking({ crypto: nodeWebCrypto() }, scenario);
+}
+
+function nodeWebCrypto() {
+  return globalThis.crypto;
+}
+
+test("embHash produit bien un SHA-256 hexadécimal", async () => {
+  await withCrypto(async () => {
+    const empreinte = await embHash("jean.dupont@example.com");
+    assert.equal(empreinte, await empreinteAttendue("jean.dupont@example.com"));
+    assert.match(empreinte, /^[0-9a-f]{64}$/);
+  });
+});
+
+test("embHash rend une chaîne vide plutôt que de lever", async () => {
+  // Contexte non sécurisé (page servie en HTTP), navigateur ancien, valeur
+  // absente : aucun de ces cas ne doit interrompre la conversion.
+  await withCrypto(async () => {
+    assert.equal(await embHash(""), "");
+    assert.equal(await embHash(null), "");
+    assert.equal(await embHash(undefined), "");
+  });
+
+  await withTracking({}, async () => {
+    // `window.crypto.subtle` absent du bouchon : c'est le cas HTTP.
+    assert.equal(await embHash("jean@example.com"), "");
+  });
+});
+
+test("la normalisation des e-mails suit celle de Google", async () => {
+  await withCrypto(() => {
+    assert.equal(embNormaliserEmail("  Jean.Dupont@Example.COM "), "jean.dupont@example.com");
+    // Les points d'une adresse gmail sont CONSERVÉS : Google ne les retire que
+    // pour Customer Match. Les enlever ici produirait une empreinte que rien
+    // ne rapprocherait jamais.
+    assert.equal(embNormaliserEmail("jean.dupont@gmail.com"), "jean.dupont@gmail.com");
+    for (const invalide of ["", "   ", "pas-une-adresse", "@example.com", null, undefined]) {
+      assert.equal(embNormaliserEmail(invalide), "", `entrée invalide : ${invalide}`);
+    }
+  });
+});
+
+test("les téléphones sont ramenés au format E.164", async () => {
+  await withCrypto(() => {
+    // Un « 06 12 34 56 78 » envoyé tel quel produit une empreinte que rien ne
+    // rapprochera jamais, et l'échec est silencieux. D'où cette conversion.
+    assert.equal(embNormaliserTelephone("06 12 34 56 78"), "+33612345678");
+    assert.equal(embNormaliserTelephone("06.12.34.56.78"), "+33612345678");
+    assert.equal(embNormaliserTelephone("0612345678"), "+33612345678");
+    assert.equal(embNormaliserTelephone("+33 6 12 34 56 78"), "+33612345678");
+    assert.equal(embNormaliserTelephone("0033612345678"), "+33612345678");
+    assert.equal(embNormaliserTelephone("33612345678"), "+33612345678");
+
+    // Inexploitable : mieux vaut ne rien envoyer qu'une empreinte fausse.
+    for (const invalide of ["", "12", "abcdef", null, undefined]) {
+      assert.equal(embNormaliserTelephone(invalide), "", `entrée invalide : ${invalide}`);
+    }
+  });
+});
+
+test("embUserData ne rend que des empreintes, jamais du clair", async () => {
+  await withCrypto(async () => {
+    const donnees = await embUserData("Jean.Dupont@Example.com", "06 12 34 56 78");
+
+    assert.deepEqual(Object.keys(donnees).sort(), [
+      "sha256_email_address",
+      "sha256_phone_number",
+    ]);
+    assert.equal(donnees.sha256_email_address, await empreinteAttendue("jean.dupont@example.com"));
+    assert.equal(donnees.sha256_phone_number, await empreinteAttendue("+33612345678"));
+  });
+});
+
+test("embUserData omet ce qu'elle ne peut pas hacher, sans rejeter", async () => {
+  await withCrypto(async () => {
+    assert.deepEqual(await embUserData("jean@example.com", ""), {
+      sha256_email_address: await empreinteAttendue("jean@example.com"),
+    });
+    assert.deepEqual(await embUserData("", ""), {});
+    assert.deepEqual(await embUserData(null, undefined), {});
+  });
+
+  // Sans Web Crypto (page en HTTP), la promesse se résout quand même : une
+  // conversion sans conversion améliorée reste une conversion.
+  await withTracking({}, async () => {
+    assert.deepEqual(await embUserData("jean@example.com", "0612345678"), {});
+  });
+});
+
+// ===========================================================================
+// 6. Le filtre anti-PII face à l'objet imbriqué
+// ===========================================================================
+
+test("user_data ne laisse passer que ce qui ressemble à une empreinte", () => {
+  withTracking({}, ({ pousses, avertissements }) => {
+    const empreinte = "a".repeat(64);
+
+    embTrack("generate_lead", {
+      user_data: {
+        sha256_email_address: empreinte,
+        // Erreur de câblage : la valeur en clair au lieu de son empreinte.
+        // Elle ne ressemble pas à un SHA-256, elle est écartée bruyamment.
+        sha256_phone_number: "0612345678",
+      },
+    });
+
+    assert.deepEqual(pousses[0], {
+      event: "generate_lead",
+      user_data: { sha256_email_address: empreinte },
+    });
+    assert.equal(avertissements.length, 1);
+  });
+});
+
+test("un user_data entièrement invalide n'est pas poussé du tout", () => {
+  withTracking({}, ({ pousses }) => {
+    embTrack("generate_lead", {
+      lead_id: "abc",
+      user_data: { sha256_email_address: "jean.dupont@example.com" },
+    });
+
+    assert.deepEqual(pousses[0], { event: "generate_lead", lead_id: "abc" });
+  });
+});
+
+test("aucun autre objet imbriqué n'est accepté", () => {
+  withTracking({}, ({ pousses, avertissements }) => {
+    // Le `lastEstimation` d'où viennent la plupart des paramètres contient nom,
+    // e-mail, téléphone et adresse : un objet recopié sans contrôle est un
+    // objet dont personne ne relit le contenu.
+    embTrack("generate_lead", {
+      lead_id: "abc",
+      donnees: { email: "jean@example.com" },
+      user_data: ["a".repeat(64)],
+    });
+
+    assert.deepEqual(pousses[0], { event: "generate_lead", lead_id: "abc" });
+    assert.equal(avertissements.length, 2);
+  });
+});
+
+test("un user_data absent ou vide ne crée pas de clé", () => {
+  withTracking({}, ({ pousses }) => {
+    embTrack("contact_lead", { lead_id: "abc", user_data: {} });
+    embTrack("contact_lead", { lead_id: "def", user_data: null });
+
+    assert.equal("user_data" in pousses[0], false);
+    assert.equal("user_data" in pousses[1], false);
   });
 });
