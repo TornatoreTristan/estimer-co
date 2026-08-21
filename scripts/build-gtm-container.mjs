@@ -448,7 +448,7 @@ const V_PARAMS_GA4 = variable(
  * par `src/components/Analytics.astro`, AVANT le conteneur lui-même. Rien dans
  * ce fichier n'en dépend.
  */
-const D_TOUTES_PAGES = declencheur("Toutes les pages", { type: "pageview" }, F_SOCLE);
+const D_TOUTES_PAGES = declencheur("Toutes les pages", { type: "PAGEVIEW" }, F_SOCLE);
 
 /*
  * Déclencheur unique de la balise d'événement GA4.
@@ -463,7 +463,7 @@ const REGEX_EVENEMENTS_METIER =
 const D_TOUS_EVENEMENTS = declencheur(
   "CE — Tous événements métier",
   {
-    type: "customEvent",
+    type: "CUSTOM_EVENT",
     customEventFilter: [filtreEvenement("MATCH_REGEX", REGEX_EVENEMENTS_METIER)],
   },
   F_GA4
@@ -472,7 +472,7 @@ const D_TOUS_EVENEMENTS = declencheur(
 const D_GENERATE_LEAD = declencheur(
   "CE — generate_lead",
   {
-    type: "customEvent",
+    type: "CUSTOM_EVENT",
     customEventFilter: [filtreEvenement("EQUALS", "generate_lead")],
   },
   F_SOCLE
@@ -481,7 +481,7 @@ const D_GENERATE_LEAD = declencheur(
 const D_REPORT_VIEW = declencheur(
   "CE — report_view",
   {
-    type: "customEvent",
+    type: "CUSTOM_EVENT",
     customEventFilter: [filtreEvenement("EQUALS", "report_view")],
   },
   F_SOCLE
@@ -496,7 +496,7 @@ const D_REPORT_VIEW = declencheur(
 const D_CONTACT_HORS_PARTENARIAT = declencheur(
   "CE — contact_lead (hors partenariat)",
   {
-    type: "customEvent",
+    type: "CUSTOM_EVENT",
     customEventFilter: [filtreEvenement("EQUALS", "contact_lead")],
     filter: [
       filtreVariable("EQUALS", ref(nomDlv("contact_subject")), "partenariat", true),
@@ -508,7 +508,7 @@ const D_CONTACT_HORS_PARTENARIAT = declencheur(
 const D_CONTACT_PARTENARIAT = declencheur(
   "CE — contact_lead (partenariat)",
   {
-    type: "customEvent",
+    type: "CUSTOM_EVENT",
     customEventFilter: [filtreEvenement("EQUALS", "contact_lead")],
     filter: [filtreVariable("EQUALS", ref(nomDlv("contact_subject")), "partenariat")],
   },
@@ -518,7 +518,7 @@ const D_CONTACT_PARTENARIAT = declencheur(
 const D_PDF = declencheur(
   "CE — report_pdf_download",
   {
-    type: "customEvent",
+    type: "CUSTOM_EVENT",
     customEventFilter: [filtreEvenement("EQUALS", "report_pdf_download")],
   },
   F_SOCLE
@@ -536,7 +536,7 @@ const D_PDF = declencheur(
 const D_MICRO_ETAPE_3 = declencheur(
   "CE — micro : étape 3 atteinte",
   {
-    type: "customEvent",
+    type: "CUSTOM_EVENT",
     customEventFilter: [filtreEvenement("EQUALS", "estimation_step_view")],
     filter: [
       filtreVariable("EQUALS", ref(nomDlv("step_number")), "3"),
