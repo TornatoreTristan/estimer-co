@@ -312,6 +312,48 @@ test("le pixel Meta ne pose pas d'iframe de repli", () => {
   }
 });
 
+
+// ===========================================================================
+// 3bis. Durée des traceurs — le conteneur doit tenir la promesse de la page
+// ===========================================================================
+
+test("le cookie GA4 ne dure pas plus que ce que la politique annonce", () => {
+  /*
+   * GA4 pose `_ga` pour DEUX ANS par défaut. La politique de confidentialité
+   * annonce « 13 mois maximum » pour les traceurs. Sans réglage explicite, le
+   * site déposerait donc un traceur d'une durée que sa propre politique
+   * interdit — un écart qui ne se voit ni dans l'interface de GTM, ni dans le
+   * code du site, et que seul un contrôle révélerait.
+   *
+   * La durée attendue est RELUE dans la politique plutôt qu'écrite ici : le
+   * jour où quelqu'un change l'une, ce test réclame l'autre.
+   */
+  const politique = readFileSync(
+    path.join(RACINE, "src", "pages", "politique-de-confidentialite.astro"),
+    "utf8"
+  );
+  const annonce = politique.match(/(\d+)\s*mois maximum pour les traceurs/);
+  assert.ok(annonce, "la politique doit annoncer une durée maximale pour les traceurs");
+
+  const plafondSecondes = Number(annonce[1]) * 30.4 * 24 * 60 * 60;
+
+  const config = VERSION.tag.find((t) => t.name === "GA4 — Configuration");
+  const table = config.parameter.find((p) => p.key === "configSettingsTable");
+  assert.ok(table, "la balise de configuration GA4 doit régler la durée du cookie");
+
+  const ligne = table.list.find(
+    (l) => l.map.find((p) => p.key === "parameter").value === "cookie_expires"
+  );
+  assert.ok(ligne, "`cookie_expires` absent : GA4 retomberait sur ses deux ans par défaut");
+
+  const duree = Number(ligne.map.find((p) => p.key === "parameterValue").value);
+  assert.ok(duree > 0, "durée de cookie inexploitable");
+  assert.ok(
+    duree <= plafondSecondes,
+    `le cookie dure ${Math.round(duree / 86400)} jours, la politique en promet ${annonce[1]} mois`
+  );
+});
+
 // ===========================================================================
 // 4. Conversions Google Ads
 // ===========================================================================
