@@ -1949,7 +1949,7 @@
         "triggerId": "1",
         "name": "Toutes les pages",
         "fingerprint": "0",
-        "type": "pageview",
+        "type": "PAGEVIEW",
         "parentFolderId": "1"
       },
       {
@@ -1958,7 +1958,7 @@
         "triggerId": "2",
         "name": "CE — Tous événements métier",
         "fingerprint": "0",
-        "type": "customEvent",
+        "type": "CUSTOM_EVENT",
         "customEventFilter": [
           {
             "type": "MATCH_REGEX",
@@ -1984,7 +1984,7 @@
         "triggerId": "3",
         "name": "CE — generate_lead",
         "fingerprint": "0",
-        "type": "customEvent",
+        "type": "CUSTOM_EVENT",
         "customEventFilter": [
           {
             "type": "EQUALS",
@@ -2010,7 +2010,7 @@
         "triggerId": "4",
         "name": "CE — report_view",
         "fingerprint": "0",
-        "type": "customEvent",
+        "type": "CUSTOM_EVENT",
         "customEventFilter": [
           {
             "type": "EQUALS",
@@ -2036,7 +2036,7 @@
         "triggerId": "5",
         "name": "CE — contact_lead (hors partenariat)",
         "fingerprint": "0",
-        "type": "customEvent",
+        "type": "CUSTOM_EVENT",
         "customEventFilter": [
           {
             "type": "EQUALS",
@@ -2084,7 +2084,7 @@
         "triggerId": "6",
         "name": "CE — contact_lead (partenariat)",
         "fingerprint": "0",
-        "type": "customEvent",
+        "type": "CUSTOM_EVENT",
         "customEventFilter": [
           {
             "type": "EQUALS",
@@ -2127,7 +2127,7 @@
         "triggerId": "7",
         "name": "CE — report_pdf_download",
         "fingerprint": "0",
-        "type": "customEvent",
+        "type": "CUSTOM_EVENT",
         "customEventFilter": [
           {
             "type": "EQUALS",
@@ -2153,7 +2153,7 @@
         "triggerId": "8",
         "name": "CE — micro : étape 3 atteinte",
         "fingerprint": "0",
-        "type": "customEvent",
+        "type": "CUSTOM_EVENT",
         "customEventFilter": [
           {
             "type": "EQUALS",

@@ -156,7 +156,7 @@ test("chaque conversion a bien son déclencheur dédié", () => {
   }
 
   for (const declencheur of VERSION.trigger) {
-    if (declencheur.type !== "customEvent") continue;
+    if (declencheur.type !== "CUSTOM_EVENT") continue;
     if (declencheur.name === "CE — Tous événements métier") continue;
     assert.equal(
       declencheur.customEventFilter[0].type,
@@ -297,7 +297,14 @@ test("aucun déclencheur d'un type que GTM refuse à l'import", () => {
    * Le coût d'un type invalide n'est pas une entité manquante mais un import
    * qui échoue en bloc, sans rien dire de plus. D'où cette liste blanche.
    */
-  const TYPES_IMPORTABLES = new Set(["pageview", "customEvent", "domReady", "windowLoaded"]);
+  /*
+     * MAJUSCULES. Les types de déclencheur de l'export ne sont PAS ceux de
+     * l'API v2 : GTM a refusé successivement `init`, puis `pageview`, avec le
+     * même « Error deserializing enum type [EventType] ». L'indice était sous
+     * les yeux — les types de condition (`EQUALS`, `MATCH_REGEX`) sont
+     * majuscules et viennent de la même famille d'énumérations.
+     */
+    const TYPES_IMPORTABLES = new Set(["PAGEVIEW", "CUSTOM_EVENT", "DOM_READY", "WINDOW_LOADED"]);
 
   for (const declencheur of VERSION.trigger) {
     assert.ok(
@@ -313,7 +320,7 @@ test("les balises de configuration se déclenchent sur toutes les pages", () => 
   // antérieur aux déclencheurs d'initialisation : la différence tient à
   // quelques millisecondes, et le signal de consentement par défaut est de
   // toute façon posé par `Analytics.astro`, avant le conteneur lui-même.
-  const toutesPages = VERSION.trigger.find((t) => t.type === "pageview");
+  const toutesPages = VERSION.trigger.find((t) => t.type === "PAGEVIEW");
   assert.ok(toutesPages, "un déclencheur « toutes les pages » doit exister");
 
   for (const nom of ["GA4 — Configuration", "Ads — Configuration"]) {
