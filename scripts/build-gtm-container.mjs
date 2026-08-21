@@ -433,7 +433,21 @@ const V_PARAMS_GA4 = variable(
 // 6. DÉCLENCHEURS (§6.3)
 // ===========================================================================
 
-const D_INIT = declencheur("Initialisation — Toutes les pages", { type: "init" }, F_SOCLE);
+/*
+ * PAS DE DÉCLENCHEUR D'INITIALISATION.
+ *
+ * GTM refuse le type `init` à l'import : « Error deserializing enum type
+ * [EventType]. Unrecognized value [init] ». Les déclencheurs d'initialisation
+ * ne se créent que dans l'interface, ils ne se transportent pas dans un
+ * fichier.
+ *
+ * Les balises de configuration tirent donc sur « Toutes les pages », qui est
+ * le montage classique et antérieur à l'existence des déclencheurs
+ * d'initialisation. La différence tient à quelques millisecondes au chargement
+ * et n'a aucune incidence ici : le signal de consentement par défaut est posé
+ * par `src/components/Analytics.astro`, AVANT le conteneur lui-même. Rien dans
+ * ce fichier n'en dépend.
+ */
 const D_TOUTES_PAGES = declencheur("Toutes les pages", { type: "pageview" }, F_SOCLE);
 
 /*
@@ -574,7 +588,7 @@ balise(
       ]),
     ]),
   ],
-  { declencheurs: [D_INIT], dossier: F_GA4, consentement: CONSENTEMENT_NATIF }
+  { declencheurs: [D_TOUTES_PAGES], dossier: F_GA4, consentement: CONSENTEMENT_NATIF }
 );
 
 /*
@@ -615,7 +629,7 @@ balise(
 // les balises de conversion veulent le nombre seul. Un seul endroit porte la
 // valeur, chacun la préfixe comme il en a besoin.
 balise("Ads — Configuration", "googtag", [param.texte("tagId", "AW-" + ref(V_ADS_ID))], {
-  declencheurs: [D_INIT],
+  declencheurs: [D_TOUTES_PAGES],
   dossier: F_ADS,
   consentement: CONSENTEMENT_NATIF,
 });

@@ -287,18 +287,38 @@ test("toute balise tierce exige les trois signaux publicitaires", () => {
   }
 });
 
-test("aucune balise tierce ne se charge à l'initialisation", () => {
-  // Les déclencheurs d'initialisation tirent AVANT que le bandeau ait pu
-  // remonter un choix mémorisé. Une balise Google y survit (le Consent Mode
-  // la met en attente) ; une balise HTML, non.
-  const idsInit = new Set(
-    VERSION.trigger.filter((t) => t.type === "init").map((t) => t.triggerId)
-  );
+test("aucun déclencheur d'un type que GTM refuse à l'import", () => {
+  /*
+   * Constaté en conditions réelles : GTM rejette le fichier ENTIER sur
+   * « Error deserializing enum type [EventType]. Unrecognized value [init] ».
+   * Les déclencheurs d'initialisation ne se créent que dans l'interface, ils
+   * ne se transportent pas dans un export.
+   *
+   * Le coût d'un type invalide n'est pas une entité manquante mais un import
+   * qui échoue en bloc, sans rien dire de plus. D'où cette liste blanche.
+   */
+  const TYPES_IMPORTABLES = new Set(["pageview", "customEvent", "domReady", "windowLoaded"]);
 
-  for (const balise of VERSION.tag.filter((t) => t.type === "html")) {
-    for (const id of balise.firingTriggerId) {
-      assert.equal(idsInit.has(id), false, `${balise.name} : déclenchement trop précoce`);
-    }
+  for (const declencheur of VERSION.trigger) {
+    assert.ok(
+      TYPES_IMPORTABLES.has(declencheur.type),
+      `${declencheur.name} : type « ${declencheur.type} » — GTM refusera le fichier entier`
+    );
+  }
+});
+
+test("les balises de configuration se déclenchent sur toutes les pages", () => {
+  // Faute de déclencheur d'initialisation importable (voir ci-dessus), c'est
+  // « Toutes les pages » qui porte la configuration. Montage classique,
+  // antérieur aux déclencheurs d'initialisation : la différence tient à
+  // quelques millisecondes, et le signal de consentement par défaut est de
+  // toute façon posé par `Analytics.astro`, avant le conteneur lui-même.
+  const toutesPages = VERSION.trigger.find((t) => t.type === "pageview");
+  assert.ok(toutesPages, "un déclencheur « toutes les pages » doit exister");
+
+  for (const nom of ["GA4 — Configuration", "Ads — Configuration"]) {
+    const balise = VERSION.tag.find((t) => t.name === nom);
+    assert.deepEqual(balise.firingTriggerId, [toutesPages.triggerId], nom);
   }
 });
 
