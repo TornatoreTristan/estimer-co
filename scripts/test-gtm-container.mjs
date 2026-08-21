@@ -426,22 +426,41 @@ test("les empreintes de contact ne partent qu'aux conversions améliorées", () 
   }
 });
 
-test("les identifiants de compte sont des gabarits, pas des valeurs réelles", () => {
-  // Un identifiant réel committé par mégarde enverrait les conversions d'une
-  // recette dans un compte de production. Les gabarits sont invalides à
-  // dessein : une balise mal configurée ne remonte rien, ce qui se voit.
-  const gabarits = {
-    "CONST — GA4 Measurement ID": /^G-X+$/,
-    "CONST — Google Ads Conversion ID": /^0+$/,
-    "CONST — Meta Pixel ID": /^0+$/,
+test("chaque identifiant de compte a la forme de sa plateforme", () => {
+  /*
+   * On vérifie la FORME, pas la présence d'un gabarit : ces identifiants
+   * figurent de toute façon en clair dans le HTML livré, les versionner ne
+   * divulgue rien et évite de les ressaisir à chaque import.
+   *
+   * Ce que ce test attrape vraiment, c'est le mauvais identifiant au mauvais
+   * endroit — et surtout le `AW-` collé dans l'identifiant de conversion, que
+   * les balises `awct` et `sp` attendent en NOMBRE SEUL. Avec le préfixe, la
+   * balise passe la validation de GTM et ne remonte jamais rien : panne
+   * parfaitement silencieuse, et plusieurs jours de budget dépensés à l'aveugle
+   * avant que quelqu'un s'en aperçoive.
+   *
+   * `0…` reste accepté : c'est un compte pas encore créé.
+   */
+  const formats = {
+    "CONST — GA4 Measurement ID": /^(G-[A-Z0-9]{6,12}|0+)$/,
+    "CONST — Google Ads Conversion ID": /^\d{9,12}$/,
+    "CONST — Meta Pixel ID": /^\d{15,16}$/,
   };
 
-  for (const [nom, motif] of Object.entries(gabarits)) {
+  for (const [nom, motif] of Object.entries(formats)) {
     const variable = VERSION.variable.find((v) => v.name === nom);
     assert.ok(variable, `constante manquante : ${nom}`);
+
     const valeur = variable.parameter.find((p) => p.key === "value").value;
-    assert.match(valeur, motif, `${nom} : identifiant réel committé ?`);
+    assert.match(valeur, motif, `${nom} : « ${valeur} » n'a pas la forme attendue`);
   }
+
+  const ads = VERSION.variable.find((v) => v.name === "CONST — Google Ads Conversion ID");
+  assert.equal(
+    ads.parameter.find((p) => p.key === "value").value.startsWith("AW-"),
+    false,
+    "l'identifiant de conversion se donne SANS le préfixe AW-, que la balise ajoute elle-même"
+  );
 });
 
 // ===========================================================================

@@ -62,11 +62,17 @@ Tout est regroupé dans trois variables constantes, dossier `90 — Variables` �
 c'est précisément pour ça qu'elles existent : un identifiant recopié dans huit
 balises est un identifiant qu'on oubliera de corriger dans la huitième.
 
-| Variable | Valeur à mettre | Où la trouver |
+| Variable | Valeur | État |
 |---|---|---|
-| `CONST — GA4 Measurement ID` | `G-XXXXXXXXXX` | GA4 → Admin → Flux de données |
-| `CONST — Google Ads Conversion ID` | le **nombre seul**, ex. `123456789` | Ads → Objectifs → Conversions → Configuration de la balise |
-| `CONST — Meta Pixel ID` | 15 chiffres | Meta Events Manager |
+| `CONST — GA4 Measurement ID` | `G-B066RRFQL5` | ✅ **déjà versionnée** — rien à saisir |
+| `CONST — Google Ads Conversion ID` | le **nombre seul**, ex. `123456789` | à fournir (Ads → Objectifs → Conversions → Configuration de la balise) |
+| `CONST — Meta Pixel ID` | 15 chiffres | à fournir (Meta Events Manager) |
+
+Ces identifiants ne sont pas des secrets : ils figurent en clair dans le HTML
+livré dès que les balises tirent. Les versionner dans le générateur supprime une
+ressaisie à chaque import — donc une occasion de se tromper. Les fournir se fait
+dans `scripts/build-gtm-container.mjs`, puis `npm run gtm:build`, jamais
+directement dans l'interface.
 
 > **`AW-` est à retirer.** Les balises `awct` et `sp` attendent le nombre seul
 > et le préfixent elles-mêmes. Coller `AW-123456789` produit une balise qui

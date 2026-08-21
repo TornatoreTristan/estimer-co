@@ -283,19 +283,23 @@ const F_VARIABLES = dossier("90 — Variables");
 // ===========================================================================
 
 /*
- * LES TROIS SEULES VALEURS À RENSEIGNER À LA MAIN APRÈS L'IMPORT.
+ * LES TROIS IDENTIFIANTS DE COMPTE.
  *
- * Elles sont regroupées en constantes précisément pour cela : un identifiant
- * recopié dans huit balises est un identifiant qu'on oubliera de corriger dans
- * la huitième. Les valeurs ci-dessous sont des GABARITS VOLONTAIREMENT
- * INVALIDES — une balise qui tire avec un identifiant fantaisiste ne remonte
- * rien, ce qui est bien moins grave que d'envoyer des conversions dans le
- * compte de quelqu'un d'autre.
+ * Regroupés en constantes précisément pour cela : un identifiant recopié dans
+ * huit balises est un identifiant qu'on oubliera de corriger dans la huitième.
+ *
+ * Aucun n'est un secret — tous les trois figurent en clair dans le HTML livré
+ * dès que les balises tirent. Les versionner ici évite de les ressaisir à
+ * chaque import, qui est exactement l'étape manuelle que ce générateur existe
+ * pour supprimer. Ceux qui restent à `0` ne sont pas encore créés ; le test de
+ * format (`scripts/test-gtm-container.mjs`) refuse en revanche toute valeur
+ * dont la FORME ne correspond pas à sa plateforme — c'est lui qui attrape le
+ * `AW-` collé dans l'identifiant de conversion, panne silencieuse s'il en est.
  */
 const V_GA4_ID = variable(
   "CONST — GA4 Measurement ID",
   "c",
-  [param.texte("value", "G-XXXXXXXXXX")],
+  [param.texte("value", "G-B066RRFQL5")],
   F_VARIABLES
 );
 
