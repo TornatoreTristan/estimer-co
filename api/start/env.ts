@@ -155,4 +155,28 @@ export default await Env.create(new URL('../', import.meta.url), {
   DISCORD_MENTION: Env.schema.string.optional(),
   /** Nom d'affichage du bot dans le salon. */
   DISCORD_USERNAME: Env.schema.string.optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Vignette de carte dans l'accusé de réception
+  |--------------------------------------------------------------------------
+  |
+  | Clé Google Maps **serveur**, distincte de `PUBLIC_GOOGLE_MAPS_API_KEY` du
+  | site : celle-ci n'est jamais publiée. L'API va chercher l'image de carte
+  | au moment de l'envoi et l'attache au message ; la clé ne traverse donc
+  | jamais l'e-mail.
+  |
+  | C'est ce qui interdit l'autre solution, plus simple en apparence : mettre
+  | l'URL Static Maps dans un `<img src>`. Cette URL est fetchée par le proxy
+  | d'images de Gmail, sans référent — la clé devrait donc être ouverte à tous
+  | les référents, et n'importe qui la lisant dans l'e-mail pourrait la
+  | consommer sur notre facture.
+  |
+  | Absente — le défaut — la carte est simplement omise de l'e-mail. Aucun
+  | déploiement existant n'a à changer quoi que ce soit.
+  |
+  */
+  GOOGLE_MAPS_API_KEY: Env.schema.string.optional(),
+  /** Délai maximal du téléchargement de la vignette, en ms (défaut 4000). */
+  STATIC_MAP_TIMEOUT: Env.schema.number.optional(),
 })
