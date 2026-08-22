@@ -1,0 +1,27 @@
+---
+import RawScript from './RawScript.astro';
+import acquisitionScript from '../scripts/acquisition.js?raw';
+
+/**
+ * Provenance du visiteur — mémo de session joint au lead qu'il déposera.
+ *
+ * À placer dans le `<head>` de toutes les pages : la campagne est portée par
+ * l'URL de la PREMIÈRE page vue, et elle a disparu de la barre d'adresse bien
+ * avant que le formulaire ne soit soumis (cf. l'en-tête de `acquisition.js`).
+ *
+ * ---------------------------------------------------------------------------
+ * POURQUOI CE COMPOSANT N'EST PAS CONDITIONNÉ PAR `TRACKING_ACTIF`
+ * ---------------------------------------------------------------------------
+ * `Analytics.astro` et `Tracking.astro` ne s'écrivent que si un conteneur GTM
+ * est configuré, parce qu'ils font entrer des scripts Google dans la page.
+ * Celui-ci n'appelle personne : il lit l'URL et le référent, et écrit un objet
+ * dans `sessionStorage`. Rien ne part vers un tiers, et rien ne survit à la
+ * fermeture de l'onglet.
+ *
+ * Le conditionner reviendrait à perdre la provenance des leads sur un site
+ * sans mesure d'audience — c'est-à-dire précisément quand ce mémo est la
+ * seule source d'information sur l'origine du trafic.
+ */
+---
+
+<RawScript code={acquisitionScript} />

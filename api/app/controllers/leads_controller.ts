@@ -4,6 +4,7 @@ import logger from '@adonisjs/core/services/logger'
 
 import { validateLeadPayload } from '#validators/lead'
 import { TransactionalMailService } from '#services/transactional_mail_service'
+import { DiscordNotifierService } from '#services/discord_notifier_service'
 
 /**
  * `POST /v1/leads` — flux transactionnel (coordonnées + contexte).
@@ -54,6 +55,25 @@ export default class LeadsController {
 
     const requestId = request.id() ?? randomUUID()
     const result = await new TransactionalMailService().deliverLead(payload, { requestId })
+
+    /*
+     * Alerte Discord — canal ACCESSOIRE, doublant l'e-mail interne pour que
+     * l'équipe rappelle en minutes plutôt qu'en heures.
+     *
+     * Placée AVANT le branchement sur l'échec, et c'est le point important :
+     * quand l'e-mail n'est pas parti, ce message devient la seule trace du
+     * lead. L'inverse — ne notifier qu'en cas de succès — priverait l'équipe
+     * de l'alerte exactement dans le cas où elle est vitale.
+     *
+     * `notifyLead` ne lève jamais et son résultat n'est volontairement pas
+     * consulté : aucune panne de Discord ne doit changer le code HTTP rendu
+     * au prospect. Désactivé (webhook non configuré), l'appel retourne
+     * immédiatement sans toucher au réseau.
+     */
+    await new DiscordNotifierService().notifyLead(payload, {
+      reference: result.reference,
+      mailStatus: result.status,
+    })
 
     if (result.status === 'failed') {
       /*

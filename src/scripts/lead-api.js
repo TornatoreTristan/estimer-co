@@ -29,8 +29,8 @@
 // des leads.
 //
 // Périmètre :
-//   - `buildEstimationLeadPayload(payload)` pure — payload wizard -> corps HTTP
-//   - `buildContactLeadPayload(form)`       pure — formulaire contact -> corps HTTP
+//   - `buildEstimationLeadPayload(payload, acq)` pure — payload wizard -> corps HTTP
+//   - `buildContactLeadPayload(form, acq)`       pure — formulaire contact -> corps HTTP
 //   - `isLeadApiConfigured(config)`         pure — l'API est-elle joignable ?
 //   - `shouldUseLegacyFallback(response)`   pure — faut-il rejouer par EmailJS ?
 //   - `requestLead(payload, options, callback)`  IMPURE (fetch) — ne rejette jamais
@@ -82,6 +82,27 @@ var LEAD_ENUMS = {
 
 /** Statuts d'estimation acceptés par l'API. */
 var LEAD_ESTIMATION_STATUSES = ["ok", "static-fallback", "deferred"];
+
+/**
+ * Champs de provenance acceptés par l'API — miroir exact de
+ * `LEAD_ACQUISITION_FIELDS` dans `api/app/validators/lead.ts`.
+ *
+ * La liste est répétée ici plutôt que déduite du mémo de session : la
+ * validation côté API est en liste blanche STRICTE, et tout champ inconnu vaut
+ * 422. Recopier l'objet stocké tel quel ferait donc dépendre l'envoi d'un lead
+ * du contenu d'un `sessionStorage` — que n'importe qui peut éditer.
+ */
+var LEAD_ACQUISITION_FIELDS = [
+  "source",
+  "medium",
+  "campaign",
+  "content",
+  "term",
+  "campaignId",
+  "gclid",
+  "referrer",
+  "landingPage",
+];
 
 /**
  * Raisons d'échec pour lesquelles on SAIT qu'aucun e-mail n'est parti, et où
@@ -144,9 +165,10 @@ function assignEnum(target, key, value, allowed) {
  * 422, `/v1/leads` les reçoit et n'en persiste aucun.
  *
  * @param {object} payload cf. `buildSubmitPayload` dans estimation-wizard.js
+ * @param {object|null} [acquisition] provenance de la visite (`embAcquisition()`)
  * @returns {object} corps JSON prêt à sérialiser
  */
-function buildEstimationLeadPayload(payload) {
+function buildEstimationLeadPayload(payload, acquisition) {
   var p = payload || {};
   var estimation = p.estimation || null;
   var status = toLeadString(p.estimationStatus) || "ok";
@@ -196,7 +218,35 @@ function buildEstimationLeadPayload(payload) {
   var phone = toLeadString(p.phone);
   if (phone) body.phone = phone;
 
+  var acquisitionBlock = buildLeadAcquisitionBlock(acquisition);
+  if (acquisitionBlock) body.acquisition = acquisitionBlock;
+
   return body;
+}
+
+/**
+ * Bloc `acquisition` du corps HTTP — **fonction pure**.
+ *
+ * Filtre en LISTE BLANCHE, exactement comme le reste de ce module : le mémo
+ * de session est un objet écrit par une page, donc modifiable depuis la
+ * console. Le recopier tel quel enverrait à l'API des champs qu'elle refuse en
+ * 422 — c'est-à-dire un lead perdu pour une raison de mesure. La provenance
+ * est un confort ; elle n'a pas le droit de faire échouer une demande.
+ *
+ * @param {object|null} acquisition cf. `embAcquisition()` dans acquisition.js
+ * @returns {object|null} bloc filtré, ou `null` s'il ne reste rien
+ */
+function buildLeadAcquisitionBlock(acquisition) {
+  if (!acquisition || typeof acquisition !== "object") return null;
+
+  var block = {};
+  for (var i = 0; i < LEAD_ACQUISITION_FIELDS.length; i += 1) {
+    var key = LEAD_ACQUISITION_FIELDS[i];
+    var value = toLeadString(acquisition[key]);
+    if (value) block[key] = value.length > 200 ? value.slice(0, 200) : value;
+  }
+
+  return Object.keys(block).length > 0 ? block : null;
 }
 
 /**
@@ -258,9 +308,10 @@ function buildLeadEstimationBlock(estimation, status) {
  * l'e-mail, ce que ce module existe précisément pour empêcher.
  *
  * @param {{name:string,email:string,phone?:string,subject?:string,message?:string,website?:string}} form
+ * @param {object|null} [acquisition] provenance de la visite (`embAcquisition()`)
  * @returns {object}
  */
-function buildContactLeadPayload(form) {
+function buildContactLeadPayload(form, acquisition) {
   var f = form || {};
 
   var body = {
@@ -279,6 +330,9 @@ function buildContactLeadPayload(form) {
   // Piège à robots : transmis tel quel, c'est l'API qui décide (200 silencieux).
   var website = toLeadString(f.website);
   if (website) body.website = website;
+
+  var acquisitionBlock = buildLeadAcquisitionBlock(acquisition);
+  if (acquisitionBlock) body.acquisition = acquisitionBlock;
 
   return body;
 }

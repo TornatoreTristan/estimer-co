@@ -78,4 +78,34 @@ test.group('POST /v1/leads — envoi transactionnel', () => {
     assert.exists(erreurBien)
     assert.match(erreurBien.message, /obligatoires/)
   })
+
+  test('accepte la provenance du prospect', async ({ client }) => {
+    const response = await client.post('/v1/leads').json({
+      ...LEAD_ESTIMATION,
+      acquisition: {
+        gclid: 'EAIaIQobCh',
+        campaign: 'gads_lead_proprietaire_idf_202608',
+        referrer: 'www.google.com',
+        landingPage: '/',
+      },
+    })
+
+    response.assertStatus(200)
+  })
+
+  test('refuse un champ de provenance non déclaré', async ({ client, assert }) => {
+    const response = await client.post('/v1/leads').json({
+      ...LEAD_ESTIMATION,
+      // Un identifiant de mesure n'a rien à faire dans un lead : la liste
+      // blanche du validateur rend l'erreur bruyante au lieu de le laisser
+      // passer en silence.
+      acquisition: { source: 'meta', ga_client_id: 'GA1.1.123' },
+    })
+
+    response.assertStatus(422)
+    const erreur = response
+      .body()
+      .errors.find((e: { field: string }) => e.field === 'acquisition.ga_client_id')
+    assert.exists(erreur)
+  })
 })

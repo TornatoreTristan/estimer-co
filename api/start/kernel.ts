@@ -18,6 +18,8 @@ import env from '#start/env'
 import { trustedProxyStartupWarning } from '#lib/client_ip'
 import { mailSettings } from '#config/mail'
 import { assertMailSettings, describeMailSettings } from '#lib/mail_config'
+import { discordSettings } from '#config/discord'
+import { describeDiscordSettings, inspectDiscordSettings } from '#lib/discord_config'
 
 /**
  * The error handler is used to convert an exception
@@ -56,6 +58,27 @@ for (const message of assertMailSettings(mailSettings, { inProduction: app.inPro
   logger.warn(message)
 }
 logger.info({ mail: describeMailSettings(mailSettings) }, 'Configuration e-mail chargée.')
+
+/*
+ * Notification Discord — canal ACCESSOIRE, donc jamais bloquant au démarrage.
+ *
+ * `inspectDiscordSettings` ne produit que des avertissements, à la différence
+ * de son équivalent e-mail : une alerte Discord manquée prive l'équipe d'un
+ * bip, elle ne perd aucun lead. Faire échouer le démarrage pour cela
+ * transformerait un confort en point de défaillance.
+ */
+for (const message of inspectDiscordSettings(discordSettings, {
+  inProduction: app.inProduction,
+  rawMention: env.get('DISCORD_MENTION'),
+}).warnings) {
+  logger.warn(message)
+}
+if (discordSettings.enabled) {
+  logger.info(
+    { discord: describeDiscordSettings(discordSettings) },
+    'Notification Discord des leads activée.'
+  )
+}
 
 /**
  * Pile serveur : s'exécute sur toutes les requêtes, y compris celles sans

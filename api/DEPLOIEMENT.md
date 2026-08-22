@@ -394,6 +394,59 @@ soumission (`mail.internal_dry_run`). C'est le bon geste si la réputation du
 domaine pose problème : cela arrête l'émission sans casser le parcours des
 visiteurs.
 
+### 4.8 Alerte Discord (canal accessoire, optionnel)
+
+Chaque lead peut, en plus de l'e-mail, déclencher une alerte immédiate dans un
+salon Discord. L'objectif est le délai de rappel : un prospect recontacté dans
+les dix minutes ne se transforme pas comme un prospect recontacté le lendemain.
+
+**Ce canal est accessoire, et le code le tient pour tel** : il ne peut pas
+faire échouer un dépôt de lead, ne peut pas empêcher le service de démarrer,
+et est borné à 4 secondes. L'e-mail reste la trace archivée.
+
+Récupérer l'URL : Discord → salon → *Modifier le salon* → *Intégrations* →
+*Webhooks* → *Nouveau webhook* → *Copier l'URL du webhook*.
+
+```bash
+DISCORD_WEBHOOK_URL=<URL copiée depuis Discord>   # SECRET
+```
+
+| Variable | Rôle | Défaut si absente |
+|---|---|---|
+| `DISCORD_WEBHOOK_URL` | URL du webhook. **Vide = canal désactivé**, aucun appel réseau | — *(désactivé)* |
+| `DISCORD_TIMEOUT` | délai maximal de l'appel, en ms, borné à `[500, 15000]` | `4000` |
+| `DISCORD_INCLUDE_CONTACT` | coordonnées du prospect dans le message | `true` |
+| `DISCORD_MENTION` | `@here`, `@everyone` ou un identifiant de rôle | — *(aucune)* |
+| `DISCORD_USERNAME` | nom d'affichage du bot | `Estimer mon bien` |
+
+`DISCORD_WEBHOOK_URL` est un **secret** : quiconque la détient peut poster dans
+le salon. Elle vit dans le gestionnaire de secrets de Coolify, et n'apparaît
+dans aucun journal — pas même en cas d'échec.
+
+Journaux à chercher :
+
+| Événement | Signification |
+|---|---|
+| `discord.notify_sent` | l'alerte est arrivée dans le salon |
+| `discord.notify_rejected` | Discord a refusé (404 = webhook supprimé, 429 = quota) |
+| `discord.notify_failed` | réseau injoignable ou délai dépassé — **le lead n'est pas affecté** |
+
+L'alerte part **aussi quand l'e-mail interne a échoué**, et le message le dit
+en toutes lettres : dans ce cas précis, le salon est la seule trace du lead.
+
+**RGPD.** À `DISCORD_INCLUDE_CONTACT=true` (défaut), le nom, l'e-mail, le
+téléphone et l'adresse du bien sont transmis à Discord, établi aux États-Unis.
+Ce destinataire figure à ce titre dans la politique de confidentialité
+(`src/pages/politique-de-confidentialite.astro`, sections « Destinataires et
+sous-traitants » et « Transferts »). Poser `DISCORD_INCLUDE_CONTACT=false`
+produit une alerte strictement anonyme — type de bien, commune, montant,
+référence — sans aucune donnée personnelle : c'est le réglage à choisir si l'on
+ne veut pas de ce destinataire, et il faut alors retirer les mentions
+correspondantes de la politique.
+
+**Retour arrière** : vider `DISCORD_WEBHOOK_URL` et redéployer. Plus aucun
+appel n'est fait, le reste du parcours est inchangé.
+
 ---
 
 ## 5. Premier déploiement

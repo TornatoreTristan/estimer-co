@@ -41,6 +41,7 @@ export const LEAD_ALLOWED_FIELDS = [
   'website',
   'property',
   'estimation',
+  'acquisition',
 ] as const
 
 /** Champs acceptés dans `property` (miroir du wizard, §7.1). */
@@ -72,6 +73,31 @@ export const LEAD_ESTIMATION_FIELDS = [
   'estimationMax',
   'confidenceScore',
   'comparablesCount',
+] as const
+
+/**
+ * Champs acceptés dans `acquisition` — d'où vient le prospect.
+ *
+ * Convention de campagne du plan de taggage §10.1 : Google Ads n'utilise
+ * AUCUN UTM (balisage automatique `gclid` seul), Meta et l'e-mailing utilisent
+ * les UTM. Les deux mondes cohabitent donc dans ce même bloc.
+ *
+ * Ce que ce bloc ne contient PAS, et ne doit jamais contenir : un identifiant
+ * de mesure (`ga_client_id`), un cookie, ou l'URL complète du référent. Le
+ * référent est réduit à son nom d'hôte et la page d'atterrissage à son chemin
+ * — assez pour savoir d'où vient le lead, pas assez pour reconstituer une
+ * navigation.
+ */
+export const LEAD_ACQUISITION_FIELDS = [
+  'source',
+  'medium',
+  'campaign',
+  'content',
+  'term',
+  'campaignId',
+  'gclid',
+  'referrer',
+  'landingPage',
 ] as const
 
 export const UNKNOWN_FIELD_MESSAGE = "Ce champ n'est pas reconnu par l'API."
@@ -140,6 +166,9 @@ export function assertNoUnknownFields(body: unknown): void {
   }
   if ('estimation' in record) {
     collect(record.estimation, LEAD_ESTIMATION_FIELDS, 'estimation.')
+  }
+  if ('acquisition' in record) {
+    collect(record.acquisition, LEAD_ACQUISITION_FIELDS, 'acquisition.')
   }
 
   if (errors.length > 0) {
@@ -214,6 +243,34 @@ export const leadValidator = vine.compile(
         estimationMax: vine.number().min(0).max(1_000_000_000).optional(),
         confidenceScore: vine.number().min(0).max(100).optional(),
         comparablesCount: vine.number().withoutDecimals().min(0).max(100_000).optional(),
+      })
+      .optional(),
+
+    /*
+     * Provenance du prospect. Entièrement optionnelle, à tous les niveaux, et
+     * ce n'est pas de la mollesse : ces valeurs viennent de l'URL d'arrivée et
+     * du référent, deux choses que le navigateur peut parfaitement ne pas
+     * fournir (accès direct, référent masqué, application mobile). Un lead
+     * sans provenance reste un lead — le refuser en 422 échangerait une
+     * information de confort contre une demande perdue.
+     *
+     * Les longueurs sont bornées parce que ces chaînes finissent dans un
+     * message Discord : au-delà, l'API du salon refuse le message EN BLOC, et
+     * on perdrait l'alerte à cause d'un paramètre de campagne trop bavard.
+     */
+    acquisition: vine
+      .object({
+        source: vine.string().trim().maxLength(120).optional(),
+        medium: vine.string().trim().maxLength(120).optional(),
+        campaign: vine.string().trim().maxLength(160).optional(),
+        content: vine.string().trim().maxLength(160).optional(),
+        term: vine.string().trim().maxLength(160).optional(),
+        campaignId: vine.string().trim().maxLength(120).optional(),
+        gclid: vine.string().trim().maxLength(200).optional(),
+        /** Nom d'hôte du site référent, jamais l'URL complète. */
+        referrer: vine.string().trim().maxLength(200).optional(),
+        /** Chemin de la page d'arrivée, sans paramètres. */
+        landingPage: vine.string().trim().maxLength(200).optional(),
       })
       .optional(),
   })

@@ -166,16 +166,21 @@
               typeof CONFIG !== "undefined" && CONFIG.API ? CONFIG.API : {};
 
             requestLead(
-              buildContactLeadPayload({
-                name: name,
-                email: email,
-                // Le champ est facultatif : la valeur de courtoisie « Non
-                // renseigné » n'a rien à faire dans un champ `phone` validé
-                // par l'API, qui la refuserait (422).
-                phone: document.getElementById("phone").value,
-                subject: subjectValue,
-                message: message,
-              }),
+              buildContactLeadPayload(
+                {
+                  name: name,
+                  email: email,
+                  // Le champ est facultatif : la valeur de courtoisie « Non
+                  // renseigné » n'a rien à faire dans un champ `phone` validé
+                  // par l'API, qui la refuserait (422).
+                  phone: document.getElementById("phone").value,
+                  subject: subjectValue,
+                  message: message,
+                },
+                // `acquisition.js` peut ne pas être là (page servie depuis un
+                // cache ancien) : on se garde, comme pour `embTrack`.
+                typeof embAcquisition === "function" ? embAcquisition() : null
+              ),
               { baseUrl: apiConfig.BASE_URL },
               function (response) {
                 if (response.status === "ok") {
