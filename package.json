@@ -25,7 +25,9 @@
     "test:consent": "node --test scripts/test-consent-banner.mjs",
     "test:tracking": "node --test scripts/test-tracking.mjs",
     "test:gtm": "node --test scripts/test-gtm-container.mjs",
-    "gtm:build": "node scripts/build-gtm-container.mjs"
+    "gtm:build": "node scripts/build-gtm-container.mjs",
+    "bq:deploy": "node scripts/deploy-bigquery.mjs",
+    "bq:meta": "node scripts/ingest-meta-ads.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",
