@@ -6,6 +6,9 @@ import app from '@adonisjs/core/services/app'
 import { mailSettings } from '#config/mail'
 import { maskEmail, type MailSettings } from '#lib/mail_config'
 import { renderAcknowledgementEmail, renderInternalEmail } from '#services/lead_mail_renderer'
+import type { AcknowledgementDetails } from '#services/lead_mail_renderer'
+import { EstimationService } from '#services/estimation_service'
+import { StaticMapService, type StaticMapImage } from '#services/static_map_service'
 import type { LeadPayload } from '#validators/lead'
 
 /**
@@ -79,6 +82,19 @@ class MailTimeoutError extends Error {
  */
 export function sanitizeHeaderValue(value: string): string {
   return value.replace(/[\r\n]+/g, ' ').trim()
+}
+
+/**
+ * `'yes' | 'no' | 'unknown'` du formulaire -> booléen du moteur de calcul.
+ *
+ * « Ne sait pas » devient `null`, et non `false` : un immeuble dont on ignore
+ * s'il a un ascenseur n'est pas un immeuble sans ascenseur. Le second choix
+ * appliquerait au bien une décote que rien ne justifie.
+ */
+function toElevatorFlag(value: string | undefined): boolean | null {
+  if (value === 'yes') return true
+  if (value === 'no') return false
+  return null
 }
 
 /** Borne un envoi dans le temps. L'appel sous-jacent n'est pas annulable. */
@@ -229,7 +245,8 @@ export class TransactionalMailService {
       return false
     }
 
-    const acknowledgement = renderAcknowledgementEmail(payload)
+    const { details, map } = await this.buildAcknowledgementDetails(payload, reference)
+    const acknowledgement = renderAcknowledgementEmail(payload, details)
 
     try {
       await withTimeout(
@@ -239,6 +256,18 @@ export class TransactionalMailService {
             .subject(acknowledgement.subject)
             .text(acknowledgement.text)
             .html(acknowledgement.html)
+
+          if (map && details.mapCid) {
+            /*
+             * `embedData` et non `attachData` : l'image porte alors un `cid`
+             * référencé par le `<img>` du corps, et n'apparaît pas comme un
+             * fichier à télécharger sous le message.
+             */
+            message.embedData(map.data, details.mapCid, {
+              filename: 'carte.png',
+              contentType: map.contentType,
+            })
+          }
         }),
         this.settings.timeoutMs
       )
@@ -260,6 +289,75 @@ export class TransactionalMailService {
       'Accusé de réception transmis au prospect.'
     )
     return true
+  }
+
+  /**
+   * Détail du calcul et vignette de carte, pour l'accusé de réception.
+   *
+   * ══════════════════════════════════════════════════════════════════════════
+   * POURQUOI RECALCULER PLUTÔT QUE FAIRE REMONTER LE RÉSULTAT DU NAVIGATEUR
+   * ══════════════════════════════════════════════════════════════════════════
+   * Le payload du lead ne porte que quatre montants et deux compteurs. Afficher
+   * la méthode, l'indice de confiance et les ventes comparables imposerait de
+   * les faire transiter par le front — donc de laisser le navigateur dicter le
+   * contenu d'un e-mail signé par notre domaine, ce que ce module refuse
+   * depuis l'abandon d'EmailJS (cf. l'en-tête de `lead_mail_renderer`).
+   *
+   * Le recalcul n'est pas cher : `EstimationService` sert d'abord son cache, et
+   * la demande qui vient d'être calculée pour l'écran du prospect s'y trouve,
+   * à la même version de dataset. Le chiffre de l'e-mail est donc celui qu'il a
+   * vu, sans que personne n'ait eu à le lui faire porter.
+   *
+   * NE LÈVE JAMAIS. Toute panne rend `{}` : l'accusé part alors dans sa forme
+   * réduite — celle d'avant cette section — au lieu de ne pas partir.
+   */
+  private async buildAcknowledgementDetails(
+    payload: LeadPayload,
+    reference: string
+  ): Promise<{ details: AcknowledgementDetails; map: StaticMapImage | null }> {
+    const property = payload.property
+    if (payload.kind !== 'estimation' || !property) {
+      return { details: {}, map: null }
+    }
+
+    try {
+      const result = await new EstimationService().estimate(
+        {
+          address: property.address,
+          postalCode: property.postalCode,
+          city: property.city,
+          propertyType: property.propertyType,
+          surface: property.surface,
+          rooms: property.rooms ?? null,
+          dpe: property.dpe,
+          floor: property.floor ?? null,
+          hasElevator: toElevatorFlag(property.hasElevator),
+          outdoor: property.outdoor ?? null,
+          condition: property.condition ?? null,
+          terrainSize: property.terrainSize ?? null,
+        },
+        {
+          requestId: reference,
+          referenceDate: new Date().toISOString().slice(0, 10),
+        }
+      )
+
+      const map = await new StaticMapService().fetchThumbnail(
+        result.location.lat,
+        result.location.lon
+      )
+
+      return {
+        details: { estimation: result, mapCid: map ? 'carte-du-bien' : null },
+        map,
+      }
+    } catch (error) {
+      logger.warn(
+        { event: 'mail.acknowledgement_details_failed', reference, error: describeError(error) },
+        'Détail du calcul indisponible — accusé de réception envoyé en version réduite.'
+      )
+      return { details: {}, map: null }
+    }
   }
 
   private logFailure(event: string, error: unknown, payload: LeadPayload, reference: string) {
