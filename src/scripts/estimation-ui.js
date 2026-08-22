@@ -221,6 +221,51 @@ a ete presente au client comme une estimation indicative. A recalculer.
 }
 
 /**
+ * Section PROVENANCE du repli EmailJS — **fonction pure**.
+ *
+ * Ce chemin ne sert que lorsque l'API est injoignable : l'e-mail est alors
+ * construit dans la page, et non par `lead_mail_renderer.ts`. Il doit malgré
+ * tout porter la même information, sans quoi les seuls leads sans provenance
+ * seraient ceux d'une panne — c'est-à-dire ceux que l'on cherche à rattraper.
+ *
+ * Le libellé de canal reste volontairement SOMMAIRE ici, là où l'API produit
+ * « Meta Ads » ou « Recherche naturelle » : dupliquer sa table de
+ * correspondance dans un chemin de repli en ferait une seconde vérité à
+ * maintenir. Les paramètres bruts suffisent à rattraper un lead à la main.
+ *
+ * @param {object|null} acquisition cf. `embAcquisition()` dans acquisition.js
+ * @returns {string} bloc de texte (vide si la provenance est inconnue)
+ */
+function buildEmailAcquisitionSection(acquisition) {
+  if (!acquisition || typeof acquisition !== "object") return "";
+
+  var libelles = {
+    source: "Source",
+    medium: "Support",
+    campaign: "Campagne",
+    campaignId: "Identifiant de campagne",
+    content: "Annonce",
+    term: "Mot-cle",
+    gclid: "gclid",
+    referrer: "Site referent",
+    landingPage: "Page d'arrivee",
+  };
+
+  var lignes = "";
+  for (var cle in libelles) {
+    if (!Object.prototype.hasOwnProperty.call(libelles, cle)) continue;
+    var valeur = acquisition[cle];
+    if (typeof valeur === "string" && valeur.trim()) {
+      lignes += "\n- " + libelles[cle] + " : " + valeur.trim();
+    }
+  }
+
+  if (!lignes) return "";
+
+  return "\n\nPROVENANCE" + lignes;
+}
+
+/**
  * Construit les `templateParams` EmailJS à partir du payload de soumission
  * (`wizard.serializeForSubmit(estimation)`, cf. specs §3.2). Le corps du
  * message (`message`) reproduit le gabarit de l'ancien `estimation.js` —
@@ -229,9 +274,10 @@ a ete presente au client comme une estimation indicative. A recalculer.
  * de l'étape 3 lorsqu'elles sont renseignées.
  *
  * @param {object} payload cf. `buildSubmitPayload` dans estimation-wizard.js
- * @param {{propertyTypeText?:string, dpeText?:string, toEmail?:string}} [options]
+ * @param {{propertyTypeText?:string, dpeText?:string, toEmail?:string, acquisition?:object|null}} [options]
  *   Libellés lisibles des `<select>` (texte de l'option sélectionnée), à
- *   fournir par l'appelant (DOM), et adresse de destination.
+ *   fournir par l'appelant (DOM), adresse de destination, et provenance de la
+ *   visite (`embAcquisition()`).
  * @returns {{from_name:string, from_email:string, phone:string, subject:string, message:string, to_email:string|undefined}}
  */
 function buildEmailTemplateParams(payload, options) {
@@ -334,7 +380,7 @@ ESTIMATION CALCULEE
 COORDONNEES DU CLIENT
 - Nom : ${p.name}
 - Email : ${p.email}
-- Telephone : ${p.phone}
+- Telephone : ${p.phone}${buildEmailAcquisitionSection(opts.acquisition)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
@@ -1225,7 +1271,12 @@ if (estimationFormEl) {
     var apiConfig = apiConfigForStatus();
 
     requestLead(
-      buildEstimationLeadPayload(payload),
+      buildEstimationLeadPayload(
+        payload,
+        // `acquisition.js` peut ne pas être là (page servie depuis un cache
+        // ancien) : on se garde, exactement comme pour `embTrack`.
+        typeof embAcquisition === "function" ? embAcquisition() : null
+      ),
       { baseUrl: apiConfig.BASE_URL },
       function (response) {
         if (response.status === "ok") {
@@ -1290,6 +1341,7 @@ if (estimationFormEl) {
       propertyTypeText: getSelectedOptionText("propertyType"),
       dpeText: getSelectedOptionText("dpe"),
       toEmail: CONFIG.EMAIL ? CONFIG.EMAIL.TO : undefined,
+      acquisition: typeof embAcquisition === "function" ? embAcquisition() : null,
     });
 
     emailjs

@@ -383,6 +383,62 @@ test("buildContactLeadPayload — les espaces parasites sont retirés", () => {
 });
 
 // ============================================================================
+// Provenance (bloc `acquisition`)
+// ============================================================================
+
+test("acquisition — la provenance est jointe au lead d'estimation", () => {
+  const { buildEstimationLeadPayload } = loadLeadModule();
+  const body = buildEstimationLeadPayload(submitPayload(), {
+    gclid: "EAIaIQobCh",
+    campaign: "gads_lead_proprietaire_idf_202608",
+    landingPage: "/",
+    referrer: "www.google.com",
+  });
+
+  assert.equal(body.acquisition.gclid, "EAIaIQobCh");
+  assert.equal(body.acquisition.campaign, "gads_lead_proprietaire_idf_202608");
+  assert.equal(body.acquisition.landingPage, "/");
+});
+
+test("acquisition — la provenance est jointe au message de contact", () => {
+  const { buildContactLeadPayload } = loadLeadModule();
+  const body = buildContactLeadPayload(
+    { name: "Marie Martin", email: "marie@example.com", message: "Bonjour" },
+    { source: "meta", medium: "paid_social" }
+  );
+
+  assert.equal(body.acquisition.source, "meta");
+  assert.equal(body.acquisition.medium, "paid_social");
+});
+
+test("acquisition — un champ inconnu du mémo est ÉCARTÉ, jamais transmis", () => {
+  const { buildEstimationLeadPayload } = loadLeadModule();
+  const body = buildEstimationLeadPayload(submitPayload(), {
+    source: "meta",
+    // `sessionStorage` est éditable depuis la console : sans liste blanche, ce
+    // champ ferait répondre 422 à l'API et le lead serait perdu.
+    ga_client_id: "GA1.1.123456",
+  });
+
+  assert.equal(body.acquisition.source, "meta");
+  assert.equal("ga_client_id" in body.acquisition, false);
+});
+
+test("acquisition — absente, aucun champ n'est envoyé", () => {
+  const { buildEstimationLeadPayload, buildContactLeadPayload } = loadLeadModule();
+
+  // La validation côté API est stricte : un objet vide vaut mieux qu'un bloc
+  // rempli de chaînes vides, et l'absence de bloc vaut mieux qu'un objet vide.
+  assert.equal("acquisition" in buildEstimationLeadPayload(submitPayload()), false);
+  assert.equal("acquisition" in buildEstimationLeadPayload(submitPayload(), {}), false);
+  assert.equal(
+    "acquisition" in
+      buildContactLeadPayload({ name: "Marie", email: "m@example.com", message: "Bonjour" }, null),
+    false
+  );
+});
+
+// ============================================================================
 // isLeadApiConfigured
 // ============================================================================
 

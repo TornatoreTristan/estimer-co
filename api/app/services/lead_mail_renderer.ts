@@ -25,6 +25,10 @@ import type { LeadPayload } from '#validators/lead'
  * caractère pour caractère le gabarit historique, mentions de mode dégradé
  * comprises. Les tests figent ce contenu ; le commercial qui traite les leads
  * n'a rien à réapprendre.
+ *
+ * Une seule chose s'y est ajoutée depuis : la section PROVENANCE, placée APRÈS
+ * le gabarit historique et absente quand le lead n'en porte pas. Tout ce que
+ * lisait un commercial hier se lit au même endroit aujourd'hui.
  */
 
 export interface RenderedEmail {
@@ -34,14 +38,14 @@ export interface RenderedEmail {
 }
 
 /** Libellés lisibles — produits serveur, jamais transmis par le client. */
-const PROPERTY_TYPE_LABELS: Record<string, string> = {
+export const PROPERTY_TYPE_LABELS: Record<string, string> = {
   'appartement': 'Appartement',
   'maison': 'Maison',
   'terrain': 'Terrain',
   'local-commercial': 'Local commercial',
 }
 
-const DPE_LABELS: Record<string, string> = {
+export const DPE_LABELS: Record<string, string> = {
   A: 'A',
   B: 'B',
   C: 'C',
@@ -52,34 +56,34 @@ const DPE_LABELS: Record<string, string> = {
   unknown: 'Ne sait pas',
 }
 
-const ELEVATOR_LABELS: Record<string, string> = {
+export const ELEVATOR_LABELS: Record<string, string> = {
   yes: 'Oui',
   no: 'Non',
   unknown: 'Ne sait pas',
 }
 
-const OUTDOOR_LABELS: Record<string, string> = {
+export const OUTDOOR_LABELS: Record<string, string> = {
   none: 'Aucun',
   balcony: 'Balcon',
   terrace: 'Terrasse',
   garden: 'Jardin privatif',
 }
 
-const CONDITION_LABELS: Record<string, string> = {
+export const CONDITION_LABELS: Record<string, string> = {
   'to-renovate': 'A renover',
   'fair': 'Correct',
   'good': 'Bon',
   'new': 'Refait a neuf',
 }
 
-const WANT_TO_SELL_LABELS: Record<string, string> = {
+export const WANT_TO_SELL_LABELS: Record<string, string> = {
   yes: 'Oui',
   maybe: 'Peut-etre',
   no: 'Non',
 }
 
 /** Sujets du formulaire de contact (mêmes valeurs que le `<select>`). */
-const CONTACT_SUBJECT_LABELS: Record<string, string> = {
+export const CONTACT_SUBJECT_LABELS: Record<string, string> = {
   estimation: "Demande d'estimation",
   partenariat: 'Devenir partenaire',
   information: "Demande d'information",
@@ -92,7 +96,7 @@ const CONTACT_SUBJECT_LABELS: Record<string, string> = {
  * les tests dérivent donc l'attendu de la même API plutôt que de figer un
  * caractère précis.
  */
-function formatNumber(value: number | undefined | null): string {
+export function formatNumber(value: number | undefined | null): string {
   if (value === undefined || value === null || !Number.isFinite(value)) {
     return ''
   }
@@ -111,6 +115,124 @@ export function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
+
+/** Moteurs de recherche : un référent qui en vient est du trafic naturel. */
+const SEARCH_ENGINE_HOSTS = /(^|\.)(google|bing|yahoo|qwant|duckduckgo|ecosia|lilo|brave)\./i
+
+/**
+ * Canal d'acquisition, en clair — **source unique pour l'e-mail ET Discord**.
+ *
+ * ══════════════════════════════════════════════════════════════════════════
+ * POURQUOI UN LIBELLÉ ET PAS LES PARAMÈTRES BRUTS
+ * ══════════════════════════════════════════════════════════════════════════
+ * « Google Ads » se lit d'un coup d'œil ;
+ * `utm_source=meta&utm_medium=paid_social` demande une traduction mentale que
+ * personne ne fait à 19 h. Les paramètres restent affichés en dessous, pour
+ * qui veut le détail — mais la première ligne doit répondre à la seule
+ * question qui change la façon de rappeler : ce lead a-t-il coûté de la
+ * publicité, ou est-il arrivé tout seul ?
+ *
+ * La règle du plan de taggage (§10.1) est reprise telle quelle : Google Ads
+ * n'envoie AUCUN UTM et se reconnaît à son seul `gclid`.
+ *
+ * Cette fonction vit ici, et pas dans le rendu Discord qui l'a introduite,
+ * pour la même raison que les tables de libellés au-dessus : deux canaux qui
+ * décrivent le même lead ne doivent jamais pouvoir le décrire différemment.
+ */
+export function describeAcquisitionChannel(
+  acquisition: NonNullable<LeadPayload['acquisition']>
+): string {
+  if (acquisition.gclid) {
+    return 'Google Ads'
+  }
+
+  const source = (acquisition.source ?? '').toLowerCase()
+  const medium = (acquisition.medium ?? '').toLowerCase()
+
+  if (['meta', 'facebook', 'instagram'].includes(source) || medium === 'paid_social') {
+    return 'Meta Ads'
+  }
+  if (medium === 'email' || medium === 'e-mail' || medium === 'newsletter') {
+    return source ? `E-mailing (${source})` : 'E-mailing'
+  }
+  if (medium === 'referral') {
+    return source ? `Partenaire (${source})` : 'Partenaire'
+  }
+  if (['cpc', 'ppc', 'paid', 'display'].includes(medium)) {
+    return source ? `Publicité (${source})` : 'Publicité'
+  }
+  if (source) {
+    return medium ? `${source} (${medium})` : source
+  }
+
+  if (acquisition.referrer) {
+    return SEARCH_ENGINE_HOSTS.test(acquisition.referrer)
+      ? `Recherche naturelle (${acquisition.referrer})`
+      : `Site référent (${acquisition.referrer})`
+  }
+
+  /*
+   * Ni campagne, ni référent : le visiteur a tapé l'adresse, cliqué un signet,
+   * ou suivi un lien depuis une application qui masque le référent. On le dit
+   * comme tel plutôt que d'inventer une origine.
+   */
+  return 'Accès direct'
+}
+
+/**
+ * Section PROVENANCE de l'e-mail interne.
+ *
+ * Placée EN DERNIER, après les coordonnées : elle ne change pas la façon de
+ * traiter le lead, elle explique d'où il vient. Le commercial lit le bien et
+ * le numéro à rappeler ; la personne qui arbitre les budgets lit cette
+ * section, souvent des semaines plus tard, dans un e-mail archivé — c'est
+ * précisément ce que l'alerte Discord ne sait pas faire.
+ *
+ * Renvoie une chaîne VIDE quand le bloc est absent : les leads déposés depuis
+ * une page mise en cache avant le déploiement de la capture n'ont pas de
+ * provenance, et une section « Non renseignée » sur chacun d'eux serait du
+ * bruit permanent. Discord, lui, affiche l'absence — le message y est unique
+ * et son gabarit fixe.
+ */
+export function buildAcquisitionSection(acquisition: LeadPayload['acquisition']): string {
+  if (!acquisition) {
+    return ''
+  }
+
+  const lines = [`- Canal : ${describeAcquisitionChannel(acquisition)}`]
+
+  if (acquisition.campaign) {
+    lines.push(`- Campagne : ${acquisition.campaign}`)
+  }
+  if (acquisition.campaignId) {
+    lines.push(`- Identifiant de campagne : ${acquisition.campaignId}`)
+  }
+  if (acquisition.content) {
+    lines.push(`- Annonce : ${acquisition.content}`)
+  }
+  if (acquisition.term) {
+    lines.push(`- Mot-cle : ${acquisition.term}`)
+  }
+  if (acquisition.referrer) {
+    lines.push(`- Site referent : ${acquisition.referrer}`)
+  }
+  if (acquisition.landingPage) {
+    lines.push(`- Page d'arrivee : ${acquisition.landingPage}`)
+  }
+  if (acquisition.gclid) {
+    /*
+     * Conservé tel quel : c'est la clé d'import des conversions hors ligne
+     * chez Google Ads (lot T5 du plan de taggage). Sans lui, un lead devenu
+     * mandat ne peut pas être renvoyé à la plateforme qui l'a produit.
+     */
+    lines.push(`- gclid : ${acquisition.gclid}`)
+  }
+
+  return `
+
+PROVENANCE
+${lines.join('\n')}`
 }
 
 /**
@@ -227,7 +349,7 @@ ESTIMATION CALCULEE
 COORDONNEES DU CLIENT
 - Nom : ${payload.name}
 - Email : ${payload.email}
-- Telephone : ${payload.phone ?? 'Non renseigné'}
+- Telephone : ${payload.phone ?? 'Non renseigné'}${buildAcquisitionSection(payload.acquisition)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
 
@@ -256,7 +378,7 @@ ${payload.message ?? ''}
 COORDONNEES DU CLIENT
 - Nom : ${payload.name}
 - Email : ${payload.email}
-- Telephone : ${payload.phone ?? 'Non renseigné'}
+- Telephone : ${payload.phone ?? 'Non renseigné'}${buildAcquisitionSection(payload.acquisition)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
 

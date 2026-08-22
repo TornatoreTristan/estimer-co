@@ -122,4 +122,37 @@ export default await Env.create(new URL('../', import.meta.url), {
   MAIL_TIMEOUT: Env.schema.number.optional(),
   /** Accusé de réception envoyé au prospect. Désactivable sans redéploiement. */
   MAIL_SEND_ACKNOWLEDGEMENT: Env.schema.boolean.optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Notification Discord des leads (canal accessoire)
+  |--------------------------------------------------------------------------
+  |
+  | Double l'e-mail interne d'une alerte immédiate dans un salon Discord. Ce
+  | canal ne remplace rien : l'e-mail reste la trace archivée du lead.
+  |
+  | `DISCORD_WEBHOOK_URL` vide — le défaut — désactive tout : aucun appel
+  | réseau, aucun avertissement. Un déploiement existant n'a rien à changer.
+  |
+  | Aucune de ces variables ne peut faire échouer le démarrage, à la
+  | différence des variables `MAIL_*` : une notification manquée prive
+  | l'équipe d'un bip, elle ne perd aucun lead. Les incohérences sont
+  | signalées par `inspectDiscordSettings()` sous forme d'avertissements.
+  |
+  | L'URL du webhook est un SECRET (droit de poster dans le salon) : elle vit
+  | dans le gestionnaire de secrets de Coolify, jamais dans un fichier commité.
+  |
+  */
+  DISCORD_WEBHOOK_URL: Env.schema.string.optional(),
+  /** Délai maximal de l'appel webhook, en millisecondes (défaut 4000). */
+  DISCORD_TIMEOUT: Env.schema.number.optional(),
+  /**
+   * Coordonnées du prospect dans le message Discord (défaut `true`).
+   * `false` produit une alerte sans aucune donnée personnelle.
+   */
+  DISCORD_INCLUDE_CONTACT: Env.schema.boolean.optional(),
+  /** Mention en tête du message : `@here`, `@everyone` ou un identifiant de rôle. */
+  DISCORD_MENTION: Env.schema.string.optional(),
+  /** Nom d'affichage du bot dans le salon. */
+  DISCORD_USERNAME: Env.schema.string.optional(),
 })

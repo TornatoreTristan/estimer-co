@@ -1,4 +1,5 @@
 ---
+import Acquisition from '../components/Acquisition.astro';
 import Analytics from '../components/Analytics.astro';
 import ConsentBanner from '../components/ConsentBanner.astro';
 import Header from '../components/Header.astro';
@@ -27,6 +28,9 @@ const { title, description } = Astro.props;
     {/* Juste derrière, et avant tout script de page : les scripts de parcours
         appellent `embTrack()` sans se garder. Cf. `Tracking.astro`. */}
     <Tracking />
+    {/* Provenance du visiteur : doit s'exécuter sur la PREMIÈRE page vue, donc
+        sur toutes. N'appelle aucun tiers — d'où l'absence de condition. */}
+    <Acquisition />
     <meta name="generator" content={Astro.generator} />
     {description && <meta name="description" content={description} />}
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />

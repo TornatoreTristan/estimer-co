@@ -447,6 +447,35 @@ test("buildEmailTemplateParams — le message contient toutes les sections atten
   assert.ok(message.includes(`- Telephone : ${payload.phone}`));
 });
 
+test("buildEmailTemplateParams — la provenance est ajoutée après les coordonnées", () => {
+  const { buildEmailTemplateParams } = loadUiModule();
+  const { message } = buildEmailTemplateParams(baseEstimationPayload(), {
+    acquisition: {
+      gclid: "EAIaIQobCh",
+      campaign: "gads_lead_proprietaire_idf_202608",
+      landingPage: "/",
+    },
+  });
+
+  // Ce chemin ne sert qu'en panne d'API : sans cette section, les seuls leads
+  // sans provenance seraient ceux qu'on cherche justement à rattraper.
+  assert.ok(message.indexOf("PROVENANCE") > message.indexOf("COORDONNEES DU CLIENT"));
+  assert.ok(message.includes("- Campagne : gads_lead_proprietaire_idf_202608"));
+  assert.ok(message.includes("- gclid : EAIaIQobCh"));
+});
+
+test("buildEmailTemplateParams — sans provenance, aucune section vide", () => {
+  const { buildEmailTemplateParams } = loadUiModule();
+
+  assert.equal(buildEmailTemplateParams(baseEstimationPayload(), {}).message.includes("PROVENANCE"), false);
+  assert.equal(
+    buildEmailTemplateParams(baseEstimationPayload(), { acquisition: {} }).message.includes(
+      "PROVENANCE"
+    ),
+    false
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Mode dégradé (specs/estimation-donnees-reelles.md §2.4, étape 3) : dans TOUS
 // les cas d'échec de l'API, l'e-mail interne doit porter une mention explicite,
