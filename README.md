@@ -98,6 +98,22 @@ Lot 0 :
   `regionParente`). Un brouillon incomplet ne bloque jamais le build ; seule
   une entrée `statut: publie` incomplète le fait.
 
+## Entrepôt de données (BigQuery)
+
+`bigquery/` croise GA4, Google Ads et Meta Ads dans le projet GCP
+`estimer-505209` pour répondre à « combien nous coûte un lead, et lequel ».
+Même parti pris que pour GTM : le SQL vit dans le dépôt (`bigquery/sql/`) et un
+script l'applique, plutôt qu'une console où rien n'est relisible en revue.
+
+```bash
+npm run bq:deploy   # crée les datasets et applique les modèles (idempotent)
+npm run bq:meta     # ingère les insights Meta — seule source sans connecteur natif
+```
+
+Tout se lit dans le dataset `marts`, jamais dans `staging` ni `raw_*`. Le mode
+opératoire complet — brancher l'export GA4, le transfert Google Ads, le jeton
+Meta, et ce qui reste manuel — est dans [`bigquery/README.md`](bigquery/README.md).
+
 ## Déploiement
 
 Le site est construit par le `Dockerfile` (Astro puis nginx) et déployé par
