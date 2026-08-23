@@ -32,7 +32,8 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -96,6 +97,33 @@ const MODELES = [
   { fichier: '20_marts/fct_estimation_funnel_daily.sql', requiert: 'ga4' },
   { fichier: '20_marts/v_platform_reconciliation.sql', requiert: 'ga4' },
   { fichier: '20_marts/v_data_freshness.sql', requiert: 'ga4' },
+]
+
+/*
+ * Vues autorisées — la contrepartie indispensable de « `marts` est le seul
+ * dataset qu'on ouvre ».
+ *
+ * Donner *BigQuery Data Viewer* sur le seul `marts` ne suffit pas à lire
+ * `marts` : ses vues lisent `staging`, qui lit lui-même l'export GA4 et les
+ * `raw_*`. Par défaut BigQuery vérifie les droits du lecteur sur TOUTE la
+ * chaîne — le lecteur se voit donc refuser l'accès à des datasets dont on ne
+ * voulait justement pas lui parler, et le message d'erreur nomme `staging`,
+ * ce qui envoie invariablement chercher le problème au mauvais endroit.
+ *
+ * Déclarer le dataset comme autorisé règle exactement ce cas : les vues de
+ * `marts` lisent `staging` en leur nom propre, et le lecteur ne gagne aucun
+ * accès direct à quoi que ce soit. C'est ce qui permet à `marts` de rester la
+ * seule porte d'entrée au lieu d'en devenir une de plus.
+ *
+ * `[source, autorisé]` — les vues de <autorisé> peuvent lire <source>.
+ * L'ordre suit le graphe des dépendances relevé dans `sql/`.
+ */
+const AUTORISATIONS = [
+  ['staging', 'marts'],
+  ['ops', 'marts'],
+  ['${GA4_DATASET}', 'staging'],
+  ['raw_google_ads', 'staging'],
+  ['raw_meta_ads', 'staging'],
 ]
 
 // ---------------------------------------------------------------------------
@@ -220,6 +248,69 @@ function creerDatasets() {
       `${PROJET}:${nom}`,
     ])
     console.log(`  ${c.vert('+')} ${nom}`)
+  }
+}
+
+/**
+ * Déclare les datasets autorisés (cf. `AUTORISATIONS`).
+ *
+ * Se fait par lecture-modification-écriture du descripteur : `bq` n'a pas de
+ * verbe pour ajouter une seule entrée d'accès. On ne touche donc qu'au tableau
+ * `access`, et uniquement pour y ajouter ce qui manque — écraser la liste
+ * entière révoquerait au passage les accès accordés par ailleurs (comptes de
+ * service des transferts, lecteurs humains).
+ */
+function accorderVuesAutorisees(remplacements) {
+  const temp = DRY_RUN ? null : mkdtempSync(join(tmpdir(), 'bq-acl-'))
+
+  for (const [sourceBrute, autorise] of AUTORISATIONS) {
+    let source = sourceBrute
+    for (const [cle, valeur] of Object.entries(remplacements)) {
+      source = source.replaceAll(`\${${cle}}`, valeur)
+    }
+    const etiquette = `${autorise} → ${source}`
+
+    // Une source absente (GA4 non branché) n'a pas d'ACL à modifier. Ce n'est
+    // pas une erreur : le modèle qui la lit n'est pas déployé non plus.
+    if (source.includes('_ABSENT')) {
+      console.log(`  ${c.jaune('⊘')} ${etiquette} ${c.gris('(source absente)')}`)
+      continue
+    }
+
+    let descripteur
+    try {
+      descripteur = JSON.parse(bq(['show', '--format=prettyjson', `${PROJET}:${source}`]))
+    } catch (erreur) {
+      console.log(`  ${c.rouge('✗')} ${etiquette} — ${erreur.message.split('\n')[0]}`)
+      continue
+    }
+
+    const acces = descripteur.access || []
+    const deja = acces.some(
+      (a) => a.dataset?.dataset?.datasetId === autorise && a.dataset?.dataset?.projectId === PROJET
+    )
+    if (deja) {
+      console.log(`  ${c.gris('=')} ${etiquette} ${c.gris('(déjà autorisé)')}`)
+      continue
+    }
+    if (DRY_RUN) {
+      console.log(`  ${c.jaune('+')} ${etiquette} ${c.gris('(dry-run)')}`)
+      continue
+    }
+
+    acces.push({
+      dataset: { dataset: { projectId: PROJET, datasetId: autorise }, targetTypes: ['VIEWS'] },
+    })
+    descripteur.access = acces
+
+    const chemin = join(temp, `${source}.json`)
+    writeFileSync(chemin, JSON.stringify(descripteur))
+    try {
+      bq(['update', `--source=${chemin}`, `${PROJET}:${source}`])
+      console.log(`  ${c.vert('+')} ${etiquette}`)
+    } catch (erreur) {
+      console.log(`  ${c.rouge('✗')} ${etiquette} — ${erreur.message.split('\n')[0]}`)
+    }
   }
 }
 
@@ -355,7 +446,10 @@ function main() {
     }
   }
 
-  console.log(c.gras('\n4. Bilan'))
+  console.log(c.gras('\n4. Vues autorisées'))
+  accorderVuesAutorisees(remplacements)
+
+  console.log(c.gras('\n5. Bilan'))
   console.log(`  ${deployes.length} déployés, ${sautes.length} sautés, ${echecs.length} en échec`)
 
   if (sautes.length > 0) {

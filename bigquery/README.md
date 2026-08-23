@@ -54,13 +54,17 @@ La séparation n'est pas décorative : elle décide de qui a le droit de lire qu
 `raw_app` portera un jour des coordonnées de prospects et ne doit jamais suivre
 le même chemin d'accès que `marts`.
 
-### État au 22/08/2026
+### État au 23/08/2026
 
 | Source | État | Conséquence |
 |---|---|---|
 | Google Ads | ✅ transfert actif en `europe`, compte **Estimer Mon Bien** (`3838716042`, EUR, balisage automatique activé) | Le modèle tourne. **Zéro ligne** : aucune campagne n'existe encore dans le compte |
 | Meta Ads | ✅ ingestion en service, compte **Revontuli - Marketing** (`act_298109181477918`, EUR) | Tourne. **Zéro ligne** : aucune dépense sur la fenêtre. ⚠️ Jeton à renouveler avant le **21/10/2026** (§4) |
-| GA4 | ❌ **dataset absent** | 8 modèles sur 16 non déployés, dont tous les `marts` de conversion (§2) |
+| GA4 | ✅ export actif en `EU`, propriété **549809031** (dataset `analytics_549809031`) | **Les 16 modèles sont déployés.** Premier jour exporté : `events_20260822` |
+
+`marts` contient donc les six modèles de §6, et `v_data_freshness` classe GA4
+`a_jour`. Les deux régies y ressortent en `source_absente` : c'est la lecture
+correcte de « zéro ligne parce qu'aucune campagne n'existe », pas d'une panne.
 
 Les 16 modèles ont été validés à l'exécution contre un jeu de données factice
 (GA4, Ads et Meta), puis ce jeu a été purgé ; les modèles Google Ads ont ensuite
@@ -76,14 +80,17 @@ Les 16 modèles ont été validés à l'exécution contre un jeu de données fac
 
 ---
 
-## 2. Brancher l'export GA4 — **à faire en premier**
+## 2. Brancher l'export GA4 — ✅ fait le 22/08/2026
 
 C'est la source qui porte les conversions, le tunnel et l'attribution. Sans
-elle, l'entrepôt n'a rien à croiser.
+elle, l'entrepôt n'a rien à croiser. La procédure reste ici pour la propriété
+suivante, ou si le lien saute.
 
 > ⏳ **L'export ne rattrape pas le passé.** Il commence le jour où le lien est
 > créé. Chaque jour d'attente est un jour définitivement absent de l'entrepôt —
 > c'est la seule étape de ce document qui ait un coût à différer.
+> **L'entrepôt commence donc au 22/08/2026** ; il n'y a pas d'antérieur, et il
+> n'y en aura jamais.
 
 1. GA4 → *Admin* → *Liens BigQuery* → **Associer**.
 2. Projet : `estimer-505209`.
@@ -275,7 +282,9 @@ npm run bq:deploy -- --only=marts
 
 Idempotent : rejouable autant qu'on veut. Les tables sont en
 `CREATE ... IF NOT EXISTS`, les vues et fonctions en `CREATE OR REPLACE` —
-aucune instruction de `sql/` ne détruit de données.
+aucune instruction de `sql/` ne détruit de données. Son étape 4 déclare en plus
+les **datasets autorisés** qui rendent `marts` réellement lisible de l'extérieur
+(§6) ; elle n'ajoute jamais d'accès, elle complète la liste existante.
 
 Le script ne cache pas ce qu'il ne peut pas faire : il annonce chaque source
 absente, chaque bouchon déployé, et supprime les vues qui deviendraient
@@ -312,12 +321,42 @@ Trois précautions valables pour toute lecture :
   n'a de sens qu'en relatif, pour comparer deux campagnes. L'afficher comme un
   revenu serait un mensonge par cadrage.
 
-### Looker Studio
+### Ouvrir `marts` à un lecteur extérieur
 
-Se connecter en **BigQuery → Requête personnalisée**, sur `marts` uniquement, et
-lire les tableaux depuis `fct_marketing_performance_daily`. Donner le rôle
-*BigQuery Data Viewer* sur le seul dataset `marts` — jamais au niveau du projet,
-qui donnerait accès à `raw_*` par la même occasion.
+Deux droits, et deux seulement :
+
+- *BigQuery Data Viewer* **sur le seul dataset `marts`** — jamais au niveau du
+  projet, qui donnerait accès à `raw_*` par la même occasion ;
+- *BigQuery Job User* **sur le projet**, sans lequel aucune requête ne démarre.
+
+> **Ces deux droits ne suffisent pas à eux seuls, et c'est le piège de ce
+> dossier.** Les vues de `marts` lisent `staging`, qui lit lui-même l'export GA4
+> et les `raw_*`. BigQuery vérifie par défaut les droits du lecteur sur *toute*
+> la chaîne : il obtient donc un `Access Denied` nommant `staging`, c'est-à-dire
+> précisément le dataset dont on ne voulait pas lui parler — et l'enquête part
+> au mauvais endroit.
+>
+> Ce qui débloque est la déclaration de **datasets autorisés**, appliquée par
+> `npm run bq:deploy` (étape 4, constante `AUTORISATIONS` du script). Les vues
+> lisent alors leurs sources en leur nom propre, et le lecteur ne gagne aucun
+> accès direct. Rien à faire à la main ; il faut seulement savoir que si
+> quelqu'un recrée un dataset, l'autorisation part avec — rejouer le script la
+> remet.
+
+**Looker Studio** : se connecter en *BigQuery → Requête personnalisée*, sur
+`marts` uniquement, et lire les tableaux depuis
+`fct_marketing_performance_daily`.
+
+**Applications** : commencer par `v_data_freshness`. Elle répond même quand
+toutes les sources sont vides, ce qui en fait le bon test de connexion — là où
+un `SELECT` sur une table de faits renverrait zéro ligne sans qu'on sache
+distinguer « pas de droits » de « pas encore de campagnes ».
+
+> `staging.stg_google_ads__conversion_action_daily` est la seule exception du
+> tableau ci-dessus, et elle **n'est pas couverte par ces droits** : elle vit
+> dans `staging`. Un lecteur extérieur qui en a besoin demande un *Data Viewer*
+> supplémentaire sur `staging` — décision à prendre explicitement, pas par
+> défaut.
 
 ---
 
@@ -344,13 +383,13 @@ Deux points de vigilance quand même, parce qu'ils ne se voient qu'à la facture
 
 | # | Action | Qui | Bloquant pour |
 |---|---|---|---|
-| 1 | Créer le lien BigQuery dans GA4 (§2) | Admin GA4 | **Tout.** Et chaque jour d'attente est perdu |
+| 1 | ~~Créer le lien BigQuery dans GA4~~ ✅ fait le 22/08/2026 (§2) | — | — |
 | 2 | ~~Créer le transfert Google Ads~~ ✅ fait le 22/08/2026 | — | — |
 | 3 | ~~Créer l'utilisateur système Meta et son jeton~~ ✅ fait le 22/08/2026, par échange (§4b) | — | — |
 | 3 bis | **Remplacer le jeton d'échange par le jeton permanent (§4a), avant le 21/10/2026** | Admin Meta Business | La dépense Meta, à cette date |
 | 4 | Planifier `npm run bq:meta` en quotidien, avec un compte de service | Coolify / Cloud Scheduler | La fraîcheur Meta |
 | 5 | Arbitrer `VALEUR_BASE_LEAD` (plan §5.2, §13.1) | Métier | Les enchères à la valeur |
-| 6 | Ouvrir `marts` en lecture aux personnes concernées | Admin GCP | Les rapports partagés |
+| 6 | Ouvrir `marts` en lecture aux personnes concernées (§6) | Admin GCP | Les rapports partagés |
 
 Le lot **T5** du plan de taggage (import des conversions hors ligne) trouvera
 sa place dans `raw_app`, déjà créé et vide. Il suppose deux choses qui n'existent
