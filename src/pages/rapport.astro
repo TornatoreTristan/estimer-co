@@ -4,8 +4,10 @@ import ClientConfig from '../components/ClientConfig.astro';
 import RawScript from '../components/RawScript.astro';
 import rapportMapScript from '../scripts/rapport-map.js?raw';
 import pdfReportScript from '../scripts/pdf-report.js?raw';
+import estimationWizardScript from '../scripts/estimation-wizard.js?raw';
 import estimationApiScript from '../scripts/estimation-api.js?raw';
 import rapportReportScript from '../scripts/rapport-report.js?raw';
+import rapportEditScript from '../scripts/rapport-edit.js?raw';
 ---
 
 <BaseLayout title="Votre rapport d'estimation. Estimer mon bien">
@@ -36,6 +38,12 @@ import rapportReportScript from '../scripts/rapport-report.js?raw';
              son contenu dépend de `lastEstimation.estimationStatus` et de
              `estimation.dataSource`, jamais d'un texte figé ici. -->
         <div class="report-banner" id="estimationStatusBanner" role="status" hidden></div>
+
+        <!-- Rapport déjà recalculé après correction : rempli et révélé par
+             `rapport-edit.js` (`describeReportEdit`). Le PDF déjà téléchargé et
+             l'e-mail reçu par le conseiller portent le montant d'AVANT : le
+             visiteur doit savoir que celui-ci est le plus récent. -->
+        <p class="report-edit-notice" id="reportEditNotice" hidden></p>
 
         <!-- Estimation -->
         <div class="report-card estimation-card">
@@ -74,6 +82,198 @@ import rapportReportScript from '../scripts/rapport-report.js?raw';
                l'API (`dataSource.attributionFr` / `disclaimerFr`) pour que la
                date de publication ne se périme pas silencieusement (§8.1). -->
           <div class="source-banner" id="dataSourceBanner" hidden></div>
+        </div>
+
+        <!-- ================================================================
+             Corriger ses informations et relancer le calcul.
+
+             Les identifiants des champs sont exactement ceux du wizard
+             (`surface`, `dpe`, `hasElevator`…) : `mapApiErrorToFieldErrors`
+             renvoie ces noms-là, et `rapport-edit.js` s'en sert directement
+             pour poser l'erreur sous le bon champ, sans table de
+             correspondance. Aucune collision sur cette page, qui ne porte pas
+             le formulaire d'estimation.
+
+             Visibilité et validation viennent de `WIZARD_STEPS` via
+             `isFieldVisible()` / `validateStep()` : rien n'est redéclaré ici,
+             pas même « l'étage ne concerne que les appartements ».
+             ================================================================ -->
+        <div class="report-card" id="reportEditCard">
+          <h3>Une information inexacte ?</h3>
+          <p>
+            Corrigez la surface, le nombre de pièces, le DPE ou l'état de votre bien, puis
+            relancez le calcul. Votre demande reste la même&nbsp;: aucune nouvelle prise de
+            contact n'est créée et vos coordonnées ne sont pas renvoyées.
+          </p>
+
+          <button
+            type="button"
+            class="btn btn--outline"
+            id="reportEditToggle"
+            aria-expanded="false"
+            aria-controls="reportEditForm"
+          >
+            Modifier mes informations
+          </button>
+
+          <form id="reportEditForm" class="report-edit" novalidate hidden>
+            <div class="field" id="propertyTypeGroup">
+              <label for="propertyType">Type de bien <span class="required">*</span></label>
+              <select id="propertyType" name="propertyType" class="select" aria-describedby="propertyType-error">
+                <option value="">Sélectionnez un type</option>
+                <option value="appartement">Appartement</option>
+                <option value="maison">Maison</option>
+                <option value="terrain">Terrain</option>
+                <option value="local-commercial">Local commercial</option>
+              </select>
+              <p class="field-error" id="propertyType-error" role="alert" hidden></p>
+            </div>
+
+            <div class="field-row">
+              <div class="field" id="hasTerrainGroup" hidden>
+                <label for="hasTerrain">Terrain <span class="required">*</span></label>
+                <select id="hasTerrain" name="hasTerrain" class="select" aria-describedby="hasTerrain-error">
+                  <option value="">Sélectionnez une option</option>
+                  <option value="yes">Oui</option>
+                  <option value="no">Non</option>
+                </select>
+                <p class="field-error" id="hasTerrain-error" role="alert" hidden></p>
+              </div>
+
+              <div class="field" id="terrainSizeGroup" hidden>
+                <label for="terrainSize">Surface du terrain (m²) <span class="required">*</span></label>
+                <input
+                  type="number"
+                  id="terrainSize"
+                  name="terrainSize"
+                  class="input"
+                  min="1"
+                  aria-describedby="terrainSize-error"
+                />
+                <p class="field-error" id="terrainSize-error" role="alert" hidden></p>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field" id="surfaceGroup">
+                <label for="surface">Surface habitable (m²) <span class="required">*</span></label>
+                <input
+                  type="number"
+                  id="surface"
+                  name="surface"
+                  class="input"
+                  min="1"
+                  aria-describedby="surface-error"
+                />
+                <p class="field-error" id="surface-error" role="alert" hidden></p>
+              </div>
+
+              <div class="field" id="roomsGroup">
+                <label for="rooms">Nombre de pièces <span class="required">*</span></label>
+                <input
+                  type="number"
+                  id="rooms"
+                  name="rooms"
+                  class="input"
+                  min="1"
+                  aria-describedby="rooms-error"
+                />
+                <p class="field-error" id="rooms-error" role="alert" hidden></p>
+              </div>
+            </div>
+
+            <div class="field" id="dpeGroup">
+              <label for="dpe">Diagnostic énergétique (DPE) <span class="required">*</span></label>
+              <select id="dpe" name="dpe" class="select" aria-describedby="dpe-error">
+                <option value="">Sélectionnez une option</option>
+                <option value="A">A, excellent</option>
+                <option value="B">B, très bon</option>
+                <option value="C">C, bon</option>
+                <option value="D">D, moyen</option>
+                <option value="E">E, insuffisant</option>
+                <option value="F">F, mauvais</option>
+                <option value="G">G, très mauvais</option>
+                <option value="unknown">Je ne connais pas mon DPE</option>
+              </select>
+              <p class="field-error" id="dpe-error" role="alert" hidden></p>
+            </div>
+
+            <div class="report-edit__optional" id="reportEditOptional">
+              <p class="report-edit__hint">
+                Facultatif, mais chaque précision resserre la fourchette.
+              </p>
+
+              <div class="field-row">
+                <div class="field" id="floorGroup" hidden>
+                  <label for="floor">Étage</label>
+                  <input
+                    type="number"
+                    id="floor"
+                    name="floor"
+                    class="input"
+                    min="0"
+                    max="50"
+                    step="1"
+                    aria-describedby="floor-error"
+                  />
+                  <p class="field-error" id="floor-error" role="alert" hidden></p>
+                </div>
+
+                <div class="field" id="hasElevatorGroup" hidden>
+                  <label for="hasElevator">Ascenseur</label>
+                  <select id="hasElevator" name="hasElevator" class="select" aria-describedby="hasElevator-error">
+                    <option value="">Sélectionnez une option</option>
+                    <option value="yes">Oui</option>
+                    <option value="no">Non</option>
+                    <option value="unknown">Je ne sais pas</option>
+                  </select>
+                  <p class="field-error" id="hasElevator-error" role="alert" hidden></p>
+                </div>
+              </div>
+
+              <div class="field-row">
+                <div class="field" id="outdoorGroup" hidden>
+                  <label for="outdoor">Extérieur</label>
+                  <select id="outdoor" name="outdoor" class="select" aria-describedby="outdoor-error">
+                    <option value="">Sélectionnez une option</option>
+                    <option value="none">Aucun</option>
+                    <option value="balcony">Balcon</option>
+                    <option value="terrace">Terrasse</option>
+                    <option value="garden">Jardin privatif</option>
+                  </select>
+                  <p class="field-error" id="outdoor-error" role="alert" hidden></p>
+                </div>
+
+                <div class="field" id="conditionGroup" hidden>
+                  <label for="condition">État général</label>
+                  <select id="condition" name="condition" class="select" aria-describedby="condition-error">
+                    <option value="">Sélectionnez une option</option>
+                    <option value="to-renovate">À rénover</option>
+                    <option value="fair">Correct</option>
+                    <option value="good">Bon</option>
+                    <option value="new">Refait à neuf</option>
+                  </select>
+                  <p class="field-error" id="condition-error" role="alert" hidden></p>
+                </div>
+              </div>
+            </div>
+
+            <p class="report-edit__status" id="reportEditStatus" role="status" hidden></p>
+
+            <div class="report-edit__actions">
+              <button type="submit" class="btn btn--primary" id="reportEditSubmit">
+                Recalculer mon estimation
+              </button>
+              <button type="button" class="btn btn--outline" id="reportEditCancel">
+                Annuler
+              </button>
+            </div>
+
+            <p class="report-edit__legal">
+              L'adresse ne peut pas être modifiée ici&nbsp;: un autre bien relève d'une
+              <a href="/estimation/">nouvelle estimation</a>.
+            </p>
+          </form>
         </div>
 
         <!-- Indice de confiance -->
@@ -178,10 +378,23 @@ import rapportReportScript from '../scripts/rapport-report.js?raw';
          deux autres scripts utilisent dès leur exécution. -->
     <RawScript code={pdfReportScript} />
     <RawScript code={rapportMapScript} />
+    <!-- `estimation-wizard.js` n'est pas là pour son contrôleur (`createWizard`
+         n'est jamais appelé hors `/estimation`) mais pour ses RÈGLES :
+         `WIZARD_STEPS`, `isFieldVisible` et `validateStep`, dont le formulaire
+         de correction ci-dessus dépend. Les redéclarer ici en produirait une
+         seconde version, qui divergerait au premier ajustement du tunnel. Le
+         fichier ne fait que déclarer des fonctions : le charger n'a aucun effet
+         de bord. -->
+    <RawScript code={estimationWizardScript} />
     <!-- `estimation-api.js` avant `rapport-report.js` : le bouton « Relancer
          le calcul » du mode dégradé rejoue `requestEstimation`. -->
     <RawScript code={estimationApiScript} />
     <RawScript code={rapportReportScript} />
+    <!-- En dernier : `rapport-edit.js` relit `lastEstimation` une fois que
+         `rapport-report.js` a fait son office (redirection vers `/estimation/`
+         quand il n'y a rien à afficher). `lead-api.js` n'est volontairement PAS
+         chargé : un recalcul ne doit pas pouvoir produire de lead. -->
+    <RawScript code={rapportEditScript} />
   </Fragment>
 </BaseLayout>
 
@@ -379,6 +592,81 @@ import rapportReportScript from '../scripts/rapport-report.js?raw';
 
   .report-banner__retry[hidden] {
     display: none;
+  }
+
+  /* Rapport recalculé après correction */
+  .report-edit-notice {
+    margin-bottom: 1.5rem;
+    padding: 0.875rem 1.125rem;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--aubergine-4);
+    background: var(--beige-25);
+    font-size: var(--text-sm);
+    color: var(--text);
+  }
+
+  .report-edit-notice[hidden] {
+    display: none;
+  }
+
+  /* Formulaire de correction — les champs eux-mêmes réutilisent `.field`,
+     `.input`, `.select` et `.field-error` du design system (global.css). */
+  .report-edit {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .report-edit[hidden] {
+    display: none;
+  }
+
+  .report-edit__optional {
+    margin-top: 0.5rem;
+    padding: 1rem 1.125rem;
+    border: 1px dashed var(--border);
+    background: var(--beige-10);
+  }
+
+  .report-edit__optional[hidden] {
+    display: none;
+  }
+
+  .report-edit__hint {
+    margin: 0 0 0.875rem;
+    font-size: var(--text-sm);
+    color: var(--text-faint);
+  }
+
+  .report-edit__status {
+    margin: 1.25rem 0 0;
+    padding: 0.75rem 1rem;
+    border-left: 3px solid var(--aubergine-4);
+    background: var(--beige-25);
+    font-size: var(--text-sm);
+    color: var(--text);
+  }
+
+  .report-edit__status[data-tone='error'] {
+    border-left-color: var(--error);
+    background: var(--orange-5);
+  }
+
+  .report-edit__status[hidden] {
+    display: none;
+  }
+
+  .report-edit__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .report-edit__legal {
+    margin: 1rem 0 0;
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
   }
 
   /* Attribution + avertissement légal (§8.1) */
@@ -712,7 +1000,9 @@ import rapportReportScript from '../scripts/rapport-report.js?raw';
     .site-header,
     .site-footer,
     .page-head,
-    .report-actions {
+    .report-actions,
+    /* Un formulaire imprimé n'est qu'un pavé de champs vides. */
+    #reportEditCard {
       display: none !important;
     }
 

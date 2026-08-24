@@ -125,6 +125,10 @@ const VARIABLES_DATALAYER = [
   "region",
   "estimation_value",
   "estimation_status",
+  // Correction du rapport (`report_estimation_edited`) : la révision distingue
+  // un rapport recalculé de son original, `changed_fields` dit sur quoi.
+  "estimation_revision",
+  "changed_fields",
   "is_owner",
   "want_to_sell",
   // Qualité de l'estimation

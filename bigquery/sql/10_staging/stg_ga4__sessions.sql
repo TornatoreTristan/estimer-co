@@ -25,7 +25,7 @@ premier_evenement AS (
   SELECT
     session_key,
     ARRAY_AGG(
-      STRUCT(page_path, platform, campaign_id, campaign_name,
+      STRUCT(page_path, page_referrer, platform, campaign_id, campaign_name,
              utm_source, utm_medium, utm_content, gclid,
              device_category, browser, geo_country, geo_region, geo_city,
              ads_customer_id)
@@ -83,6 +83,7 @@ SELECT
   a.session_end,
   a.session_number,
   p.e.page_path        AS landing_page_path,
+  p.e.page_referrer    AS landing_page_referrer,
   p.e.platform         AS platform,
   p.e.campaign_id      AS campaign_id,
   p.e.campaign_name    AS campaign_name,

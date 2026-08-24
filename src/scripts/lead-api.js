@@ -30,6 +30,7 @@
 //
 // Périmètre :
 //   - `buildEstimationLeadPayload(payload, acq)` pure — payload wizard -> corps HTTP
+//   - `buildLeadPartnerConsentBlock(payload)` pure — opt-in partenaires -> bloc HTTP
 //   - `buildContactLeadPayload(form, acq)`       pure — formulaire contact -> corps HTTP
 //   - `isLeadApiConfigured(config)`         pure — l'API est-elle joignable ?
 //   - `shouldUseLegacyFallback(response)`   pure — faut-il rejouer par EmailJS ?
@@ -162,7 +163,10 @@ function assignEnum(target, key, value, allowed) {
  * Contrairement à `buildEstimationApiPayload`, cette fonction transmet
  * DÉLIBÉRÉMENT les coordonnées : c'est tout l'objet de l'endpoint. La
  * séparation reste stricte côté API — `/v1/estimations` refuse ces champs en
- * 422, `/v1/leads` les reçoit et n'en persiste aucun.
+ * 422, `/v1/leads` les reçoit. Il n'en persiste qu'une chose, et seulement si
+ * la case partenaires a été cochée : la preuve du consentement
+ * (`partner_consents`). Le lead lui-même continue de ne vivre que dans
+ * l'e-mail.
  *
  * @param {object} payload cf. `buildSubmitPayload` dans estimation-wizard.js
  * @param {object|null} [acquisition] provenance de la visite (`embAcquisition()`)
@@ -218,10 +222,45 @@ function buildEstimationLeadPayload(payload, acquisition) {
   var phone = toLeadString(p.phone);
   if (phone) body.phone = phone;
 
+  var consentBlock = buildLeadPartnerConsentBlock(p);
+  if (consentBlock) body.partnerConsent = consentBlock;
+
   var acquisitionBlock = buildLeadAcquisitionBlock(acquisition);
   if (acquisitionBlock) body.acquisition = acquisitionBlock;
 
   return body;
+}
+
+/**
+ * Bloc `partnerConsent` du corps HTTP — **fonction pure**.
+ *
+ * ══════════════════════════════════════════════════════════════════════════
+ * DEUX CHAMPS, ET SURTOUT PAS UN TROISIÈME
+ * ══════════════════════════════════════════════════════════════════════════
+ * `granted` et `version`. Pas le texte de la case, alors que c'est lui qui
+ * constitue la preuve : une chaîne fournie par le navigateur ne prouve rien,
+ * puisque n'importe quelle console peut en poster une autre. Le serveur
+ * rattache le texte que CETTE version désigne (`api/app/lib/partner_consent.ts`)
+ * et archive celui-là.
+ *
+ * Le bloc est envoyé même quand la case est décochée : « non » est une
+ * information utile — elle dit à l'équipe de ne pas transmettre ce lead — là
+ * où l'absence de bloc ne distingue pas un refus d'une page servie depuis un
+ * cache antérieur au déploiement.
+ *
+ * Sans version, en revanche, rien n'est envoyé : un accord dont on ignore le
+ * texte présenté vaudrait 422 côté API, et ferait perdre le lead entier pour
+ * une case à cocher facultative.
+ *
+ * @param {object} payload cf. `buildSubmitPayload` dans estimation-wizard.js
+ * @returns {{granted:boolean, version:string}|null}
+ */
+function buildLeadPartnerConsentBlock(payload) {
+  var p = payload || {};
+  var version = toLeadString(p.partnerConsentVersion);
+  if (!version) return null;
+
+  return { granted: toLeadString(p.partnerOptIn) === "yes", version: version };
 }
 
 /**

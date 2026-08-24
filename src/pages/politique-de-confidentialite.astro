@@ -1,6 +1,7 @@
 ---
 import LegalLayout from '../layouts/LegalLayout.astro';
 import { EDITEUR, HEBERGEUR } from '../data/legal';
+import { CONSENT_PARTENAIRES } from '../data/consent-partenaires';
 import { CONSENT_EXPIRE_JOURS, TRACKING_ACTIF } from '../lib/analytics';
 
 /**
@@ -18,7 +19,13 @@ import { CONSENT_EXPIRE_JOURS, TRACKING_ACTIF } from '../lib/analytics';
  *     `POST /v1/leads`, avec EmailJS en repli ;
  *   - `specs/estimation-donnees-reelles.md` §8.3 — `ip_hmac`, rétention
  *     12 mois, cache de géocodage 90 jours ;
- *   - `api/DEPLOIEMENT.md` §4.6 — `POST /v1/leads` ne persiste rien.
+ *   - `api/app/services/partner_consent_service.ts` — la SEULE écriture de
+ *     coordonnées côté serveur : la preuve de consentement, et uniquement
+ *     quand la case de transmission partenaire a été cochée ;
+ *   - `api/database/migrations/*_create_partner_consents.ts` — colonnes
+ *     exactes de cette preuve, et absence de toute donnée sur le bien ;
+ *   - `src/data/consent-partenaires.json` — texte et liste nominative des
+ *     destinataires soumis à l'accord.
  * Modifier l'un de ces comportements sans corriger cette page rend la page
  * fausse, ce qui est un manquement, pas une coquille.
  *
@@ -51,7 +58,10 @@ const SECTIONS = [
   { id: 'modifications', titre: 'Modifications de cette politique' },
 ] as const;
 
-const DATE_MAJ = new Date('2026-08-21');
+const DATE_MAJ = new Date('2026-08-24');
+
+/** « Les Bons Biens, Dr House Immo et RITMODiag » — jamais recopié à la main. */
+const PARTENAIRES_DESTINATAIRES = CONSENT_PARTENAIRES.partenaires.join(', ');
 
 /** Une ligne = un traitement inscrit au registre. */
 const TRAITEMENTS = [
@@ -76,9 +86,17 @@ const TRAITEMENTS = [
   },
   {
     finalite: 'Vous mettre en relation avec un professionnel partenaire',
-    donnees: 'Coordonnées et caractéristiques du bien, uniquement avec votre accord explicite.',
-    base: 'Votre consentement (art. 6.1.a)',
+    donnees: `Nom, adresse e-mail, téléphone et caractéristiques du bien, transmis aux seuls partenaires nommés dans la case que vous cochez (${PARTENAIRES_DESTINATAIRES}). Sans cette case cochée, rien n'est transmis.`,
+    base: 'Votre consentement, exprimé par une case dédiée jamais pré-cochée (art. 6.1.a)',
     duree: "Jusqu'au retrait de votre consentement, et au plus 3 ans après le dernier contact.",
+  },
+  {
+    finalite: 'Conserver la preuve de cet accord',
+    donnees:
+      "Nom, adresse e-mail, téléphone, date et heure de l'accord, texte exact que vous avez lu, liste des partenaires qu'il désigne, empreinte irréversible de votre adresse IP. Aucune donnée sur le bien.",
+    base: 'Obligation légale de démontrer le consentement recueilli (art. 7.1 du RGPD)',
+    duree:
+      "3 ans à compter de l'accord. Un retrait ne supprime pas la ligne : il la date, ce qui prouve à la fois que l'accord a existé et qu'il a cessé.",
   },
   {
     finalite: 'Sécuriser le service et prévenir les abus',
@@ -142,7 +160,11 @@ const TRAITEMENTS = [
         <strong>Aucun fichier de prospects n'est constitué sur nos serveurs.</strong> Lorsque vous
         demandez à recevoir votre rapport ou nous écrivez, vos coordonnées traversent notre
         interface, partent par e-mail, et ne sont enregistrées dans aucune base de données ni aucun
-        journal en clair.
+        journal en clair. <strong>Une seule exception, et elle existe pour vous&nbsp;:</strong> si
+        vous cochez la case autorisant la transmission à un partenaire, nous enregistrons cet
+        accord — vos coordonnées, la date, et le texte exact que vous avez lu. C'est ce que la loi
+        nous impose de pouvoir démontrer, et c'est aussi ce qui vous permet de nous opposer un
+        accord que vous n'auriez jamais donné. Laissez la case décochée, et rien n'est écrit.
       </li>
       <li>
         <strong>Votre adresse IP n'est jamais conservée en clair.</strong> Seule une empreinte
@@ -150,8 +172,13 @@ const TRAITEMENTS = [
       </li>
     </ul>
     <p>
-      Nous ne vendons ni ne louons vos données. Aucune décision produisant des effets juridiques à
-      votre égard n'est prise sur le seul fondement d'un traitement automatisé.
+      Nous ne constituons, ne vendons ni ne louons de fichier de prospection. La mise en relation
+      avec un partenaire est une autre chose&nbsp;: elle ne concerne que les professionnels que la
+      case nomme, elle n'a lieu que si vous l'avez acceptée, et elle peut donner lieu à une
+      rémunération de notre part — c'est ainsi que le service reste gratuit pour vous. Le partenaire
+      qui vous est présenté ne reçoit aucun droit de retransmettre vos coordonnées à qui que ce
+      soit. Aucune décision produisant des effets juridiques à votre égard n'est prise sur le seul
+      fondement d'un traitement automatisé.
     </p>
   </Fragment>
 
@@ -331,11 +358,27 @@ const TRAITEMENTS = [
         </tbody>
       </table>
     </div>
+    <h3>Transmission à un professionnel partenaire</h3>
     <p>
-      Vos coordonnées ne sont transmises à un professionnel partenaire (agence, banque, notaire,
-      diagnostiqueur) <strong>qu'avec votre accord explicite</strong>, donné au moment de la
-      demande. Ce partenaire devient alors responsable du traitement pour ses propres finalités et
-      applique sa propre politique de confidentialité.
+      Vos coordonnées ne sont transmises à un professionnel partenaire
+      <strong>que si vous avez coché la case prévue à cet effet</strong>, à la dernière étape du
+      formulaire d'estimation. Cette case n'est jamais pré-cochée, elle est distincte du bouton
+      d'envoi, et la refuser ne change rien&nbsp;: vous obtenez la même estimation et le même
+      rapport.
+    </p>
+    <p>
+      Elle nomme les destinataires, et l'accord ne vaut que pour eux&nbsp;: à ce jour
+      <strong>{PARTENAIRES_DESTINATAIRES}</strong>. Si nous ajoutons un partenaire à cette liste,
+      votre accord précédent ne le couvre pas — il faudra vous le redemander. Le texte exact
+      soumis à votre approbation est aujourd'hui le suivant&nbsp;:
+    </p>
+    <blockquote class="legal-quote">{CONSENT_PARTENAIRES.texte}</blockquote>
+    <p>
+      Le partenaire qui reçoit vos coordonnées devient responsable du traitement pour ses propres
+      finalités et applique sa propre politique de confidentialité. Il ne peut pas les
+      retransmettre à un tiers. Vous pouvez retirer votre accord à tout moment en écrivant à <a
+        href={`mailto:${EDITEUR.email}`}>{EDITEUR.email}</a
+      >&nbsp;; le retrait vaut pour l'avenir et n'affecte pas les mises en relation déjà faites.
     </p>
     <p>
       Nous pouvons enfin être tenus de communiquer certaines données à une autorité administrative
@@ -386,6 +429,11 @@ const TRAITEMENTS = [
         <strong>Coordonnées transmises par les formulaires</strong>&nbsp;: aucune conservation en
         base de données. Elles subsistent dans notre messagerie le temps de l'échange, puis 3 ans à
         compter de votre dernier contact.
+      </li>
+      <li>
+        <strong>Preuve d'un accord de transmission partenaire</strong>&nbsp;: 3 ans. C'est la seule
+        donnée d'identification écrite sur nos serveurs, et elle n'existe que si vous avez coché la
+        case.
       </li>
       <li>
         <strong>Journaux techniques anonymisés</strong>&nbsp;: 12 mois, purge automatisée
@@ -521,7 +569,12 @@ const TRAITEMENTS = [
     </p>
     <p>
       Nous ne pratiquons ni la revente de fichiers, ni la prospection téléphonique automatisée, ni
-      l'envoi de messages commerciaux à des personnes qui ne nous ont pas contactés.
+      l'envoi de messages commerciaux à des personnes qui ne nous ont pas contactés. La mise en
+      relation avec un partenaire nommément désigné, décrite à la <a href="#destinataires"
+        >section&nbsp;5</a
+      >, n'entre dans aucune de ces trois catégories&nbsp;: elle suppose que vous l'ayez
+      expressément acceptée, elle vise des professionnels que vous avez vus nommés, et l'appel qui
+      peut en découler est passé par eux, dans le cadre de l'accord que vous leur avez donné.
     </p>
   </Fragment>
 
@@ -553,10 +606,15 @@ const TRAITEMENTS = [
     </p>
     <aside class="legal-note">
       <p>
-        <strong>Deux précisions utiles.</strong> Les données conservées par votre navigateur
+        <strong>Trois précisions utiles.</strong> Les données conservées par votre navigateur
         (section&nbsp;4) sont sous votre seul contrôle&nbsp;: nous ne pouvons pas les supprimer à
-        votre place. Et comme nos serveurs ne conservent pas vos coordonnées, une demande d'accès
-        portera essentiellement sur les échanges présents dans notre messagerie.
+        votre place. Comme nos serveurs ne conservent pas vos coordonnées, une demande d'accès
+        portera essentiellement sur les échanges présents dans notre messagerie — et, si vous avez
+        coché la case de transmission partenaire, sur la preuve de cet accord. Enfin, cette
+        preuve-là résiste à une demande d'effacement tant qu'elle reste nécessaire à sa propre
+        finalité&nbsp;: sans elle, nous ne pourrions plus démontrer que la transmission était
+        licite, ce qui vous desservirait autant que nous. Un retrait de consentement, lui, prend
+        effet immédiatement.
       </p>
     </aside>
     <p>

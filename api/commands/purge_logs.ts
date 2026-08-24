@@ -36,7 +36,7 @@ import db from '@adonisjs/lucid/services/db'
 export default class PurgeLogs extends BaseCommand {
   static commandName = 'purge:logs'
   static description =
-    'Purge les données à durée de conservation limitée : journal d’estimations (12 mois) et cache de géocodage expiré (§8.3)'
+    'Purge les données à durée de conservation limitée : journal d’estimations (12 mois), cache de géocodage expiré (§8.3) et preuves de consentement partenaire (3 ans)'
 
   static options: CommandOptions = { startApp: true, staysAlive: false }
 
@@ -63,7 +63,8 @@ export default class PurgeLogs extends BaseCommand {
         : 12
 
     this.logger.info(
-      `Purge — journal d’estimations > ${months} mois, cache de géocodage expiré` +
+      `Purge — journal d’estimations > ${months} mois, cache de géocodage expiré, ` +
+        'preuves de consentement > 3 ans' +
         (this.dryRun ? ' — MODE SIMULATION (aucune suppression)' : '')
     )
 
@@ -85,11 +86,33 @@ export default class PurgeLogs extends BaseCommand {
       'entrées de cache de géocodage expirées (adresses, §8.3)'
     )
 
+    /*
+     * Preuves de consentement partenaire — 3 ans, durée annoncée par la
+     * politique de confidentialité (section « Durées de conservation »).
+     *
+     * C'est la seule table de la purge qui contient des coordonnées en clair,
+     * et donc la seule dont l'oubli constituerait une conservation excessive
+     * plutôt qu'un simple encombrement. La rétention n'est PAS pilotable par
+     * `--retention-months` : elle est adossée à un texte publié, pas à un
+     * réglage d'exploitation.
+     *
+     * Le retrait du consentement ne raccourcit pas ce délai. Une ligne retirée
+     * reste la preuve que l'accord a existé jusqu'à cette date-là — c'est ce
+     * qui permet de justifier les mises en relation déjà faites, y compris
+     * face à quelqu'un qui affirmerait n'avoir jamais consenti.
+     */
+    const consentements = await this.#purge(
+      'partner_consents',
+      "created_at < now() - interval '3 years'",
+      'preuves de consentement partenaire de plus de 3 ans'
+    )
+
     this.logger.info('─'.repeat(60))
     this.logger.success(
       this.dryRun
-        ? `SIMULATION : ${logs} + ${geocode} ligne(s) seraient supprimées.`
-        : `Purge terminée : ${logs} ligne(s) de journal, ${geocode} entrée(s) de géocodage.`
+        ? `SIMULATION : ${logs} + ${geocode} + ${consentements} ligne(s) seraient supprimées.`
+        : `Purge terminée : ${logs} ligne(s) de journal, ${geocode} entrée(s) de géocodage, ` +
+            `${consentements} preuve(s) de consentement.`
     )
   }
 

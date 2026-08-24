@@ -3,8 +3,9 @@ import type { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 
 import { validateLeadPayload } from '#validators/lead'
-import { TransactionalMailService } from '#services/transactional_mail_service'
+import { TransactionalMailService, buildReference } from '#services/transactional_mail_service'
 import { DiscordNotifierService } from '#services/discord_notifier_service'
+import { PartnerConsentService } from '#services/partner_consent_service'
 
 /**
  * `POST /v1/leads` — flux transactionnel (coordonnées + contexte).
@@ -24,7 +25,10 @@ import { DiscordNotifierService } from '#services/discord_notifier_service'
  * Parce que les deux contrats sont opposés et doivent le rester :
  * `/v1/estimations` refuse toute donnée personnelle (§2.6, point 1) et
  * journalise ses appels dans `estimations_log` ; `/v1/leads` reçoit des
- * coordonnées et n'écrit RIEN nulle part. Fusionner les deux, ne serait-ce
+ * coordonnées et n'en écrit qu'une chose, dans un seul cas : la preuve de
+ * consentement (`partner_consents`), quand la personne a coché la case de
+ * transmission partenaire. Hors ce cas, rien n'est persisté — le lead vit dans
+ * l'e-mail interne et nulle part ailleurs. Fusionner les deux, ne serait-ce
  * qu'avec des champs optionnels, ferait entrer les coordonnées dans le
  * périmètre du calcul, donc dans son cache et sa journalisation — exactement
  * ce que la minimisation RGPD interdit.
@@ -54,7 +58,38 @@ export default class LeadsController {
     }
 
     const requestId = request.id() ?? randomUUID()
-    const result = await new TransactionalMailService().deliverLead(payload, { requestId })
+
+    /*
+     * La référence est calculée ICI, avant tout le reste, parce que trois
+     * choses doivent porter le même identifiant : la ligne de
+     * `partner_consents`, l'e-mail interne et la réponse HTTP. Une preuve que
+     * l'on ne saurait pas relier au lead qu'elle couvre ne serait pas une
+     * preuve utilisable.
+     */
+    const reference = buildReference(requestId)
+
+    /*
+     * ══════════════════════════════════════════════════════════════════════
+     * LA PREUVE D'ABORD, LE LEAD ENSUITE
+     * ══════════════════════════════════════════════════════════════════════
+     * L'e-mail interne est le document depuis lequel un lead part chez un
+     * partenaire. Il ne peut donc annoncer « transmissible » qu'après que la
+     * preuve a été écrite — pas parce qu'une case était cochée dans un corps
+     * de requête. `record()` ne lève jamais : si la base est indisponible,
+     * l'issue vaut `not-stored`, le lead part quand même, et il part marqué
+     * comme non transmissible.
+     */
+    const partnerConsent = await new PartnerConsentService().record(payload, {
+      reference,
+      clientIp: ctx.clientIp,
+      userAgent: request.header('user-agent') ?? null,
+    })
+
+    const result = await new TransactionalMailService().deliverLead(payload, {
+      requestId,
+      reference,
+      partnerConsent,
+    })
 
     /*
      * Alerte Discord — canal ACCESSOIRE, doublant l'e-mail interne pour que
@@ -73,6 +108,7 @@ export default class LeadsController {
     await new DiscordNotifierService().notifyLead(payload, {
       reference: result.reference,
       mailStatus: result.status,
+      partnerConsent,
     })
 
     if (result.status === 'failed') {

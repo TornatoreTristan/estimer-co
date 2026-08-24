@@ -155,6 +155,90 @@ test("buildEstimationLeadPayload — enveloppe complète : kind, coordonnées, b
   assert.deepEqual(Object.keys(body).sort(), ["email", "estimation", "kind", "name", "phone", "property"]);
 });
 
+// ----------------------------------------------------------------------------
+// Bloc `partnerConsent` — accord de transmission à un partenaire
+// ----------------------------------------------------------------------------
+
+test("partnerConsent — accord donné : granted true et version du texte affiché", () => {
+  const { buildEstimationLeadPayload } = loadLeadModule();
+  const body = buildEstimationLeadPayload(
+    submitPayload({ partnerOptIn: "yes", partnerConsentVersion: "2026-08-24" })
+  );
+
+  assert.deepEqual(body.partnerConsent, { granted: true, version: "2026-08-24" });
+});
+
+test("partnerConsent — le TEXTE de la case ne voyage jamais", () => {
+  /*
+   * C'est la garantie centrale du dispositif : une preuve dont le texte serait
+   * fourni par le navigateur ne prouverait rien, puisque n'importe quelle
+   * console peut en poster un autre. Le serveur rattache le sien.
+   */
+  const { buildEstimationLeadPayload } = loadLeadModule();
+  const body = buildEstimationLeadPayload(
+    submitPayload({
+      partnerOptIn: "yes",
+      partnerConsentVersion: "2026-08-24",
+      // Même si le payload du wizard en portait un, il ne doit pas ressortir.
+      partnerConsentTexte: "J'accepte tout et n'importe quoi",
+    })
+  );
+
+  assert.deepEqual(Object.keys(body.partnerConsent).sort(), ["granted", "version"]);
+});
+
+test("partnerConsent — case décochée : le refus est transmis, pas tu", () => {
+  // « Non » et « pas d'information » ne se traitent pas pareil côté équipe :
+  // le premier est un refus exprimé, le second une page antérieure au
+  // déploiement. L'e-mail interne les distingue, donc le corps HTTP aussi.
+  const { buildEstimationLeadPayload } = loadLeadModule();
+  const body = buildEstimationLeadPayload(
+    submitPayload({ partnerOptIn: "no", partnerConsentVersion: "2026-08-24" })
+  );
+
+  assert.deepEqual(body.partnerConsent, { granted: false, version: "2026-08-24" });
+});
+
+test("partnerConsent — sans version, aucun bloc n'est envoyé", () => {
+  /*
+   * Une version vide vaudrait 422 côté API (liste blanche stricte) : le lead
+   * entier serait perdu à cause d'une case facultative. On préfère taire
+   * l'accord plutôt que perdre la demande.
+   */
+  const { buildEstimationLeadPayload } = loadLeadModule();
+  const body = buildEstimationLeadPayload(
+    submitPayload({ partnerOptIn: "yes", partnerConsentVersion: "" })
+  );
+
+  assert.equal("partnerConsent" in body, false);
+});
+
+test("partnerConsent — une valeur inattendue n'accorde rien", () => {
+  // `granted` n'est vrai que sur « yes » exactement. Tout le reste — "true",
+  // "1", "oui", un objet — vaut refus : sur un accord, le défaut doit être non.
+  const { buildEstimationLeadPayload } = loadLeadModule();
+
+  ["true", "1", "oui", "YES", ""].forEach((valeur) => {
+    const body = buildEstimationLeadPayload(
+      submitPayload({ partnerOptIn: valeur, partnerConsentVersion: "2026-08-24" })
+    );
+    assert.equal(body.partnerConsent.granted, false, `« ${valeur} » ne doit pas valoir accord`);
+  });
+});
+
+test("buildContactLeadPayload — le formulaire de contact n'emporte aucun accord", () => {
+  // Il n'affiche pas la case : envoyer un bloc `partnerConsent` depuis ce
+  // formulaire signifierait un accord que personne n'a donné.
+  const { buildContactLeadPayload } = loadLeadModule();
+  const body = buildContactLeadPayload({
+    name: "Jean Dupont",
+    email: "jean.dupont@example.com",
+    message: "Bonjour",
+  });
+
+  assert.equal("partnerConsent" in body, false);
+});
+
 test("buildEstimationLeadPayload — les coordonnées SONT transmises (contrairement à /v1/estimations)", () => {
   // Contrepoint explicite de `test-estimation-api.mjs`, qui vérifie l'inverse
   // pour l'endpoint de calcul. Les deux contrats sont opposés, et c'est le

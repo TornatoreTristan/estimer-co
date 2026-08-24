@@ -95,6 +95,10 @@ const MODELES = [
   { fichier: '20_marts/fct_leads.sql', requiert: 'ga4' },
   { fichier: '20_marts/fct_marketing_performance_daily.sql', requiert: 'ga4' },
   { fichier: '20_marts/fct_estimation_funnel_daily.sql', requiert: 'ga4' },
+  { fichier: '20_marts/fct_site_traffic_daily.sql', requiert: 'ga4' },
+  { fichier: '20_marts/fct_landing_page_daily.sql', requiert: 'ga4' },
+  { fichier: '20_marts/fct_visit_technology_daily.sql', requiert: 'ga4' },
+  { fichier: '20_marts/fct_visit_geography_daily.sql', requiert: 'ga4' },
   { fichier: '20_marts/v_platform_reconciliation.sql', requiert: 'ga4' },
   { fichier: '20_marts/v_data_freshness.sql', requiert: 'ga4' },
 ]

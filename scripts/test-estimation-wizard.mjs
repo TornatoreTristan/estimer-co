@@ -472,6 +472,11 @@ test("buildSubmitPayload — clés et types exacts du payload §3.2", () => {
     "name",
     "email",
     "phone",
+    // Accord de transmission partenaire (RGPD art. 7) : « yes »/« no »/"" et
+    // la version du texte affiché. `lead-api.js` en fait le bloc
+    // `partnerConsent` du corps HTTP ; le texte, lui, ne voyage jamais.
+    "partnerOptIn",
+    "partnerConsentVersion",
     "estimation",
   ];
   assert.deepEqual(Object.keys(payload), expectedKeys);

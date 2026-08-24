@@ -9,6 +9,7 @@ import {
   describeAcquisitionChannel,
   formatNumber,
 } from '#services/lead_mail_renderer'
+import type { PartnerConsentOutcome } from '#services/partner_consent_service'
 import type { LeadPayload } from '#validators/lead'
 
 /**
@@ -87,6 +88,15 @@ export interface DiscordLeadContext {
   mailStatus: 'sent' | 'dry-run' | 'failed'
   /** Horodatage ISO 8601 affiché par Discord. */
   occurredAt?: string
+  /**
+   * Issue de l'écriture de la preuve de consentement partenaire.
+   *
+   * Reprise telle quelle de `PartnerConsentService` : Discord n'en tire aucune
+   * conclusion propre. Les deux canaux affichent le même verdict parce qu'ils
+   * lisent la même valeur — recalculer la condition ici garantirait qu'un jour
+   * l'alerte autorise ce que l'e-mail interdit.
+   */
+  partnerConsent?: PartnerConsentOutcome
 }
 
 /** Tronque en signalant la coupe — un texte coupé en silence se lit de travers. */
@@ -250,6 +260,27 @@ function describeContact(payload: LeadPayload): string {
   return lines.join('\n')
 }
 
+/**
+ * Verdict de transmission, en une ligne lisible sur un téléphone.
+ *
+ * Un seul état autorise : `recorded`. Le reste dit non, et le dit avec le même
+ * emoji d'interdiction — on ne demande pas à quelqu'un qui lit une alerte en
+ * marchant de distinguer « refusé » de « non prouvé » avant d'agir. La nuance,
+ * elle, est dans l'e-mail interne, qui est le document de travail.
+ */
+function describePartnerConsent(outcome: PartnerConsentOutcome | undefined): string {
+  if (outcome?.state === 'recorded') {
+    return `✅ Transmissible · ${outcome.partners.join(', ')}`
+  }
+  if (outcome?.state === 'declined') {
+    return '⛔ Non transmissible — case décochée'
+  }
+  if (outcome?.state === 'unverifiable' || outcome?.state === 'not-stored') {
+    return '⛔ Non transmissible — accord annoncé mais **non prouvé**'
+  }
+  return '⛔ Non transmissible — aucun accord recueilli'
+}
+
 /** Message d'une demande d'estimation. */
 function renderEstimationLead(
   payload: LeadPayload,
@@ -311,6 +342,16 @@ function renderEstimationLead(
   if (settings.includeContact && payload.message) {
     fields.push({ name: 'Message', value: truncate(payload.message, FIELD_VALUE_MAX) })
   }
+
+  /*
+   * Placé juste après le contact, et affiché même sans `includeContact` : la
+   * question « puis-je passer ce lead à une agence » se pose avant même de
+   * savoir qui rappeler, et la réponse ne contient aucune donnée personnelle.
+   */
+  fields.push({
+    name: 'Transmission partenaire',
+    value: truncate(describePartnerConsent(context.partnerConsent), FIELD_VALUE_MAX),
+  })
 
   fields.push({ name: 'Acheminement', value: describeMailStatus(context.mailStatus) })
 

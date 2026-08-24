@@ -117,7 +117,19 @@ enrichis AS (
     `${PROJECT}.staging.ga4_param_string`(e.event_params, 'consent_analytics') AS consent_analytics,
     `${PROJECT}.staging.ga4_param_string`(e.event_params, 'consent_ads')       AS consent_ads,
 
-    e.event_params AS event_params_raw
+    e.event_params AS event_params_raw,
+
+    -- Sentinelles GA4 ramenées à NULL. L'export écrit `(not set)`, `(direct)`
+    -- et `(none)` comme des CHAÎNES, jamais comme NULL : sans ce passage, le
+    -- test `... IS NULL THEN 'direct'` plus bas n'est jamais vrai et la
+    -- totalité du trafic non publicitaire tombe dans `other`. C'est ce qui
+    -- s'est produit jusqu'au 24/08/2026.
+    NULLIF(NULLIF(LOWER(COALESCE(e.session_traffic_source_last_click.manual_campaign.source,
+                                 e.collected_traffic_source.manual_source)),
+                  '(not set)'), '(direct)')                          AS canal_source,
+    NULLIF(NULLIF(LOWER(COALESCE(e.session_traffic_source_last_click.manual_campaign.medium,
+                                 e.collected_traffic_source.manual_medium)),
+                  '(not set)'), '(none)')                            AS canal_medium
   FROM evenements AS e
 )
 
@@ -151,22 +163,13 @@ SELECT
       THEN 'google_ads'
     WHEN collected_traffic_source.gclid IS NOT NULL
       THEN 'google_ads'
-    WHEN LOWER(COALESCE(session_traffic_source_last_click.manual_campaign.source,
-                        collected_traffic_source.manual_source, ''))
+    WHEN canal_source
          IN ('meta', 'facebook', 'instagram', 'fb', 'ig', 'facebook.com', 'instagram.com')
       THEN 'meta'
-    WHEN LOWER(COALESCE(session_traffic_source_last_click.manual_campaign.medium,
-                        collected_traffic_source.manual_medium, '')) = 'organic'
-      THEN 'organic_search'
-    WHEN LOWER(COALESCE(session_traffic_source_last_click.manual_campaign.medium,
-                        collected_traffic_source.manual_medium, '')) = 'referral'
-      THEN 'referral'
-    WHEN LOWER(COALESCE(session_traffic_source_last_click.manual_campaign.medium,
-                        collected_traffic_source.manual_medium, '')) IN ('email', 'e-mail')
-      THEN 'email'
-    WHEN COALESCE(session_traffic_source_last_click.manual_campaign.source,
-                  collected_traffic_source.manual_source) IS NULL
-      THEN 'direct'
+    WHEN canal_medium = 'organic'            THEN 'organic_search'
+    WHEN canal_medium = 'referral'           THEN 'referral'
+    WHEN canal_medium IN ('email', 'e-mail') THEN 'email'
+    WHEN canal_source IS NULL                THEN 'direct'
     ELSE 'other'
   END AS platform,
 
@@ -175,8 +178,7 @@ SELECT
   CASE
     WHEN session_traffic_source_last_click.google_ads_campaign.campaign_id IS NOT NULL
       THEN session_traffic_source_last_click.google_ads_campaign.campaign_id
-    WHEN LOWER(COALESCE(session_traffic_source_last_click.manual_campaign.source,
-                        collected_traffic_source.manual_source, ''))
+    WHEN canal_source
          IN ('meta', 'facebook', 'instagram', 'fb', 'ig', 'facebook.com', 'instagram.com')
       THEN COALESCE(session_traffic_source_last_click.manual_campaign.campaign_id,
                     collected_traffic_source.manual_campaign_id)
@@ -188,10 +190,10 @@ SELECT
            collected_traffic_source.manual_campaign_name)          AS campaign_name,
   session_traffic_source_last_click.google_ads_campaign.customer_id AS ads_customer_id,
   session_traffic_source_last_click.google_ads_campaign.ad_group_id AS ads_ad_group_id,
-  COALESCE(session_traffic_source_last_click.manual_campaign.source,
-           collected_traffic_source.manual_source)                 AS utm_source,
-  COALESCE(session_traffic_source_last_click.manual_campaign.medium,
-           collected_traffic_source.manual_medium)                 AS utm_medium,
+  -- Normalisés eux aussi : un rapport de provenance qui affiche `(not set)`
+  -- en face de 100 % de ses lignes n'informe personne.
+  canal_source                                                     AS utm_source,
+  canal_medium                                                     AS utm_medium,
   COALESCE(session_traffic_source_last_click.manual_campaign.content,
            collected_traffic_source.manual_content)                AS utm_content,
   COALESCE(session_traffic_source_last_click.manual_campaign.term,
