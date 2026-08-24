@@ -299,6 +299,20 @@ const dateMajLisible = new Intl.DateTimeFormat('fr-FR', {
     font-size: var(--text-sm);
   }
 
+  /* Citation d'un texte qui fait foi ailleurs — `<blockquote
+     class="legal-quote">`. Le filet gris (et non orange) le distingue de
+     l'encadré d'appel : ce n'est pas nous qui commentons, c'est la reprise
+     mot pour mot d'un libellé affiché dans le formulaire. */
+  .legal__body :global(.legal-quote) {
+    margin: 1.25rem 0;
+    padding: 1rem 1.25rem;
+    border-left: 2px solid var(--border-strong);
+    background: var(--beige-25);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--text-soft);
+  }
+
   /* Bouton de réouverture du panneau de consentement — `<button
      class="legal-cc-button">` dans la politique de confidentialité.
      Dessiné comme un bouton secondaire du site : le retrait du consentement

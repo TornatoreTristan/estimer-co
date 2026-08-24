@@ -7,6 +7,7 @@ import estimationWizardScript from '../scripts/estimation-wizard.js?raw';
 import estimationApiScript from '../scripts/estimation-api.js?raw';
 import leadApiScript from '../scripts/lead-api.js?raw';
 import estimationUiScript from '../scripts/estimation-ui.js?raw';
+import { CONSENT_PARTENAIRES } from '../data/consent-partenaires';
 
 const benefices = [
   'Estimation 100 % gratuite et sans engagement',
@@ -559,6 +560,45 @@ const wizardSteps = [
                   <p class="field-error" id="phone-error" role="alert" hidden></p>
                 </div>
               </div>
+
+              <!--
+                Opt-in à la transmission partenaire (RGPD art. 7).
+
+                Quatre propriétés font toute la valeur juridique de ce bloc, et
+                aucune n'est décorative :
+
+                  1. `checked` ABSENT. Une case pré-cochée n'est pas un
+                     consentement (CJUE, Planet49, C-673/17) ;
+                  2. la case est SÉPARÉE du bouton d'envoi. Soumettre le
+                     formulaire ne vaut pas accord : il faut un geste distinct,
+                     qui ne sert qu'à ça ;
+                  3. le `<label>` ne contient RIEN d'autre que le texte du
+                     registre — pas un lien, pas une puce, pas une abréviation.
+                     C'est ce texte exact que le serveur archivera comme preuve ;
+                     y ajouter du balisage ferait diverger ce qui a été lu de ce
+                     qui est prouvé ;
+                  4. refuser n'a aucune conséquence : la mention ci-dessous le
+                     dit, et le wizard ne met `partnerOptIn` dans aucune liste
+                     de champs requis.
+
+                `data-consent-version` est la seule chose que la page transmet à
+                l'API sur ce sujet. Le texte, lui, est rattaché côté serveur —
+                cf. `api/app/lib/partner_consent.ts`.
+              -->
+              <div class="consent-optin">
+                <input
+                  type="checkbox"
+                  id="partnerOptIn"
+                  name="partnerOptIn"
+                  data-consent-version={CONSENT_PARTENAIRES.version}
+                  aria-describedby="partnerOptIn-note"
+                />
+                <label for="partnerOptIn">{CONSENT_PARTENAIRES.texte}</label>
+              </div>
+              <p class="consent-optin__note" id="partnerOptIn-note">
+                Facultatif. Votre estimation et votre rapport vous sont remis que vous cochiez ou
+                non.
+              </p>
             </fieldset>
 
             <div class="wizard-nav">
@@ -775,6 +815,48 @@ const wizardSteps = [
 
   .dpe-cta {
     margin: 1.25rem 0;
+  }
+
+  /* --------------------------------------------- Opt-in partenaires */
+
+  /*
+   * Le texte est long — c'est voulu : « éclairé » suppose de nommer les
+   * destinataires et l'usage, ce qui ne tient pas en six mots. Il est donc
+   * traité comme un paragraphe cliquable (`align-items: start`), pas comme
+   * l'étiquette d'une ligne de formulaire.
+   */
+  .consent-optin {
+    display: flex;
+    align-items: start;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding: 1rem;
+    /* Angles droits et filet de 1 px : convention du design system (global.css). */
+    border: 1px solid var(--border);
+    background: var(--beige-25);
+  }
+
+  .consent-optin input[type='checkbox'] {
+    /* 1.125rem : cible tactile confortable sans dominer le texte. */
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0.15rem;
+    accent-color: var(--orange);
+    cursor: pointer;
+  }
+
+  .consent-optin label {
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--text-soft);
+    cursor: pointer;
+  }
+
+  .consent-optin__note {
+    margin-top: 0.5rem;
+    font-size: var(--text-tiny);
+    color: var(--text-faint);
   }
 
   .form-card__foot {

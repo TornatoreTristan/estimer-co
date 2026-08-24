@@ -1,3 +1,4 @@
+import type { PartnerConsentOutcome } from '#services/partner_consent_service'
 import type { LeadPayload } from '#validators/lead'
 
 /**
@@ -236,6 +237,75 @@ ${lines.join('\n')}`
 }
 
 /**
+ * Section TRANSMISSION PARTENAIRE de l'e-mail interne.
+ *
+ * ══════════════════════════════════════════════════════════════════════════
+ * CETTE SECTION EST UNE AUTORISATION, PAS UNE INFORMATION
+ * ══════════════════════════════════════════════════════════════════════════
+ * C'est depuis cet e-mail qu'un lead part chez une agence. La personne qui le
+ * lit doit donc y trouver une réponse binaire — puis-je transmettre, oui ou
+ * non — et jamais un état intermédiaire à interpréter.
+ *
+ * D'où deux règles de rédaction :
+ *
+ *  1. **un seul cas dit « oui »**, celui où la preuve est écrite. Tous les
+ *     autres — refus, version inconnue, base indisponible, page trop ancienne
+ *     — disent NON, en majuscules, sans nuance. Un accord non prouvé est
+ *     juridiquement identique à une absence d'accord : ce qui compte n'est pas
+ *     que la personne ait coché, c'est qu'on puisse le démontrer ;
+ *
+ *  2. **les destinataires autorisés sont cités**. L'accord porte sur une liste
+ *     nominative, pas sur « des partenaires » en général. La transmettre à un
+ *     professionnel absent de cette liste serait hors consentement, même si la
+ *     case était cochée.
+ *
+ * La section est toujours affichée, y compris quand aucun bloc n'a été reçu —
+ * contrairement à PROVENANCE, dont l'absence est sans conséquence. Ici, une
+ * section manquante se lirait « pas d'information », et se traiterait donc
+ * comme un feu vert par la première personne pressée.
+ */
+export function buildPartnerConsentSection(outcome: PartnerConsentOutcome | undefined): string {
+  const lines: string[] = []
+
+  switch (outcome?.state) {
+    case 'recorded':
+      lines.push('- Transmissible a un partenaire : OUI')
+      lines.push(`- Destinataires autorises : ${outcome.partners.join(', ')}`)
+      lines.push(`- Preuve enregistree (version ${outcome.version})`)
+      break
+
+    case 'declined':
+      lines.push('- Transmissible a un partenaire : NON (case decochee)')
+      break
+
+    case 'unverifiable':
+      lines.push('- Transmissible a un partenaire : NON')
+      lines.push(
+        `  Accord annonce pour une version inconnue du serveur (${outcome.version}) :` +
+          ' impossible de savoir a quel texte cette personne a consenti.'
+      )
+      break
+
+    case 'not-stored':
+      lines.push('- Transmissible a un partenaire : NON')
+      lines.push(
+        "  La case etait cochee, mais l'ecriture de la preuve a echoue." +
+          ' Sans preuve opposable, ce lead ne se transmet pas.'
+      )
+      break
+
+    default:
+      lines.push('- Transmissible a un partenaire : NON (aucun accord recueilli)')
+      break
+  }
+
+  return `
+
+TRANSMISSION PARTENAIRE
+${lines.join('\n')}`
+}
+
+/**
  * Bandeau placé en tête de l'e-mail interne quand l'estimation n'a PAS été
  * calculée par l'API (spec estimation-donnees-reelles §2.4, étape 3).
  *
@@ -291,7 +361,10 @@ function describeEstimationSource(estimation: LeadPayload['estimation']): string
  * Reproduit le gabarit historique (`buildEmailTemplateParams` de
  * `estimation-ui.js`, désormais supprimé) à l'identique.
  */
-function renderEstimationLead(payload: LeadPayload): RenderedEmail {
+function renderEstimationLead(
+  payload: LeadPayload,
+  partnerConsent: PartnerConsentOutcome | undefined
+): RenderedEmail {
   const property = payload.property!
   const estimation = payload.estimation
   const propertyTypeLabel = PROPERTY_TYPE_LABELS[property.propertyType] ?? property.propertyType
@@ -349,7 +422,9 @@ ESTIMATION CALCULEE
 COORDONNEES DU CLIENT
 - Nom : ${payload.name}
 - Email : ${payload.email}
-- Telephone : ${payload.phone ?? 'Non renseigné'}${buildAcquisitionSection(payload.acquisition)}
+- Telephone : ${payload.phone ?? 'Non renseigné'}${buildPartnerConsentSection(
+    partnerConsent
+  )}${buildAcquisitionSection(payload.acquisition)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
 
@@ -404,9 +479,23 @@ function wrapHtml(text: string): string {
   )}</pre>`
 }
 
-/** E-mail interne (équipe) correspondant au lead reçu. */
-export function renderInternalEmail(payload: LeadPayload): RenderedEmail {
-  return payload.kind === 'estimation' ? renderEstimationLead(payload) : renderContactLead(payload)
+/**
+ * E-mail interne (équipe) correspondant au lead reçu.
+ *
+ * `partnerConsent` ne concerne que le lead d'estimation : c'est le seul
+ * parcours qui affiche la case, et le seul dont la sortie naturelle soit une
+ * mise en relation. Un message de contact — une question, une candidature de
+ * partenaire — n'a pas de destinataire tiers ; lui coller une ligne
+ * « Transmissible : NON » sur chaque envoi habituerait l'œil à sauter une
+ * mention qui, sur l'estimation, doit arrêter le regard.
+ */
+export function renderInternalEmail(
+  payload: LeadPayload,
+  partnerConsent?: PartnerConsentOutcome
+): RenderedEmail {
+  return payload.kind === 'estimation'
+    ? renderEstimationLead(payload, partnerConsent)
+    : renderContactLead(payload)
 }
 
 /**

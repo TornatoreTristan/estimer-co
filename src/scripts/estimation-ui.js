@@ -911,6 +911,31 @@ if (estimationFormEl) {
   });
 
   // --------------------------------------------------------------------
+  // Opt-in partenaires — traité à part, et pas par confort
+  // --------------------------------------------------------------------
+  //
+  // La boucle ci-dessus lit `el.value`. Sur une case à cocher, `.value` vaut
+  // « on » qu'elle soit cochée ou non : la brancher là aurait produit un
+  // consentement permanent, invisible en relecture. C'est `.checked` qui porte
+  // l'information, et lui seul.
+  //
+  // La version est lue dans le DOM plutôt qu'écrite en dur ici : elle vient du
+  // registre (`src/data/consent-partenaires.json`) rendu par la page, ce qui
+  // garantit que la version transmise est bien celle du texte AFFICHÉ. Elle est
+  // posée dès le chargement — une case laissée décochée doit quand même
+  // pouvoir dire au serveur quel texte a été présenté.
+  var partnerOptInEl = document.getElementById("partnerOptIn");
+  if (partnerOptInEl) {
+    var consentVersion = partnerOptInEl.getAttribute("data-consent-version") || "";
+    wizard.updateField("partnerConsentVersion", consentVersion);
+    wizard.updateField("partnerOptIn", partnerOptInEl.checked ? "yes" : "no");
+
+    partnerOptInEl.addEventListener("change", function () {
+      wizard.updateField("partnerOptIn", partnerOptInEl.checked ? "yes" : "no");
+    });
+  }
+
+  // --------------------------------------------------------------------
   // Navigation — US-1
   // --------------------------------------------------------------------
   if (prevBtn) {

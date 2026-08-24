@@ -201,7 +201,19 @@ var WIZARD_STEPS = [
     key: "contact",
     title: "Vos coordonnées",
     shortLabel: "Coordonnées",
-    fields: ["name", "email", "phone"],
+    /*
+     * `partnerOptIn` et `partnerConsentVersion` sont des champs de l'étape,
+     * mais VOLONTAIREMENT absents de `requiredFields` : un consentement qui
+     * conditionne l'accès au service n'est pas libre (RGPD art. 7.4), donc
+     * n'est pas un consentement. Refuser doit laisser le tunnel se terminer
+     * exactement comme accepter.
+     *
+     * Leur présence ici sert deux choses : `buildSubmitPayload` les embarque
+     * sans cas particulier, et — surtout — l'appartenance à l'étape 5 les
+     * exclut mécaniquement de `getPersistableFieldNames()`. Un accord ne se
+     * restaure pas depuis un sessionStorage : il se redonne.
+     */
+    fields: ["name", "email", "phone", "partnerOptIn", "partnerConsentVersion"],
     requiredFields: ["name", "email", "phone"],
     conditionalFields: [],
   },
@@ -231,6 +243,9 @@ function createDefaultWizardData() {
     name: "",
     email: "",
     phone: "",
+    // "yes" | "no" | "" (case jamais touchée). Voir WIZARD_STEPS étape 5.
+    partnerOptIn: "",
+    partnerConsentVersion: "",
   };
 }
 
@@ -599,6 +614,11 @@ function buildSubmitPayload(data, estimation) {
     name: d.name,
     email: d.email,
     phone: d.phone,
+    // Accord de transmission partenaire. Transporté jusqu'à
+    // `buildEstimationLeadPayload`, qui en fait le bloc `partnerConsent` du
+    // corps HTTP. Aucun texte ne voyage : seulement « oui/non » et la version.
+    partnerOptIn: d.partnerOptIn,
+    partnerConsentVersion: d.partnerConsentVersion,
     estimation:
       estimation === undefined
         ? calculerEstimation(d.city, surface, rooms, d.propertyType, d.dpe)

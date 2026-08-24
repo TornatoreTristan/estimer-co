@@ -9,6 +9,7 @@ import { renderAcknowledgementEmail, renderInternalEmail } from '#services/lead_
 import type { AcknowledgementDetails } from '#services/lead_mail_renderer'
 import { EstimationService } from '#services/estimation_service'
 import { StaticMapService, type StaticMapImage } from '#services/static_map_service'
+import type { PartnerConsentOutcome } from '#services/partner_consent_service'
 import type { LeadPayload } from '#validators/lead'
 
 /**
@@ -17,9 +18,14 @@ import type { LeadPayload } from '#validators/lead'
  * ══════════════════════════════════════════════════════════════════════════
  * CE QUE CE SERVICE GARANTIT
  * ══════════════════════════════════════════════════════════════════════════
- * 1. **Aucune persistance des coordonnées.** Elles traversent le processus et
- *    repartent par SMTP. Rien n'est écrit en base : ni ici, ni dans
- *    `estimations_log`, qui ne voit de toute façon jamais ce payload.
+ * 1. **Aucune persistance des coordonnées ici.** Elles traversent le processus
+ *    et repartent par SMTP. Ce service n'écrit rien en base, et
+ *    `estimations_log` ne voit de toute façon jamais ce payload.
+ *
+ *    Une seule table reçoit désormais des coordonnées, et elle est écrite en
+ *    amont par `PartnerConsentService` : `partner_consents`, uniquement quand
+ *    la personne a coché la case de transmission partenaire, et limitée à ce
+ *    que l'art. 7.1 du RGPD impose de pouvoir démontrer.
  *
  * 2. **Aucune PII en clair dans les journaux.** Les adresses sont masquées
  *    (`maskEmail`), le corps du message n'est journalisé qu'en `debug` et
@@ -59,6 +65,21 @@ export interface LeadDeliveryResult {
 
 export interface LeadDeliveryContext {
   requestId: string
+  /**
+   * Référence imposée par l'appelant.
+   *
+   * Le contrôleur écrit la preuve de consentement AVANT l'envoi, et cette
+   * preuve porte une référence. Laisser le service en calculer une seconde
+   * donnerait deux identifiants pour un même lead : la ligne de
+   * `partner_consents` deviendrait irretrouvable depuis l'e-mail qui la
+   * mentionne. Absente, la référence est calculée comme avant.
+   */
+  reference?: string
+  /**
+   * Issue de l'écriture de la preuve. C'est elle, et jamais le contenu du
+   * formulaire, qui décide de la mention portée par l'e-mail interne.
+   */
+  partnerConsent?: PartnerConsentOutcome
 }
 
 /**
@@ -142,7 +163,7 @@ export class TransactionalMailService {
     payload: LeadPayload,
     context: LeadDeliveryContext
   ): Promise<LeadDeliveryResult> {
-    const reference = buildReference(context.requestId)
+    const reference = context.reference ?? buildReference(context.requestId)
     const isDryRun = this.settings.transport !== 'smtp'
 
     if (!this.settings.to) {
@@ -164,7 +185,7 @@ export class TransactionalMailService {
       }
     }
 
-    const internal = renderInternalEmail(payload)
+    const internal = renderInternalEmail(payload, context.partnerConsent)
     const startedAt = process.hrtime.bigint()
 
     try {
@@ -396,7 +417,7 @@ function describeError(error: unknown): string {
  * et dans les journaux : c'est ce qui permet de retrouver un lead précis sans
  * jamais chercher par nom ou par adresse e-mail.
  */
-function buildReference(requestId: string | undefined): string {
+export function buildReference(requestId: string | undefined): string {
   const base = requestId && requestId.length > 0 ? requestId : randomUUID()
   return base
     .replace(/[^a-zA-Z0-9]/g, '')
