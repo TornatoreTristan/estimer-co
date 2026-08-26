@@ -379,6 +379,66 @@ Deux points de vigilance quand même, parce qu'ils ne se voient qu'à la facture
 
 ---
 
+## 7 bis. Leads CRM — branché le 26/08/2026
+
+L'application de pilotage (`app-marketing`) pousse désormais les leads des CRM
+clients dans `raw_app.crm_leads`, via `POST /api/v1/projects/:projectId/leads`.
+C'est la **seule** table de cet entrepôt qu'une application extérieure écrit, et
+elle ne relit jamais rien : ce qu'elle lira, c'est `marts.v_crm_reconciliation`,
+comme n'importe quel autre mart.
+
+| Objet | Rôle |
+| --- | --- |
+| `raw_app.crm_leads` | Journal des événements reçus. `CREATE TABLE IF NOT EXISTS` — jamais remplacée, aucune source ne sait la régénérer |
+| `staging.stg_crm__leads` | Un lead par ligne, dans sa version la plus récente. Deux déduplications : transport (`ingestion_id`) et métier (`external_id`) |
+| `marts.fct_leads` | Étendue de neuf colonnes `crm_*`. Les 45 précédentes n'ont pas bougé |
+| `marts.v_crm_reconciliation` | Régie, GA4 et CRM côte à côte, par jour et plateforme. Avec un revenu réel |
+| `marts.v_data_freshness` | Une source de plus : `crm_leads` |
+
+### Trois choses à ne pas casser
+
+**Aucune donnée personnelle n'entre ici.** L'API refuse tout champ hors liste
+blanche et tout ce qui ressemble à un e-mail ou un téléphone dans un champ libre.
+`external_id` est une clé opaque : seul le CRM du client sait retrouver la
+personne derrière. La garantie de `fct_leads` — ni nom, ni e-mail, ni téléphone,
+ni adresse — reste donc entière, et c'est ce qui rend le montage tenable devant
+un DPO.
+
+**Jamais de total consolidé.** `v_crm_reconciliation` juxtapose trois comptages
+qui ne mesurent pas la même chose. La règle qui vaut pour
+`v_platform_reconciliation` vaut ici à l'identique, et le fait qu'il y ait trois
+colonnes au lieu de deux la rend plus tentante à enfreindre, pas moins
+nécessaire.
+
+**`lead_value` n'est pas `crm_deal_value`.** La première est la valeur envoyée
+aux enchères (§5.2 du plan de taggage), la seconde un revenu réel. Les
+confondre dans un tableau de bord, c'est annoncer un chiffre d'affaires
+imaginaire à une direction.
+
+### Le rapprochement tient à `lead_id`
+
+Quatre passes, de la plus fiable à la moins : `lead_id`, `gclid`,
+`session_key` / `user_pseudo_id`, puis triplet UTM sur 72 h. Seule la première
+autorise à parler de taux de transformation sans se faire mal — et elle exige
+que **le CRM du client reçoive et renvoie l'UUID de soumission** (§2.4). Tant
+que ce n'est pas fait, `v_crm_reconciliation.match_quality_verdict` ressort
+`rapprochement_majoritairement_probabiliste`, et c'est exactement ce qu'il faut
+lire avant d'interpréter quoi que ce soit.
+
+### Autorisation
+
+`raw_app` a rejoint `AUTORISATIONS` : les vues de `staging` le lisent en leur nom
+propre. Sans ça, un lecteur de `marts` se verrait refuser l'accès en nommant
+`raw_app` — soit précisément le dataset dont on ne veut pas lui parler.
+
+L'identité de la connexion `app-marketing` a besoin de
+`roles/bigquery.dataEditor` **sur le seul dataset `raw_app`**. Le
+_BigQuery Data Viewer_ des marts ne l'autorise pas à écrire, et un `dataEditor`
+manquant remonte désormais nommé dans l'application plutôt qu'en « accès
+refusé » générique.
+
+---
+
 ## 8. Ce qui reste à faire
 
 | # | Action | Qui | Bloquant pour |

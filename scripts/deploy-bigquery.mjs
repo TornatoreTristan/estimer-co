@@ -74,6 +74,11 @@ const MODELES = [
   { fichier: '00_ops/ingestion_runs.sql' },
   { fichier: '00_ops/meta_ad_insights_daily.sql' },
 
+  // Table, pas vue : `raw_app.crm_leads` porte de la donnée qu'aucune source
+  // ne sait régénérer. Son SQL est un `CREATE TABLE IF NOT EXISTS`, donc
+  // rejouable sans rien perdre.
+  { fichier: '05_raw/crm_leads.sql' },
+
   { fichier: '10_staging/udf_ga4_params.sql' },
   { fichier: '10_staging/stg_ga4__events.sql', requiert: 'ga4' },
   { fichier: '10_staging/stg_ga4__leads.sql', requiert: 'ga4' },
@@ -90,6 +95,7 @@ const MODELES = [
   },
   { fichier: '10_staging/stg_meta_ads__campaign_daily.sql' },
   { fichier: '10_staging/stg_ads__spend_daily.sql' },
+  { fichier: '10_staging/stg_crm__leads.sql' },
 
   { fichier: '20_marts/dim_campaign.sql' },
   { fichier: '20_marts/fct_leads.sql', requiert: 'ga4' },
@@ -100,6 +106,9 @@ const MODELES = [
   { fichier: '20_marts/fct_visit_technology_daily.sql', requiert: 'ga4' },
   { fichier: '20_marts/fct_visit_geography_daily.sql', requiert: 'ga4' },
   { fichier: '20_marts/v_platform_reconciliation.sql', requiert: 'ga4' },
+  // Après `fct_leads` : c'est elle qui porte l'appariement CRM, cette vue ne
+  // fait que l'agréger.
+  { fichier: '20_marts/v_crm_reconciliation.sql', requiert: 'ga4' },
   { fichier: '20_marts/v_data_freshness.sql', requiert: 'ga4' },
 ]
 
@@ -128,6 +137,10 @@ const AUTORISATIONS = [
   ['${GA4_DATASET}', 'staging'],
   ['raw_google_ads', 'staging'],
   ['raw_meta_ads', 'staging'],
+  // `stg_crm__leads` lit `raw_app`. Sans cette autorisation, un lecteur de
+  // `marts` se verrait refuser l'accès en nommant `raw_app` — soit exactement
+  // le dataset dont on ne veut surtout pas lui parler.
+  ['raw_app', 'staging'],
 ]
 
 // ---------------------------------------------------------------------------

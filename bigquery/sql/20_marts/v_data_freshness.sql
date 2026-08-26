@@ -34,6 +34,16 @@ WITH sources AS (
          MAX(date), COUNT(*)
   FROM `${PROJECT}.staging.stg_meta_ads__campaign_daily`
   WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+
+  UNION ALL
+  -- Le CRM est la seule source que l'entrepôt ne va pas chercher : elle est
+  -- poussée par l'application, donc son silence peut vouloir dire « rien à
+  -- pousser » comme « l'intégration est morte ». Raison de plus pour qu'elle
+  -- figure ici plutôt que de se déduire d'un mart vide.
+  SELECT 'crm_leads', "Poussée par app-marketing (POST /api/v1/projects/:id/leads)",
+         MAX(lead_date), COUNT(*)
+  FROM `${PROJECT}.staging.stg_crm__leads`
+  WHERE lead_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
 ),
 
 derniere_ingestion AS (
