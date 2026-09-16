@@ -3,7 +3,7 @@ import logger from '@adonisjs/core/services/logger'
 
 import env from '#start/env'
 import { hashUserAgent, hmacIp } from '#lib/anonymize'
-import { resolvePartnerConsent } from '#lib/partner_consent'
+import { archivedConsentText, resolvePartnerConsent } from '#lib/partner_consent'
 import type { LeadPayload } from '#validators/lead'
 
 /**
@@ -103,7 +103,7 @@ export class PartnerConsentService {
           payload.email,
           payload.phone ?? null,
           registered.version,
-          registered.texte,
+          archivedConsentText(registered),
           JSON.stringify(registered.partenaires),
           hmacIp(context.clientIp ?? null, env.get('IP_HASH_SALT')),
           hashUserAgent(context.userAgent ?? null),

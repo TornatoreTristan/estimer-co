@@ -42,8 +42,17 @@ export interface PartnerConsentVersion {
   version: string
   /** Destinataires nommés, dans l'ordre où le texte les cite. */
   partenaires: string[]
-  /** Libellé EXACT affiché à côté de la case. C'est lui qui fait la preuve. */
+  /**
+   * Libellé EXACT présenté avec le geste d'accord : à côté de la case jusqu'à
+   * la version 2026-08-24, sous le bouton d'envoi depuis 2026-09-16.
+   */
   texte: string
+  /**
+   * Libellé du bouton d'envoi, quand c'est le clic sur ce bouton qui vaut
+   * accord (pas de case à cocher). Il fait partie de ce que la personne a lu —
+   * c'est lui qui dit « être rappelé » — et il est donc archivé avec le texte.
+   */
+  bouton?: string
   /** `true` : lisible pour l'audit, refusé en écriture. */
   retired?: boolean
 }
@@ -61,10 +70,29 @@ const REGISTRE: PartnerConsentVersion[] = /* REGISTRE-DEBUT */ [
   {
     version: '2026-08-24',
     partenaires: ['Les Bons Biens', 'Dr House Immo', 'RITMODiag'],
+    // Version à case à cocher, remplacée le 2026-09-16. Encore acceptée le
+    // temps que les pages déjà ouvertes avec la case soient envoyées : à passer
+    // en `retired: true` une fois le site et l'API déployés.
     texte:
       "J'accepte qu'Estimer mon bien transmette mon nom, mon adresse e-mail et mon numéro de téléphone, ainsi que les caractéristiques du bien que je viens de décrire, à ses partenaires professionnels — Les Bons Biens, Dr House Immo et RITMODiag — afin qu'ils me contactent, y compris par téléphone, au sujet de mon projet immobilier. Je peux retirer cet accord à tout moment en écrivant à tristan@estimer.co.",
   },
+  {
+    version: '2026-09-16',
+    partenaires: ['Les Bons Biens', 'Dr House Immo', 'RITMODiag'],
+    bouton: 'Recevoir mon estimation et être rappelé',
+    texte:
+      'En cliquant, j’accepte que mes coordonnées soient transmises aux partenaires d’Estimer mon bien afin qu’ils me contactent pour affiner l’estimation de mon bien.',
+  },
 ] /* REGISTRE-FIN */
+
+/**
+ * Texte écrit dans `partner_consents.consent_text` : ce que la personne avait
+ * sous les yeux au moment du geste, bouton compris quand c'est lui qui vaut
+ * accord.
+ */
+export function archivedConsentText(entry: PartnerConsentVersion): string {
+  return entry.bouton ? `[Bouton « ${entry.bouton} »] ${entry.texte}` : entry.texte
+}
 
 /** Version en vigueur : la dernière déclarée non retirée. */
 export const CURRENT_PARTNER_CONSENT_VERSION: string = REGISTRE.filter(

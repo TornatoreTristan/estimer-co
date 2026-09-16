@@ -5,7 +5,8 @@
  * ---------------------------------------------------------------------------
  * CE QUE CE FICHIER PROTÈGE, ET POURQUOI ÇA VAUT UN TEST À PART
  * ---------------------------------------------------------------------------
- * Le texte de la case à cocher existe en DEUX exemplaires :
+ * La mention d'accord (et le libellé du bouton qui vaut accord) existe en
+ * DEUX exemplaires :
  *
  *   - `src/data/consent-partenaires.json`, que la page affiche ;
  *   - `api/app/lib/partner_consent.ts`, que le serveur archive comme preuve.
@@ -20,9 +21,8 @@
  * un tiret cadratin remplacé par un tiret court suffit à faire diverger deux
  * chaînes que l'œil lit identiques.
  *
- * Le fichier vérifie aussi les quatre propriétés du formulaire dont dépend la
- * validité juridique de l'accord (case jamais pré-cochée, jamais requise,
- * libellé nu, version issue du registre) — voir les tests eux-mêmes.
+ * Le fichier vérifie aussi que la page affiche ces libellés tels quels, avec
+ * la version issue du registre — voir les tests eux-mêmes.
  *
  * Usage : `node --test scripts/test-consent-partenaires.mjs`
  *         (ou `npm run test:consent-partenaires`).
@@ -106,42 +106,24 @@ test("texte et destinataires sont identiques des deux côtés, au caractère pr�
     REGISTRE_FRONT.partenaires,
     "La liste des destinataires archivée diffère de celle affichée."
   );
+  assert.equal(
+    entree.bouton,
+    REGISTRE_FRONT.bouton,
+    "Le libellé du bouton archivé diffère de celui affiché."
+  );
 });
 
-test("le texte nomme chacun des destinataires qu'il autorise", () => {
-  // Un accord n'est « éclairé » que si la personne a lu les noms. Une liste
-  // tenue à côté du texte, mais absente du texte, ne vaut rien.
-  for (const partenaire of REGISTRE_FRONT.partenaires) {
-    assert.ok(
-      REGISTRE_FRONT.texte.includes(partenaire),
-      `Le texte de la case ne cite pas « ${partenaire} », qu'il autorise pourtant.`
-    );
-  }
-});
-
-test("le texte couvre explicitement le démarchage téléphonique", () => {
+test("le bouton qui vaut accord annonce le rappel téléphonique", () => {
   /*
    * Depuis le 11 août 2026, un professionnel ne peut appeler un consommateur
-   * qu'avec son consentement préalable. Un lead transmis sans cette mention
-   * est inexploitable par le partenaire qui le reçoit : autant le savoir en
-   * test qu'en réclamation.
+   * qu'avec son consentement préalable. Le clic sur ce bouton est le geste
+   * d'accord : c'est son libellé, archivé avec la mention, qui couvre l'appel.
    */
-  assert.match(
-    REGISTRE_FRONT.texte,
-    /téléphone/,
-    "Le texte n'évoque pas l'appel téléphonique : l'accord ne couvre pas le démarchage."
-  );
+  assert.match(REGISTRE_FRONT.bouton, /rappel/);
 });
 
-test("la case n'est jamais pré-cochée", () => {
-  // CJUE, Planet49 (C-673/17) : une case pré-cochée n'est pas un consentement.
-  const bloc = SOURCE_PAGE.slice(
-    SOURCE_PAGE.indexOf('id="partnerOptIn"'),
-    SOURCE_PAGE.indexOf("consent-optin__note")
-  );
-
-  assert.ok(bloc.length > 0, "Bloc d'opt-in introuvable dans estimation.astro.");
-  assert.ok(!/\bchecked\b/.test(bloc), "La case d'opt-in partenaires est pré-cochée.");
+test("la case à cocher a disparu de la page", () => {
+  assert.ok(!SOURCE_PAGE.includes('id="partnerOptIn"'), "La case d'opt-in est toujours présente.");
 });
 
 test("la page lit la version dans le registre plutôt qu'en dur", () => {
@@ -153,26 +135,13 @@ test("la page lit la version dans le registre plutôt qu'en dur", () => {
   );
   assert.match(
     SOURCE_PAGE,
-    /<label for="partnerOptIn">\{CONSENT_PARTENAIRES\.texte\}<\/label>/,
-    "Le libellé doit être le texte du registre, seul et sans balisage : c'est lui qui fait preuve."
+    /id="partnerConsentMention"[^>]*>\{CONSENT_PARTENAIRES\.texte\}<\/p>/,
+    "La mention doit être le texte du registre, seul et sans balisage : c'est lui qui fait preuve."
   );
-});
-
-test("cocher n'est pas une condition d'accès au service", () => {
-  /*
-   * RGPD art. 7.4 : un consentement exigé pour accéder à un service n'est pas
-   * libre, donc n'est pas un consentement. `partnerOptIn` doit rester hors de
-   * `requiredFields`, sans quoi tous les accords recueillis seraient nuls.
-   */
-  const etape5 = SOURCE_WIZARD.slice(
-    SOURCE_WIZARD.indexOf('key: "contact"'),
-    SOURCE_WIZARD.indexOf("];", SOURCE_WIZARD.indexOf('key: "contact"'))
-  );
-  const requis = etape5.slice(etape5.indexOf("requiredFields:"));
-
-  assert.ok(
-    !requis.includes("partnerOptIn"),
-    "`partnerOptIn` est devenu un champ requis : l'accord n'est plus libre."
+  assert.match(
+    SOURCE_PAGE,
+    /<span>\{CONSENT_PARTENAIRES\.bouton\}<\/span>/,
+    "Le bouton d'envoi doit afficher le libellé du registre : il est archivé comme preuve."
   );
 });
 

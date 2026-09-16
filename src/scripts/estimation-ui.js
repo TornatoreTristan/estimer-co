@@ -911,28 +911,24 @@ if (estimationFormEl) {
   });
 
   // --------------------------------------------------------------------
-  // Opt-in partenaires — traité à part, et pas par confort
+  // Accord de transmission partenaires
   // --------------------------------------------------------------------
   //
-  // La boucle ci-dessus lit `el.value`. Sur une case à cocher, `.value` vaut
-  // « on » qu'elle soit cochée ou non : la brancher là aurait produit un
-  // consentement permanent, invisible en relecture. C'est `.checked` qui porte
-  // l'information, et lui seul.
+  // Depuis la version 2026-09-16 du registre, il n'y a plus de case : le clic
+  // sur le bouton d'envoi vaut accord, et la mention affichée dessous le dit.
+  // Le seul chemin vers l'envoi passe par l'étape 5, où cette mention est
+  // visible — l'accord est donc posé d'office.
   //
   // La version est lue dans le DOM plutôt qu'écrite en dur ici : elle vient du
   // registre (`src/data/consent-partenaires.json`) rendu par la page, ce qui
-  // garantit que la version transmise est bien celle du texte AFFICHÉ. Elle est
-  // posée dès le chargement — une case laissée décochée doit quand même
-  // pouvoir dire au serveur quel texte a été présenté.
-  var partnerOptInEl = document.getElementById("partnerOptIn");
-  if (partnerOptInEl) {
-    var consentVersion = partnerOptInEl.getAttribute("data-consent-version") || "";
-    wizard.updateField("partnerConsentVersion", consentVersion);
-    wizard.updateField("partnerOptIn", partnerOptInEl.checked ? "yes" : "no");
-
-    partnerOptInEl.addEventListener("change", function () {
-      wizard.updateField("partnerOptIn", partnerOptInEl.checked ? "yes" : "no");
-    });
+  // garantit que la version transmise est bien celle du texte AFFICHÉ.
+  var partnerConsentEl = document.getElementById("partnerConsentMention");
+  if (partnerConsentEl) {
+    wizard.updateField(
+      "partnerConsentVersion",
+      partnerConsentEl.getAttribute("data-consent-version") || ""
+    );
+    wizard.updateField("partnerOptIn", "yes");
   }
 
   // --------------------------------------------------------------------

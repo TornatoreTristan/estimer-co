@@ -203,10 +203,9 @@ var WIZARD_STEPS = [
     shortLabel: "Coordonnées",
     /*
      * `partnerOptIn` et `partnerConsentVersion` sont des champs de l'étape,
-     * mais VOLONTAIREMENT absents de `requiredFields` : un consentement qui
-     * conditionne l'accès au service n'est pas libre (RGPD art. 7.4), donc
-     * n'est pas un consentement. Refuser doit laisser le tunnel se terminer
-     * exactement comme accepter.
+     * absents de `requiredFields` : personne ne les saisit. Depuis la version
+     * 2026-09-16 du registre, le clic sur le bouton d'envoi vaut accord (la
+     * mention affichée dessous le dit) et `estimation-ui.js` les pose d'office.
      *
      * Leur présence ici sert deux choses : `buildSubmitPayload` les embarque
      * sans cas particulier, et — surtout — l'appartenance à l'étape 5 les
@@ -814,6 +813,10 @@ function createWizard(formEl) {
     if (prevBtn) prevBtn.hidden = state.currentStep === 1;
     if (nextBtn) nextBtn.hidden = isLastStep;
     if (submitBtn) submitBtn.hidden = !isLastStep;
+    // La mention d'accord partenaires accompagne le bouton d'envoi : elle
+    // explique ce que vaut le clic, elle n'a donc de sens qu'à côté de lui.
+    var consentMention = formEl.querySelector("#partnerConsentMention");
+    if (consentMention) consentMention.hidden = !isLastStep;
   }
 
   function announceStepChange() {

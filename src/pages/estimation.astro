@@ -561,53 +561,34 @@ const wizardSteps = [
                 </div>
               </div>
 
-              <!--
-                Opt-in à la transmission partenaire (RGPD art. 7).
-
-                Quatre propriétés font toute la valeur juridique de ce bloc, et
-                aucune n'est décorative :
-
-                  1. `checked` ABSENT. Une case pré-cochée n'est pas un
-                     consentement (CJUE, Planet49, C-673/17) ;
-                  2. la case est SÉPARÉE du bouton d'envoi. Soumettre le
-                     formulaire ne vaut pas accord : il faut un geste distinct,
-                     qui ne sert qu'à ça ;
-                  3. le `<label>` ne contient RIEN d'autre que le texte du
-                     registre — pas un lien, pas une puce, pas une abréviation.
-                     C'est ce texte exact que le serveur archivera comme preuve ;
-                     y ajouter du balisage ferait diverger ce qui a été lu de ce
-                     qui est prouvé ;
-                  4. refuser n'a aucune conséquence : la mention ci-dessous le
-                     dit, et le wizard ne met `partnerOptIn` dans aucune liste
-                     de champs requis.
-
-                `data-consent-version` est la seule chose que la page transmet à
-                l'API sur ce sujet. Le texte, lui, est rattaché côté serveur —
-                cf. `api/app/lib/partner_consent.ts`.
-              -->
-              <div class="consent-optin">
-                <input
-                  type="checkbox"
-                  id="partnerOptIn"
-                  name="partnerOptIn"
-                  data-consent-version={CONSENT_PARTENAIRES.version}
-                  aria-describedby="partnerOptIn-note"
-                />
-                <label for="partnerOptIn">{CONSENT_PARTENAIRES.texte}</label>
-              </div>
-              <p class="consent-optin__note" id="partnerOptIn-note">
-                Facultatif. Votre estimation et votre rapport vous sont remis que vous cochiez ou
-                non.
-              </p>
             </fieldset>
 
             <div class="wizard-nav">
               <button type="button" class="btn btn--outline" id="wizardPrev" hidden>&larr; Précédent</button>
               <button type="button" class="btn btn--primary" id="wizardNext">Suivant &rarr;</button>
               <button type="submit" class="btn btn--primary btn--lg btn--block" id="wizardSubmit" hidden>
-                <span>Recevoir mon estimation gratuite</span><span>&rarr;</span>
+                <span>{CONSENT_PARTENAIRES.bouton}</span><span>&rarr;</span>
               </button>
             </div>
+
+            <!--
+              Accord de transmission partenaire : le clic sur le bouton d'envoi
+              vaut accord, et cette mention est ce qui l'explique. Plus de case
+              à cocher depuis la version 2026-09-16 du registre (choix produit
+              du 16/09/2026).
+
+              La mention ne contient RIEN d'autre que le texte du registre : le
+              serveur archive ce texte exact, avec le libellé du bouton, comme
+              preuve (cf. `api/app/lib/partner_consent.ts`). `data-consent-version`
+              est la seule chose que la page transmet à l'API sur ce sujet.
+              Visible uniquement à l'étape 5, avec le bouton (wizard, renderNavButtons).
+            -->
+            <p
+              class="consent-mention"
+              id="partnerConsentMention"
+              data-consent-version={CONSENT_PARTENAIRES.version}
+              hidden
+            >{CONSENT_PARTENAIRES.texte}</p>
 
             <!-- État de la soumission (§7.1) : l'appel API a lieu pendant
                  l'envoi. `aria-live="polite"` annonce le message primaire puis
@@ -625,8 +606,7 @@ const wizardSteps = [
           </form>
 
           <p class="form-card__foot">
-            Connexion sécurisée. Vos informations ne sont transmises à un partenaire qu'avec votre
-            accord explicite.
+            Connexion sécurisée.
           </p>
         </div>
       </div>
@@ -817,46 +797,13 @@ const wizardSteps = [
     margin: 1.25rem 0;
   }
 
-  /* --------------------------------------------- Opt-in partenaires */
-
-  /*
-   * Le texte est long — c'est voulu : « éclairé » suppose de nommer les
-   * destinataires et l'usage, ce qui ne tient pas en six mots. Il est donc
-   * traité comme un paragraphe cliquable (`align-items: start`), pas comme
-   * l'étiquette d'une ligne de formulaire.
-   */
-  .consent-optin {
-    display: flex;
-    align-items: start;
-    gap: 0.75rem;
-    margin-top: 1.5rem;
-    padding: 1rem;
-    /* Angles droits et filet de 1 px : convention du design system (global.css). */
-    border: 1px solid var(--border);
-    background: var(--beige-25);
-  }
-
-  .consent-optin input[type='checkbox'] {
-    /* 1.125rem : cible tactile confortable sans dominer le texte. */
-    flex: none;
-    width: 1.125rem;
-    height: 1.125rem;
-    margin-top: 0.15rem;
-    accent-color: var(--orange);
-    cursor: pointer;
-  }
-
-  .consent-optin label {
-    font-size: var(--text-sm);
-    line-height: 1.55;
-    color: var(--text-soft);
-    cursor: pointer;
-  }
-
-  .consent-optin__note {
-    margin-top: 0.5rem;
+  /* --------------------------------------- Mention d'accord partenaires */
+  .consent-mention {
+    margin-top: 0.75rem;
     font-size: var(--text-tiny);
-    color: var(--text-faint);
+    line-height: 1.5;
+    color: var(--text-soft);
+    text-align: center;
   }
 
   .form-card__foot {
@@ -1006,6 +953,11 @@ const wizardSteps = [
   .wizard-nav #wizardSubmit {
     flex: 1 1 100%;
     order: 3;
+    /* Libellé long : `.btn` interdit le retour à la ligne, ce qui le coupait
+       sur mobile. */
+    white-space: normal;
+    text-align: center;
+    text-wrap: balance;
   }
 
   /* Précisions facultatives de l'étape 3 : visuellement en retrait pour que

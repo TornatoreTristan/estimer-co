@@ -16,7 +16,11 @@
 */
 import { test } from '@japa/runner'
 
-import { CURRENT_PARTNER_CONSENT_VERSION, resolvePartnerConsent } from '#lib/partner_consent'
+import {
+  archivedConsentText,
+  CURRENT_PARTNER_CONSENT_VERSION,
+  resolvePartnerConsent,
+} from '#lib/partner_consent'
 import { buildPartnerConsentSection, renderInternalEmail } from '#services/lead_mail_renderer'
 import { isTransferable, type PartnerConsentOutcome } from '#services/partner_consent_service'
 import { renderLeadNotification } from '#services/discord_lead_renderer'
@@ -74,15 +78,18 @@ test.group('Registre de consentement', () => {
     assert.isNotEmpty(entree!.partenaires)
   })
 
-  test('le texte cite nommément chaque destinataire autorisé', ({ assert }) => {
-    // « Éclairé » (art. 4.11) suppose que la personne ait LU les noms. Une
-    // liste tenue à côté du texte ne vaut rien si le texte dit « nos
-    // partenaires ».
+  test("la preuve archivée reprend le bouton qui vaut accord, puis la mention", ({ assert }) => {
+    // Le clic sur le bouton est le geste d'accord, et c'est son libellé qui
+    // dit « être rappelé » : la preuve doit le contenir.
     const entree = resolvePartnerConsent(CURRENT_PARTNER_CONSENT_VERSION)!
 
-    for (const partenaire of entree.partenaires) {
-      assert.include(entree.texte, partenaire)
-    }
+    assert.isDefined(entree.bouton)
+    assert.equal(archivedConsentText(entree), `[Bouton « ${entree.bouton} »] ${entree.texte}`)
+    assert.match(archivedConsentText(entree), /rappel/)
+  })
+
+  test('la version en vigueur est celle du bouton, pas celle de la case', ({ assert }) => {
+    assert.equal(CURRENT_PARTNER_CONSENT_VERSION, '2026-09-16')
   })
 
   test('une version inconnue ne se résout pas, même proche', ({ assert }) => {

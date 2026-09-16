@@ -19,7 +19,11 @@ import { test } from '@japa/runner'
 import db from '@adonisjs/lucid/services/db'
 import limiter from '@adonisjs/limiter/services/main'
 
-import { CURRENT_PARTNER_CONSENT_VERSION, resolvePartnerConsent } from '#lib/partner_consent'
+import {
+  archivedConsentText,
+  CURRENT_PARTNER_CONSENT_VERSION,
+  resolvePartnerConsent,
+} from '#lib/partner_consent'
 
 const LEAD_ESTIMATION = {
   kind: 'estimation',
@@ -126,14 +130,16 @@ test.group('POST /v1/leads — envoi transactionnel', (group) => {
     )
     const preuve = rows[0]
 
-    assert.exists(preuve, 'Aucune preuve écrite alors que la case était cochée.')
+    assert.exists(preuve, 'Aucune preuve écrite alors que l\'accord était donné.')
     assert.equal(preuve.email, LEAD_ESTIMATION.email)
     assert.equal(preuve.phone, LEAD_ESTIMATION.phone)
     assert.equal(preuve.consent_version, CURRENT_PARTNER_CONSENT_VERSION)
 
-    // Le texte archivé est celui du registre serveur, pas une chaîne reçue.
+    // Le texte archivé est celui du registre serveur, pas une chaîne reçue —
+    // bouton d'envoi compris, puisque c'est son clic qui vaut accord.
     const registre = resolvePartnerConsent(CURRENT_PARTNER_CONSENT_VERSION)!
-    assert.equal(preuve.consent_text, registre.texte)
+    assert.equal(preuve.consent_text, archivedConsentText(registre))
+    assert.include(preuve.consent_text, registre.texte)
     assert.deepEqual(preuve.partners, registre.partenaires)
 
     // Aucune donnée sur le bien : la preuve dit qui a consenti, pas à quoi il
