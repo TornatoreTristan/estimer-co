@@ -5,6 +5,9 @@ title: "Estimation maison Caen : comprendre les prix immobiliers et vendre au bo
 metaTitle: "Estimation maison Caen : prix au m² et méthode pour vendre"
 metaDescription: "Prix immobiliers à Caen, critères qui font varier la valeur d'une maison ou d'un appartement, et méthode pour obtenir une estimation fiable avant de vendre."
 extrait: "Prix au m², quartier, état, DPE : ce qui fait vraiment la valeur d'une maison ou d'un appartement à Caen, les erreurs à éviter et la méthode pour estimer son bien avant de vendre."
+image: /images/blog/estimation-maison-caen.webp
+imageAlt: "Immeuble d'habitation en pierre claire à Caen, avec toit d'ardoise, lucarnes et balcons, derrière une rangée d'arbres"
+imageCadrage: 20
 motsClesCibles:
   - estimation maison Caen
   - prix immobilier Caen

@@ -212,6 +212,10 @@ const articles = defineCollection({
       // couvert ici, voir en-tête de fichier.
       image: z.string().optional(),
       imageAlt: z.string().optional(),
+      // Point d'intérêt vertical de l'image, en % (0 = haut, 100 = bas) : les
+      // en-têtes et les cartes recadrent en 16/9, ce qui coupe beaucoup une
+      // photo en portrait. Centré par défaut.
+      imageCadrage: z.number().min(0).max(100).optional(),
       // Identifiant d'une fiche de src/lib/auteurs.ts (nom, fonction, bio).
       auteur: z.enum(AUTEUR_IDS).default(AUTEUR_PAR_DEFAUT),
       faq: z.array(faqEntrySchema).max(10).optional(),
