@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://estimer.co/sitemap-index.xml

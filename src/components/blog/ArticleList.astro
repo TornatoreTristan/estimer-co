@@ -1,0 +1,49 @@
+---
+import ArticleCard from './ArticleCard.astro';
+
+interface ArticleListItem {
+  title: string;
+  extrait?: string;
+  image?: string;
+  imageAlt?: string;
+  categorie: string;
+  slug: string;
+  datePublication?: Date;
+}
+
+interface Props {
+  articles: ArticleListItem[];
+}
+
+const { articles } = Astro.props;
+---
+
+<ul class="article-list">
+  {
+    articles.map((article) => (
+      <li>
+        <ArticleCard {...article} />
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .article-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 992px) {
+    .article-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .article-list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

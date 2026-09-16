@@ -1,0 +1,93 @@
+---
+/**
+ * Carte d'un article dans une liste (silo, index du blog). Une seule source
+ * de vérité pour l'URL (`getArticleUrl`, `src/lib/blog.ts`) : jamais
+ * recomposée à la main ici.
+ */
+import { getArticleUrl } from '../../lib/blog';
+
+interface Props {
+  title: string;
+  extrait?: string;
+  image?: string;
+  imageAlt?: string;
+  categorie: string;
+  slug: string;
+  datePublication?: Date;
+}
+
+const { title, extrait, image, imageAlt, categorie, slug, datePublication } = Astro.props;
+
+const href = getArticleUrl(categorie, slug);
+
+const dateLisible = datePublication
+  ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+      datePublication
+    )
+  : undefined;
+const dateIso = datePublication ? datePublication.toISOString().slice(0, 10) : undefined;
+---
+
+<article class="card card--hover article-card">
+  {
+    image && (
+      <a href={href} class="article-card__image" tabindex="-1" aria-hidden="true">
+        {/*
+          Dimensions fixées en dur (16/9) plutôt que dérivées du fichier
+          réel : `image` reste un `z.string()` (pas le helper `image()`
+          d'astro:assets, cf. src/content.config.ts), sa taille intrinsèque
+          n'est donc pas connue au build. Le ratio CSS ci-dessous (voir
+          `.article-card__image img`) réserve le même espace quelle que soit
+          la vraie taille du fichier — c'est ce qui évite le CLS, pas ces
+          attributs en eux-mêmes.
+        */}
+        <img src={image} alt={imageAlt ?? ''} width="640" height="360" loading="lazy" decoding="async" />
+      </a>
+    )
+  }
+  <h3>
+    <a href={href}>{title}</a>
+  </h3>
+  {extrait && <p>{extrait}</p>}
+  {dateLisible && (
+    <time datetime={dateIso} class="article-card__date mono">
+      {dateLisible}
+    </time>
+  )}
+</article>
+
+<style>
+  .article-card {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .article-card__image {
+    display: block;
+    margin: calc(-1 * clamp(1.5rem, 1rem + 1.2vw, 2rem)) calc(-1 * clamp(1.5rem, 1rem + 1.2vw, 2rem))
+      1rem;
+  }
+
+  .article-card__image img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+  }
+
+  .article-card h3 {
+    font-size: var(--h4);
+    margin-bottom: 0.625rem;
+  }
+
+  .article-card p {
+    flex: 1;
+    margin-bottom: 1rem;
+  }
+
+  .article-card__date {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+</style>

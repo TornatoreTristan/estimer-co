@@ -1,0 +1,47 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+/**
+ * `src/pages/404.astro` est un nom spécial pour Astro : il est toujours écrit
+ * en `dist/404.html`, quel que soit `build.format` (astro.config.mjs), pour
+ * que GitHub Pages puisse le servir comme page d'erreur du site (specs
+ * §3 "404" : une catégorie ou un slug inconnu doit y renvoyer).
+ */
+---
+
+<BaseLayout
+  title="Page introuvable. Estimer mon bien"
+  description="Cette page n'existe pas ou plus. Retrouvez l'estimation gratuite de votre bien ou explorez le blog."
+  noindex
+>
+  <section class="not-found">
+    <div class="container">
+      <span class="eyebrow">Erreur 404</span>
+      <h1>Cette page n'existe pas</h1>
+      <p class="lead">
+        Le lien que vous avez suivi est peut-être ancien, ou l'adresse comporte une erreur.
+      </p>
+      <div class="btn-row btn-row--center">
+        <a href="/" class="btn btn--primary btn--lg">Retour à l'accueil</a>
+        <a href="/estimation/" class="btn btn--outline btn--lg">Estimer mon bien</a>
+        <a href="/blog/" class="btn btn--outline btn--lg">Explorer le blog</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .not-found {
+    padding: clamp(4rem, 2rem + 8vw, 8rem) 0;
+    text-align: center;
+  }
+
+  .not-found h1 {
+    margin: 0.5rem 0 1rem;
+  }
+
+  .not-found .lead {
+    max-width: 34rem;
+    margin: 0 auto 2rem;
+  }
+</style>

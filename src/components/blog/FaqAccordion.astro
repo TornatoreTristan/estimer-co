@@ -1,0 +1,189 @@
+---
+/**
+ * Accordéon FAQ d'un article, en `<details>`/`<summary>` natifs — aucun
+ * JavaScript (specs/blog-seo.md §3 "Performance"). Reprend la structure et
+ * les styles de la FAQ de la page d'accueil (`src/pages/index.astro`), gardés
+ * ici en composant pour ne pas les recopier une deuxième fois.
+ *
+ * N'affiche rien (ni la section, ni le JSON-LD) si `faq` est vide — le
+ * `FAQPage` ne doit jamais être injecté sans FAQ visible correspondante.
+ */
+import JsonLd from '../seo/JsonLd.astro';
+
+interface FaqEntry {
+  question: string;
+  reponse: string;
+}
+
+interface Props {
+  faq?: FaqEntry[];
+}
+
+const { faq = [] } = Astro.props;
+
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faq.map((entree) => ({
+    '@type': 'Question',
+    name: entree.question,
+    acceptedAnswer: { '@type': 'Answer', text: entree.reponse },
+  })),
+};
+---
+
+{
+  faq.length > 0 && (
+    <section class="faq-section" aria-labelledby="faq-title">
+      <div class="container container--narrow">
+        <h2 id="faq-title">Questions fréquentes</h2>
+        <div class="faq">
+          {faq.map((entree, i) => (
+            <details class="faq__item" name="article-faq" open={i === 0}>
+              <summary class="faq__question">
+                <span>{entree.question}</span>
+                <span class="faq__icon" aria-hidden="true" />
+              </summary>
+              <div class="faq__reponse">
+                <p>{entree.reponse}</p>
+              </div>
+            </details>
+          ))}
+        </div>
+      </div>
+      <JsonLd data={faqJsonLd} />
+    </section>
+  )
+}
+
+<style>
+  .faq-section {
+    padding: clamp(1.5rem, 1rem + 1.5vw, 2rem) 0 clamp(2rem, 1rem + 3vw, 3rem);
+  }
+
+  .faq-section h2 {
+    font-size: var(--h4);
+    margin-bottom: 1.25rem;
+  }
+
+  /* ------------------------------------------------------------- FAQ */
+  /* Reprise à l'identique de `.faq` (src/pages/index.astro) : liste à
+     filets plutôt que cartes, cf. le commentaire d'origine. */
+  .faq {
+    border-top: 1px solid var(--border-strong);
+  }
+
+  .faq__item {
+    border-bottom: 1px solid var(--border-strong);
+  }
+
+  .faq__question {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.25rem 0;
+    font-size: var(--text-md);
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--black);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .faq__question::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq__question:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 4px;
+  }
+
+  .faq__question:hover {
+    color: var(--orange);
+  }
+
+  .faq__icon {
+    position: relative;
+    flex: 0 0 auto;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-top: 0.35rem;
+  }
+
+  .faq__icon::before,
+  .faq__icon::after {
+    content: '';
+    position: absolute;
+    background: var(--orange);
+    border-radius: 1px;
+  }
+
+  .faq__icon::before {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    transform: translateY(-50%);
+  }
+
+  .faq__icon::after {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    transform: translateX(-50%);
+  }
+
+  .faq__item[open] .faq__icon::after {
+    transform: translateX(-50%) scaleY(0);
+  }
+
+  .faq__reponse {
+    padding: 0 3rem 1.5rem 0;
+  }
+
+  .faq__reponse p {
+    max-width: 46rem;
+    color: var(--text-soft);
+    line-height: 1.6;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .faq__icon::after {
+      transition: transform 0.2s var(--ease);
+    }
+
+    @supports (interpolate-size: allow-keywords) {
+      .faq__item {
+        interpolate-size: allow-keywords;
+      }
+
+      .faq__item::details-content {
+        height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition:
+          height 0.25s var(--ease),
+          opacity 0.25s var(--ease),
+          content-visibility 0.25s allow-discrete;
+      }
+
+      .faq__item[open]::details-content {
+        height: auto;
+        opacity: 1;
+      }
+    }
+  }
+
+  @media (max-width: 640px) {
+    .faq__question {
+      font-size: var(--text-base);
+    }
+
+    .faq__reponse {
+      padding-right: 1.5rem;
+    }
+  }
+</style>

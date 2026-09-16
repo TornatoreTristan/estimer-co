@@ -1,0 +1,77 @@
+---
+/**
+ * Articles suggérés en fin de page (specs/blog-seo.md §6) : `articlesLies`
+ * en priorité (dans l'ordre déclaré, uniquement des articles publiés et
+ * existants — la Gate de `scripts/validate-content.mjs` garantit déjà cette
+ * existence pour un article publié, cette relecture est un filet de sécurité
+ * supplémentaire), sinon d'autres articles publiés de la même catégorie,
+ * sinon rien du tout (pas de section vide).
+ */
+import { getCollection } from 'astro:content';
+import { getArticleUrl, getPublishedSortedArticles, isPublished } from '../../lib/blog';
+
+interface Props {
+  currentSlug: string;
+  categorie: string;
+  articlesLies?: string[];
+}
+
+const { currentSlug, categorie, articlesLies = [] } = Astro.props;
+
+const allArticles = await getCollection('articles');
+
+type ArticleData = (typeof allArticles)[number]['data'];
+
+let related: ArticleData[] = [];
+
+if (articlesLies.length > 0) {
+  const bySlug = new Map(allArticles.map((entry) => [entry.data.slug, entry.data]));
+  related = articlesLies
+    .map((slug) => bySlug.get(slug))
+    .filter((data): data is ArticleData => data !== undefined && isPublished(data));
+}
+
+if (related.length === 0) {
+  related = getPublishedSortedArticles(
+    allArticles
+      .filter((entry) => entry.data.categorie === categorie && entry.data.slug !== currentSlug)
+      .map((entry) => entry.data)
+  ).slice(0, 3);
+}
+---
+
+{
+  related.length > 0 && (
+    <section class="related" aria-labelledby="related-title">
+      <div class="container container--narrow">
+        <h2 id="related-title">À lire aussi</h2>
+        <ul class="related__list">
+          {related.map((article) => (
+            <li>
+              <a href={getArticleUrl(article.categorie, article.slug)} class="link-arrow">
+                {article.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )
+}
+
+<style>
+  .related {
+    padding: clamp(2rem, 1rem + 3vw, 3rem) 0 clamp(2.5rem, 1.5rem + 4vw, 4rem);
+    border-top: 1px solid var(--border);
+  }
+
+  .related h2 {
+    font-size: var(--h4);
+    margin-bottom: 1.25rem;
+  }
+
+  .related__list {
+    display: grid;
+    gap: 0.875rem;
+  }
+</style>

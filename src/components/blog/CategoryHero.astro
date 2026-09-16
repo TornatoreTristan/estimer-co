@@ -1,0 +1,42 @@
+---
+/**
+ * En-tête de silo / d'index du blog. Même grammaire que les `.page-head`
+ * existants (`src/pages/partenaires.astro`, `carte.astro`) : dégradé beige,
+ * eyebrow, H1, chapeau — mais gardée en composant pour ne pas la recopier une
+ * quatrième fois (une par silo + l'index du blog).
+ */
+interface Props {
+  eyebrow?: string;
+  title: string;
+  description: string;
+}
+
+const { eyebrow = 'Blog', title, description } = Astro.props;
+---
+
+<section class="category-hero">
+  <div class="container">
+    <span class="eyebrow">{eyebrow}</span>
+    <h1>{title}</h1>
+    <p class="lead">{description}</p>
+  </div>
+</section>
+
+<style>
+  .category-hero {
+    padding: clamp(2.5rem, 1.5rem + 4vw, 5rem) 0;
+    background:
+      radial-gradient(55rem 30rem at 85% -10%, var(--orange-10) 0%, transparent 60%),
+      linear-gradient(180deg, var(--beige-25) 0%, var(--beige-10) 100%);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .category-hero h1 {
+    margin-bottom: 1rem;
+    max-width: 34ch;
+  }
+
+  .category-hero .lead {
+    max-width: 42rem;
+  }
+</style>

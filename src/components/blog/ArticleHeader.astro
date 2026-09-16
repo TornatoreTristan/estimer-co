@@ -1,0 +1,98 @@
+---
+/**
+ * En-tête d'un article : H1, chapeau, méta (auteur, date de publication, date
+ * de mise à jour — toutes deux toujours affichées, cf. specs/blog-seo.md §3
+ * "Article" : "sa page est générée avec le H1, le contenu, la date de mise à
+ * jour..."), et image de couverture optionnelle.
+ */
+import { getCategoryUrl } from '../../lib/blog';
+
+interface Props {
+  title: string;
+  extrait?: string;
+  image?: string;
+  imageAlt?: string;
+  auteur: string;
+  categorie: string;
+  categoryLabel: string;
+  datePublication: Date;
+  dateMiseAJour: Date;
+}
+
+const {
+  title,
+  extrait,
+  image,
+  imageAlt,
+  auteur,
+  categorie,
+  categoryLabel,
+  datePublication,
+  dateMiseAJour,
+} = Astro.props;
+
+const formatDate = (date: Date) =>
+  new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+const toIso = (date: Date) => date.toISOString().slice(0, 10);
+---
+
+<header class="article-header">
+  <div class="container container--narrow">
+    <a href={getCategoryUrl(categorie)} class="pill article-header__tag">{categoryLabel}</a>
+    <h1>{title}</h1>
+    {extrait && <p class="lead">{extrait}</p>}
+    <p class="article-header__meta mono">
+      Par {auteur} · Publié le{' '}
+      <time datetime={toIso(datePublication)}>{formatDate(datePublication)}</time> · Mis à jour le{' '}
+      <time datetime={toIso(dateMiseAJour)}>{formatDate(dateMiseAJour)}</time>
+    </p>
+  </div>
+
+  {
+    image && (
+      <div class="container container--narrow">
+        <img
+          src={image}
+          alt={imageAlt ?? ''}
+          class="article-header__image"
+          width="1200"
+          height="675"
+          loading="eager"
+          decoding="async"
+        />
+      </div>
+    )
+  }
+</header>
+
+<style>
+  .article-header {
+    padding: clamp(2rem, 1rem + 3vw, 3.5rem) 0 clamp(1.5rem, 1rem + 1.5vw, 2rem);
+  }
+
+  .article-header__tag {
+    margin-bottom: 1.25rem;
+  }
+
+  .article-header h1 {
+    margin-bottom: 1rem;
+  }
+
+  .article-header .lead {
+    margin-bottom: 1.25rem;
+  }
+
+  .article-header__meta {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .article-header__image {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    margin-top: 2rem;
+  }
+</style>

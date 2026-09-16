@@ -4,6 +4,7 @@ import Analytics from '../components/Analytics.astro';
 import ConsentBanner from '../components/ConsentBanner.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import SeoHead from '../components/seo/SeoHead.astro';
 import StickyCta from '../components/StickyCta.astro';
 import Tracking from '../components/Tracking.astro';
 import '../styles/global.css';
@@ -11,9 +12,21 @@ import '../styles/global.css';
 interface Props {
   title: string;
   description?: string;
+  /**
+   * Champs SEO transverses (specs/blog-seo.md §3), tous optionnels : les
+   * pages existantes, qui ne passent que `title`/`description`, gardent
+   * exactement le même rendu visible — ces props n'ajoutent que des balises
+   * `<head>` invisibles (Open Graph, Twitter Card, JSON-LD via le slot
+   * `head`). Voir `SeoHead.astro` pour le détail de chaque champ.
+   */
+  image?: string;
+  type?: 'website' | 'article';
+  noindex?: boolean;
+  publishedTime?: Date | string;
+  modifiedTime?: Date | string;
 }
 
-const { title, description } = Astro.props;
+const { title, description, image, type, noindex, publishedTime, modifiedTime } = Astro.props;
 ---
 
 <!doctype html>
@@ -32,8 +45,15 @@ const { title, description } = Astro.props;
         sur toutes. N'appelle aucun tiers — d'où l'absence de condition. */}
     <Acquisition />
     <meta name="generator" content={Astro.generator} />
-    {description && <meta name="description" content={description} />}
-    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    <SeoHead
+      title={title}
+      description={description}
+      image={image}
+      type={type}
+      noindex={noindex}
+      publishedTime={publishedTime}
+      modifiedTime={modifiedTime}
+    />
     <meta name="theme-color" content="#fcfbfa" />
     {/* Le `.ico` d'abord : les navigateurs qui comprennent le SVG prennent
         quand même ce dernier (règle du format le plus riche), les autres et les
@@ -48,7 +68,6 @@ const { title, description } = Astro.props;
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap"
     />
-    <title>{title}</title>
     <slot name="head" />
   </head>
   <body>

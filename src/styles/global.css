@@ -883,7 +883,10 @@ p {
 
 .site-footer__top {
   display: grid;
-  grid-template-columns: 1.5fr repeat(3, 1fr);
+  /* 1 colonne de marque + 4 colonnes de liens (Services, Ressources, Blog,
+     Entreprise) depuis l'ajout de la colonne « Blog » (specs/blog-seo.md
+     §2). */
+  grid-template-columns: 1.5fr repeat(4, 1fr);
   gap: 2.5rem;
   padding-bottom: 3rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);

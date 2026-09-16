@@ -1,0 +1,66 @@
+---
+/**
+ * Appel à l'action vers `/estimation/`, inséré en fin d'article (voir
+ * `src/pages/blog/[categorie]/[slug].astro`).
+ *
+ * Décision documentée : les specs demandent cet encart « après l'intro et en
+ * fin d'article, si c'est faisable proprement ». Le corps Markdown est rendu
+ * d'un seul bloc par `<Content />` (`render()` d'astro:content) : il n'existe
+ * pas d'API publique pour couper ce rendu après le premier paragraphe sans
+ * réanalyser le Markdown à la main (nouvelle dépendance ou parsing fragile),
+ * ce que la consigne du produit n'autorise pas ici. Cet encart n'est donc
+ * posé qu'en fin d'article, comme le prévoit explicitement le repli des
+ * specs.
+ */
+interface Props {
+  title?: string;
+  text?: string;
+}
+
+const {
+  title = 'Envie de connaître le prix de votre bien ?',
+  text = 'Estimation gratuite en ligne, rapport détaillé immédiat, sans engagement.',
+} = Astro.props;
+---
+
+<aside class="cta-estimation">
+  <div class="container container--narrow">
+    <div class="cta-estimation__box">
+      <div>
+        <h2>{title}</h2>
+        <p>{text}</p>
+      </div>
+      <a href="/estimation/" class="btn btn--primary btn--lg" data-cta="blog_article_cta">
+        Estimer mon bien
+      </a>
+    </div>
+  </div>
+</aside>
+
+<style>
+  .cta-estimation {
+    padding: 0.5rem 0 clamp(1.5rem, 1rem + 1.5vw, 2rem);
+  }
+
+  .cta-estimation__box {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: clamp(1.5rem, 1rem + 1.5vw, 2rem);
+    background: var(--aubergine-0);
+    color: var(--white);
+  }
+
+  .cta-estimation__box h2 {
+    color: var(--white);
+    font-size: var(--h4);
+    margin-bottom: 0.375rem;
+  }
+
+  .cta-estimation__box p {
+    color: rgba(255, 255, 255, 0.72);
+    max-width: 32rem;
+  }
+</style>

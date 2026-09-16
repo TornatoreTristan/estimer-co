@@ -1,0 +1,69 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Breadcrumb from '../../components/Breadcrumb.astro';
+import CategoryHero from '../../components/blog/CategoryHero.astro';
+import ArticleList from '../../components/blog/ArticleList.astro';
+import { CATEGORIES, BLOG_INDEX_URL, getCategoryUrl, getPublishedSortedArticles } from '../../lib/blog';
+
+const allArticles = await getCollection('articles');
+const derniersArticles = getPublishedSortedArticles(allArticles.map((entry) => entry.data)).slice(0, 6);
+---
+
+<BaseLayout
+  title="Blog immobilier : estimation, prix, vente, DPE | Estimer mon bien"
+  description="Guides pratiques sur l'estimation immobilière, les prix au m², la vente d'un bien, le DPE et les travaux, et le marché ville par ville."
+>
+  <div class="container">
+    <Breadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Blog', href: BLOG_INDEX_URL }]} />
+  </div>
+
+  <CategoryHero
+    title="Le blog immobilier"
+    description="Des guides pratiques et factuels pour comprendre le prix d'un bien, préparer une vente et suivre le marché, secteur par secteur."
+  />
+
+  <section class="section section--white">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">5 thématiques</span>
+        <h2>Parcourir par thème</h2>
+      </div>
+      <div class="grid grid--3 category-grid">
+        {
+          CATEGORIES.map((category) => (
+            <a href={getCategoryUrl(category.slug)} class="card card--hover category-card">
+              <h3>{category.label}</h3>
+              <p>{category.description}</p>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  {
+    derniersArticles.length > 0 && (
+      <section class="section section--beige">
+        <div class="container">
+          <div class="section-head">
+            <span class="eyebrow">Derniers articles</span>
+            <h2>À lire en ce moment</h2>
+          </div>
+          <ArticleList articles={derniersArticles} />
+        </div>
+      </section>
+    )
+  }
+</BaseLayout>
+
+<style>
+  /* `.card` ne pose pas de `display` (cf. src/styles/global.css) : sans ce
+     correctif, l'ancre pleine carte resterait `inline` et ignorerait le
+     gabarit de la grille. */
+  .category-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+</style>
