@@ -257,7 +257,8 @@ test("l'encadré auteur est présent et ciblé par le nom de l'en-tête", () => 
     assert.ok(pilierHtml.includes(`href="${lien.url}"`), `lien ${lien.url} absent de l'encadré`);
   }
   if (auteur.photo) {
-    assert.ok(pilierHtml.includes(`src="${auteur.photo}"`), 'photo de l\'auteur absente');
+    const photos = pilierHtml.split(`src="${auteur.photo}"`).length - 1;
+    assert.equal(photos, 2, "photo de l'auteur attendue dans l'en-tête et dans l'encadré");
     assert.ok(existsSync(join(__dirname, '..', 'public', auteur.photo)), `fichier ${auteur.photo} introuvable dans public/`);
   }
 });

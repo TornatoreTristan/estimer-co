@@ -14,6 +14,8 @@ interface Props {
   imageAlt?: string;
   imageCadrage?: number;
   auteur: string;
+  /** Photo de l'auteur, affichée en vignette devant son nom. */
+  auteurPhoto?: string;
   categorie: string;
   categoryLabel: string;
   datePublication: Date;
@@ -27,6 +29,7 @@ const {
   imageAlt,
   imageCadrage = 50,
   auteur,
+  auteurPhoto,
   categorie,
   categoryLabel,
   datePublication,
@@ -43,11 +46,20 @@ const toIso = (date: Date) => date.toISOString().slice(0, 10);
     <a href={getCategoryUrl(categorie)} class="pill article-header__tag">{categoryLabel}</a>
     <h1>{title}</h1>
     {extrait && <p class="lead">{extrait}</p>}
-    <p class="article-header__meta mono">
-      Par <a href="#auteur" class="article-header__auteur">{auteur}</a> · Publié le{' '}
-      <time datetime={toIso(datePublication)}>{formatDate(datePublication)}</time> · Mis à jour le{' '}
-      <time datetime={toIso(dateMiseAJour)}>{formatDate(dateMiseAJour)}</time>
-    </p>
+    <div class="article-header__meta mono">
+      {
+        auteurPhoto && (
+          <a href="#auteur" class="article-header__avatar" tabindex="-1" aria-hidden="true">
+            <img src={auteurPhoto} alt="" width="36" height="36" decoding="async" />
+          </a>
+        )
+      }
+      <p>
+        Par <a href="#auteur" class="article-header__auteur">{auteur}</a> · Publié le{' '}
+        <time datetime={toIso(datePublication)}>{formatDate(datePublication)}</time> · Mis à jour le{' '}
+        <time datetime={toIso(dateMiseAJour)}>{formatDate(dateMiseAJour)}</time>
+      </p>
+    </div>
   </div>
 
   {
@@ -78,6 +90,18 @@ const toIso = (date: Date) => date.toISOString().slice(0, 10);
     margin-bottom: 1.25rem;
   }
 
+  .article-header__avatar {
+    flex: none;
+    display: block;
+  }
+
+  .article-header__avatar img {
+    display: block;
+    width: 2.25rem;
+    height: 2.25rem;
+    object-fit: cover;
+  }
+
   .article-header__auteur {
     color: var(--text);
     text-decoration: underline;
@@ -98,6 +122,9 @@ const toIso = (date: Date) => date.toISOString().slice(0, 10);
   }
 
   .article-header__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     font-size: var(--text-tiny);
     letter-spacing: 0.04em;
     text-transform: uppercase;
