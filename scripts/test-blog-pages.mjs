@@ -257,7 +257,8 @@ test("l'encadré auteur est présent et ciblé par le nom de l'en-tête", () => 
     assert.ok(pilierHtml.includes(`href="${lien.url}"`), `lien ${lien.url} absent de l'encadré`);
   }
   if (auteur.photo) {
-    assert.ok(pilierHtml.includes(`src="${auteur.photo}"`), 'photo de l\'auteur absente');
+    const photos = pilierHtml.split(`src="${auteur.photo}"`).length - 1;
+    assert.equal(photos, 2, "photo de l'auteur attendue dans l'en-tête et dans l'encadré");
     assert.ok(existsSync(join(__dirname, '..', 'public', auteur.photo)), `fichier ${auteur.photo} introuvable dans public/`);
   }
 });
@@ -333,3 +334,28 @@ test('le lien Blog est présent dans le header de la page d\'accueil', () => {
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+// -----------------------------------------------------------------------------
+// Image d'illustration : en-tête de l'article, og:image et cartes des listes.
+// -----------------------------------------------------------------------------
+
+test("l'image d'un article illustre son en-tête, son og:image et ses cartes", () => {
+  const illustres = publishedArticles.filter((entry) => entry.data.image);
+  assert.ok(illustres.length > 0, 'aucun article illustré à vérifier');
+  for (const { data } of illustres) {
+    const url = getArticleUrl(data.categorie, data.slug);
+    assert.ok(existsSync(join(__dirname, '..', 'public', data.image)), `fichier ${data.image} introuvable dans public/`);
+    const articleHtml = readDist(`${url.slice(1)}index.html`);
+    assert.match(articleHtml, new RegExp(`<img[^>]*class="article-header__image"[^>]*src="${data.image}"|<img[^>]*src="${data.image}"[^>]*class="article-header__image"`));
+    assert.ok(articleHtml.includes(`<meta property="og:image" content="https://estimer.co${data.image}"`), 'og:image ne reprend pas l\'image');
+    for (const liste of ['blog/index.html', `blog/${data.categorie}/index.html`]) {
+      const html = readDist(liste);
+      // La carte entière : de l'<article> qui précède le lien à sa fermeture.
+      const lien = html.indexOf(`href="${url}"`);
+      const carte = html.slice(html.lastIndexOf('<article', lien), html.indexOf('</article>', lien));
+      assert.ok(carte.includes(`src="${data.image}"`), `${liste} : la carte n'affiche pas l'image`);
+      const auteur = AUTEURS[data.auteur ?? AUTEUR_PAR_DEFAUT];
+      assert.ok(carte.includes(auteur.nom), `${liste} : la carte n'affiche pas l'auteur`);
+    }
+  }
+});

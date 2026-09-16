@@ -1,14 +1,17 @@
 ---
 import ArticleCard from './ArticleCard.astro';
+import type { AuteurId } from '../../lib/auteurs';
 
 interface ArticleListItem {
   title: string;
   extrait?: string;
   image?: string;
   imageAlt?: string;
+  imageCadrage?: number;
   categorie: string;
   slug: string;
   datePublication?: Date;
+  auteur?: AuteurId;
 }
 
 interface Props {
