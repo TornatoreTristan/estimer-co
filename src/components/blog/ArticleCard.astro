@@ -11,12 +11,14 @@ interface Props {
   extrait?: string;
   image?: string;
   imageAlt?: string;
+  /** Point d'intérêt vertical en % (voir `imageCadrage`, src/content.config.ts). */
+  imageCadrage?: number;
   categorie: string;
   slug: string;
   datePublication?: Date;
 }
 
-const { title, extrait, image, imageAlt, categorie, slug, datePublication } = Astro.props;
+const { title, extrait, image, imageAlt, imageCadrage = 50, categorie, slug, datePublication } = Astro.props;
 
 const href = getArticleUrl(categorie, slug);
 
@@ -41,7 +43,15 @@ const dateIso = datePublication ? datePublication.toISOString().slice(0, 10) : u
           la vraie taille du fichier — c'est ce qui évite le CLS, pas ces
           attributs en eux-mêmes.
         */}
-        <img src={image} alt={imageAlt ?? ''} width="640" height="360" loading="lazy" decoding="async" />
+        <img
+          src={image}
+          alt={imageAlt ?? ''}
+          width="640"
+          height="360"
+          loading="lazy"
+          decoding="async"
+          style={`object-position: 50% ${imageCadrage}%`}
+        />
       </a>
     )
   }
@@ -70,6 +80,8 @@ const dateIso = datePublication ? datePublication.toISOString().slice(0, 10) : u
 
   .article-card__image img {
     width: 100%;
+    /* Sans `height: auto`, l'attribut height="360" l'emporte sur le ratio. */
+    height: auto;
     aspect-ratio: 16 / 9;
     object-fit: cover;
   }

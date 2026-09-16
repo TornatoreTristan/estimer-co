@@ -333,3 +333,24 @@ test('le lien Blog est présent dans le header de la page d\'accueil', () => {
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+// -----------------------------------------------------------------------------
+// Image d'illustration : en-tête de l'article, og:image et cartes des listes.
+// -----------------------------------------------------------------------------
+
+test("l'image d'un article illustre son en-tête, son og:image et ses cartes", () => {
+  const illustres = publishedArticles.filter((entry) => entry.data.image);
+  assert.ok(illustres.length > 0, 'aucun article illustré à vérifier');
+  for (const { data } of illustres) {
+    const url = getArticleUrl(data.categorie, data.slug);
+    assert.ok(existsSync(join(__dirname, '..', 'public', data.image)), `fichier ${data.image} introuvable dans public/`);
+    const articleHtml = readDist(`${url.slice(1)}index.html`);
+    assert.match(articleHtml, new RegExp(`<img[^>]*class="article-header__image"[^>]*src="${data.image}"|<img[^>]*src="${data.image}"[^>]*class="article-header__image"`));
+    assert.ok(articleHtml.includes(`<meta property="og:image" content="https://estimer.co${data.image}"`), 'og:image ne reprend pas l\'image');
+    for (const liste of ['blog/index.html', `blog/${data.categorie}/index.html`]) {
+      const html = readDist(liste);
+      const carte = html.slice(html.indexOf(`href="${url}"`) - 200, html.indexOf(`href="${url}"`) + 600);
+      assert.ok(carte.includes(`src="${data.image}"`), `${liste} : la carte n'affiche pas l'image`);
+    }
+  }
+});
