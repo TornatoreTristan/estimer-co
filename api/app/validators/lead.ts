@@ -38,11 +38,21 @@ export const LEAD_ALLOWED_FIELDS = [
   'subject',
   'message',
   'consent',
+  'partnerConsent',
   'website',
   'property',
   'estimation',
   'acquisition',
 ] as const
+
+/**
+ * Champs acceptés dans `partnerConsent`.
+ *
+ * Deux, et le texte de la case n'en fait pas partie : c'est le serveur qui le
+ * détient (`#lib/partner_consent`). Voir `buildLeadPartnerConsentBlock` côté
+ * front pour le raisonnement complet.
+ */
+export const LEAD_PARTNER_CONSENT_FIELDS = ['granted', 'version'] as const
 
 /** Champs acceptés dans `property` (miroir du wizard, §7.1). */
 export const LEAD_PROPERTY_FIELDS = [
@@ -170,6 +180,9 @@ export function assertNoUnknownFields(body: unknown): void {
   if ('acquisition' in record) {
     collect(record.acquisition, LEAD_ACQUISITION_FIELDS, 'acquisition.')
   }
+  if ('partnerConsent' in record) {
+    collect(record.partnerConsent, LEAD_PARTNER_CONSENT_FIELDS, 'partnerConsent.')
+  }
 
   if (errors.length > 0) {
     throw new vineErrors.E_VALIDATION_ERROR(errors)
@@ -209,6 +222,29 @@ export const leadValidator = vine.compile(
      * apprendrait au robot quel champ éviter au prochain passage.
      */
     website: vine.string().trim().maxLength(200).optional(),
+
+    /*
+     * Accord de transmission à un partenaire (RGPD art. 7).
+     *
+     * Le bloc est optionnel — le formulaire de contact n'en a pas, et une page
+     * servie depuis un cache antérieur au déploiement n'en enverra pas non
+     * plus. `granted: false` et bloc absent ne se confondent pourtant pas : le
+     * premier est un refus exprimé, le second une absence d'information. Les
+     * deux mènent à la même décision (ne rien transmettre, ne rien écrire),
+     * mais l'e-mail interne les distingue.
+     *
+     * `version` est bornée en longueur ici, et rapprochée du registre plus
+     * loin (`resolvePartnerConsent`) : ce schéma vérifie une forme, pas une
+     * existence. Une version inconnue ne vaut d'ailleurs PAS 422 — la
+     * demande d'estimation est valide et doit aboutir. Elle empêche seulement
+     * l'écriture de la preuve, et l'e-mail interne le dit en toutes lettres.
+     */
+    partnerConsent: vine
+      .object({
+        granted: vine.boolean(),
+        version: vine.string().trim().maxLength(40),
+      })
+      .optional(),
 
     property: vine
       .object({

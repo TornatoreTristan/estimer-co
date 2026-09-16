@@ -518,6 +518,58 @@
         "accountId": "0",
         "containerId": "0",
         "variableId": "19",
+        "name": "DLV — estimation_revision",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "estimation_revision"
+          },
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          }
+        ],
+        "fingerprint": "0",
+        "parentFolderId": "5"
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "variableId": "20",
+        "name": "DLV — changed_fields",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "changed_fields"
+          },
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          }
+        ],
+        "fingerprint": "0",
+        "parentFolderId": "5"
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "variableId": "21",
         "name": "DLV — is_owner",
         "type": "v",
         "parameter": [
@@ -543,7 +595,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "20",
+        "variableId": "22",
         "name": "DLV — want_to_sell",
         "type": "v",
         "parameter": [
@@ -569,7 +621,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "21",
+        "variableId": "23",
         "name": "DLV — confidence_score",
         "type": "v",
         "parameter": [
@@ -595,7 +647,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "22",
+        "variableId": "24",
         "name": "DLV — comparables_count",
         "type": "v",
         "parameter": [
@@ -621,7 +673,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "23",
+        "variableId": "25",
         "name": "DLV — latency_ms",
         "type": "v",
         "parameter": [
@@ -647,7 +699,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "24",
+        "variableId": "26",
         "name": "DLV — failure_type",
         "type": "v",
         "parameter": [
@@ -673,7 +725,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "25",
+        "variableId": "27",
         "name": "DLV — http_status",
         "type": "v",
         "parameter": [
@@ -699,7 +751,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "26",
+        "variableId": "28",
         "name": "DLV — entry_point",
         "type": "v",
         "parameter": [
@@ -725,7 +777,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "27",
+        "variableId": "29",
         "name": "DLV — has_address_prefill",
         "type": "v",
         "parameter": [
@@ -751,7 +803,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "28",
+        "variableId": "30",
         "name": "DLV — step_number",
         "type": "v",
         "parameter": [
@@ -777,7 +829,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "29",
+        "variableId": "31",
         "name": "DLV — step_key",
         "type": "v",
         "parameter": [
@@ -803,7 +855,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "30",
+        "variableId": "32",
         "name": "DLV — step_direction",
         "type": "v",
         "parameter": [
@@ -829,7 +881,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "31",
+        "variableId": "33",
         "name": "DLV — error_fields",
         "type": "v",
         "parameter": [
@@ -855,7 +907,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "32",
+        "variableId": "34",
         "name": "DLV — error_count",
         "type": "v",
         "parameter": [
@@ -881,7 +933,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "33",
+        "variableId": "35",
         "name": "DLV — address_source",
         "type": "v",
         "parameter": [
@@ -907,7 +959,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "34",
+        "variableId": "36",
         "name": "DLV — cta_id",
         "type": "v",
         "parameter": [
@@ -933,7 +985,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "35",
+        "variableId": "37",
         "name": "DLV — cta_label",
         "type": "v",
         "parameter": [
@@ -959,7 +1011,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "36",
+        "variableId": "38",
         "name": "DLV — cta_destination",
         "type": "v",
         "parameter": [
@@ -985,7 +1037,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "37",
+        "variableId": "39",
         "name": "DLV — contact_subject",
         "type": "v",
         "parameter": [
@@ -1011,7 +1063,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "38",
+        "variableId": "40",
         "name": "DLV — partner_slug",
         "type": "v",
         "parameter": [
@@ -1037,7 +1089,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "39",
+        "variableId": "41",
         "name": "DLV — partner_name",
         "type": "v",
         "parameter": [
@@ -1063,7 +1115,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "40",
+        "variableId": "42",
         "name": "DLV — partner_category",
         "type": "v",
         "parameter": [
@@ -1089,7 +1141,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "41",
+        "variableId": "43",
         "name": "DLV — page_type",
         "type": "v",
         "parameter": [
@@ -1115,7 +1167,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "42",
+        "variableId": "44",
         "name": "DLV — link_url",
         "type": "v",
         "parameter": [
@@ -1141,7 +1193,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "43",
+        "variableId": "45",
         "name": "DLV — position",
         "type": "v",
         "parameter": [
@@ -1167,7 +1219,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "44",
+        "variableId": "46",
         "name": "DLV — consent_analytics",
         "type": "v",
         "parameter": [
@@ -1193,7 +1245,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "45",
+        "variableId": "47",
         "name": "DLV — consent_ads",
         "type": "v",
         "parameter": [
@@ -1219,7 +1271,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "46",
+        "variableId": "48",
         "name": "DLV — user_data.sha256_email_address",
         "type": "v",
         "parameter": [
@@ -1245,7 +1297,7 @@
       {
         "accountId": "0",
         "containerId": "0",
-        "variableId": "47",
+        "variableId": "49",
         "name": "DLV — user_data.sha256_phone_number",
         "type": "v",
         "parameter": [
@@ -1824,6 +1876,36 @@
                     "type": "TEMPLATE",
                     "key": "value",
                     "value": "{{DLV — estimation_status}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "estimation_revision"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV — estimation_revision}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "changed_fields"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV — changed_fields}}"
                   }
                 ]
               },

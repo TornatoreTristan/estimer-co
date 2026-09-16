@@ -64,7 +64,15 @@ function mesurerRapport(donnees, estimation, statut) {
 function mesurerRapportMaintenant(donnees, estimation, statut) {
   const leadId = donnees.lead_id || "";
 
-  embTrack("report_view", { lead_id: leadId, estimation_status: statut });
+  // `estimation_revision` vaut 0 tant que le visiteur n'a rien corrigé, et
+  // s'incrémente à chaque recalcul demandé depuis le rapport (cf.
+  // `rapport-edit.js`). Sans lui, un rapport corrigé et un rapport d'origine
+  // seraient indiscernables en analyse — alors qu'ils portent deux montants.
+  embTrack("report_view", {
+    lead_id: leadId,
+    estimation_status: statut,
+    estimation_revision: Number(donnees.revision) || 0,
+  });
 
   // Parcours antérieur au lot T1 : le rapport s'affiche, mais il n'y a aucune
   // conversion à rattacher — mieux vaut ne rien compter que compter à tort.

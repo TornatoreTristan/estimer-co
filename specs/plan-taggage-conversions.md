@@ -178,6 +178,7 @@ réinitialise l'apprentissage : autant ne le faire qu'une fois.
                  ┌──────────────────────────────────────────────┐
                  │ /rapport/                                    │ ★ generate_lead  (CONVERSION)
                  │   · rapport affiché                          │ report_view
+                 │   · correction + recalcul ──► POST /v1/estim.│ report_estimation_edited
                  │   · téléchargement PDF                       │ report_pdf_download
                  │   · « Contacter un expert »                  │ cta_click
                  └──────────────────────────────────────────────┘
@@ -250,11 +251,30 @@ ignore les paramètres `undefined`, ce qui garde les rapports propres).
 
 | Événement | Déclenchement | Paramètres |
 |---|---|---|
-| `report_view` | `/rapport/` affiché avec une estimation exploitable | `lead_id`, `estimation_status` |
+| `report_view` | `/rapport/` affiché avec une estimation exploitable | `lead_id`, `estimation_status`, `estimation_revision` (0 tant que rien n'a été corrigé) |
+| `report_estimation_edited` | Chargement de `/rapport/` **suivant** un recalcul demandé depuis le rapport, une fois par révision | `lead_id`, `estimation_revision` (≥ 1), `changed_fields` (noms joints par `\|`), `estimation_status` |
 | `report_pdf_download` | Clic sur « Télécharger mon rapport PDF » (`rapport.astro:152`) | `lead_id`, `estimation_status` |
 | `partner_click_out` | Clic sur un lien partenaire sortant | `partner_slug`, `partner_name`, `partner_category`, `page_type` (`partenaires_index`\|`partenaire_detail`\|`region`\|`departement`\|`page_libre`), `page_path`, `link_url`, `position` |
 | `cta_click` | Clic sur tout élément portant `data-cta` | `cta_id` (cf. table ci-dessous), `cta_label`, `cta_destination`, `page_path` |
 | `sticky_cta_dismiss` | Fermeture de la barre collée | `page_path` |
+
+> **Corriger son rapport ne compte PAS une seconde conversion.** Depuis
+> `/rapport/`, le visiteur peut rectifier surface, pièces, DPE, terrain ou état
+> et relancer le calcul (`src/scripts/rapport-edit.js`). Ce chemin n'appelle que
+> `POST /v1/estimations` — jamais `POST /v1/leads` — et conserve `lead_id`,
+> `name`, `email` et `phone` à l'identique : le verrou
+> `emb.lead.<id>.tracked` tient, `generate_lead` ne repart pas, et aucun lead
+> n'atterrit deux fois chez le conseiller. `report_estimation_edited` porte donc
+> son propre verrou, `emb.lead.<id>.rev.<n>`, et est émis au chargement qui
+> **suit** le recalcul — comme la conversion, et pour la même raison : un
+> événement poussé au bord d'une navigation est une course perdue avec le
+> navigateur.
+>
+> **Conséquence à connaître côté pilotage** : la valeur de conversion envoyée à
+> Ads reste celle du **premier** calcul. C'est assumé — une conversion déjà
+> comptée ne se réécrit pas — mais cela signifie qu'un rapport très corrigé peut
+> porter en régie un montant différent de celui affiché. `estimation_revision`
+> sur `report_view` permet d'isoler ces cas.
 
 **Valeurs de `cta_id` posées dans les pages** (un identifiant par emplacement,
 jamais par libellé — deux boutons au même texte à deux endroits différents sont

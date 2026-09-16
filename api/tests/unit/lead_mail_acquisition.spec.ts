@@ -43,8 +43,16 @@ test.group('E-mail interne | provenance', () => {
     assert.notInclude(email.text, 'PROVENANCE')
     assert.equal(buildAcquisitionSection(undefined), '')
 
-    // Le corps se termine toujours par les coordonnées puis la barre.
-    assert.match(email.text, /- Telephone : 0612345678\n\n━+$/)
+    /*
+     * Le corps se termine par les coordonnées, puis la seule section qui, elle,
+     * est TOUJOURS rendue : l'autorisation de transmission partenaire. Son
+     * absence se lirait « pas d'information » là où il faut lire « non » — cf.
+     * `tests/unit/partner_consent.spec.ts`.
+     */
+    assert.match(
+      email.text,
+      /- Telephone : 0612345678\n\nTRANSMISSION PARTENAIRE\n- Transmissible a un partenaire : NON \(aucun accord recueilli\)\n\n━+$/
+    )
   })
 
   test('la provenance est ajoutée APRÈS les coordonnées', ({ assert }) => {

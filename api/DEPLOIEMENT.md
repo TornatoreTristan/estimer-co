@@ -373,9 +373,35 @@ journaux ne constituent pas un second fichier de prospects.
 
 ### 4.6 RGPD — ce que cet endpoint fait et ne fait pas
 
-`POST /v1/leads` est le **seul** endpoint qui reçoit des données personnelles,
-et il n'en persiste aucune : les coordonnées traversent le processus, partent
-par SMTP, et disparaissent. Aucune table, aucun fichier, aucun journal en clair.
+`POST /v1/leads` est le **seul** endpoint qui reçoit des données personnelles.
+Par défaut il n'en persiste aucune : les coordonnées traversent le processus,
+partent par SMTP, et disparaissent. Aucune table, aucun fichier, aucun journal
+en clair.
+
+**Une exception, et une seule : `partner_consents`.** Quand le prospect coche
+la case autorisant la transmission de sa demande à un partenaire, l'API écrit
+la preuve de cet accord — nom, e-mail, téléphone, horodatage serveur, texte
+exact affiché et liste nominative des destinataires. C'est l'art. 7.1 du RGPD
+qui l'impose : sans cette trace, la transmission serait indémontrable, donc
+illicite.
+
+Trois propriétés bornent cette écriture, et aucune n'est facultative :
+
+- **rien n'est écrit sans accord.** Une case décochée ne produit aucune ligne :
+  le règlement demande de démontrer un consentement, jamais son absence ;
+- **rien sur le bien.** Ni adresse, ni surface, ni montant. La preuve dit qui a
+  consenti et à quoi, pas ce que la personne possède ;
+- **le texte vient du serveur** (`app/lib/partner_consent.ts`), jamais du corps
+  de la requête. Le front n'envoie qu'un numéro de version. Une preuve dont le
+  libellé serait fourni par le navigateur ne prouverait rien.
+
+La preuve est écrite **avant** l'envoi de l'e-mail interne, et c'est son
+résultat — pas le contenu du formulaire — qui décide de la mention
+« Transmissible : OUI / NON » portée par l'e-mail et l'alerte Discord. Écriture
+impossible (base indisponible, version inconnue) ⇒ le lead part quand même,
+marqué **non transmissible**.
+
+Rétention : 3 ans, appliquée par `node ace purge:logs` (§7).
 
 `POST /v1/estimations` continue de les **refuser** explicitement (422
 `forbidden_pii`). C'est cette séparation qui garantit que `estimations_log` ne
@@ -543,9 +569,10 @@ curl -s -X POST https://api.estimer.co/v1/estimations \
 | Rafraîchissement des agrégats | `node ace refresh:aggregates` | hebdomadaire |
 
 La purge n'est pas optionnelle : `geocode_cache` contient des adresses saisies
-par les visiteurs, avec une rétention annoncée de 90 jours, et `estimations_log`
-une rétention de 12 mois. Sans la tâche, ce qui figure au registre des
-traitements est faux.
+par les visiteurs, avec une rétention annoncée de 90 jours, `estimations_log`
+une rétention de 12 mois, et `partner_consents` — la seule table qui porte des
+coordonnées en clair — une rétention de 3 ans. Sans la tâche, ce qui figure au
+registre des traitements est faux.
 
 DVF est publié en **avril** et **octobre**, à quelques jours près. La commande
 est idempotente : si le millésime n'est pas encore publié, elle ne fait rien.
