@@ -70,7 +70,9 @@ const REGISTRE: PartnerConsentVersion[] = /* REGISTRE-DEBUT */ [
   {
     version: '2026-08-24',
     partenaires: ['Les Bons Biens', 'Dr House Immo', 'RITMODiag'],
-    retired: true,
+    // Version à case à cocher, remplacée le 2026-09-16. Encore acceptée le
+    // temps que les pages déjà ouvertes avec la case soient envoyées : à passer
+    // en `retired: true` une fois le site et l'API déployés.
     texte:
       "J'accepte qu'Estimer mon bien transmette mon nom, mon adresse e-mail et mon numéro de téléphone, ainsi que les caractéristiques du bien que je viens de décrire, à ses partenaires professionnels — Les Bons Biens, Dr House Immo et RITMODiag — afin qu'ils me contactent, y compris par téléphone, au sujet de mon projet immobilier. Je peux retirer cet accord à tout moment en écrivant à tristan@estimer.co.",
   },

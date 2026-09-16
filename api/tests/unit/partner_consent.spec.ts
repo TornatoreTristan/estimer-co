@@ -88,9 +88,8 @@ test.group('Registre de consentement', () => {
     assert.match(archivedConsentText(entree), /rappel/)
   })
 
-  test('la version à case à cocher est retirée et ne se résout plus', ({ assert }) => {
-    assert.isNull(resolvePartnerConsent('2026-08-24'))
-    assert.notEqual(CURRENT_PARTNER_CONSENT_VERSION, '2026-08-24')
+  test('la version en vigueur est celle du bouton, pas celle de la case', ({ assert }) => {
+    assert.equal(CURRENT_PARTNER_CONSENT_VERSION, '2026-09-16')
   })
 
   test('une version inconnue ne se résout pas, même proche', ({ assert }) => {
