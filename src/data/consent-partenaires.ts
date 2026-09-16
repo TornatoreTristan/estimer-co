@@ -37,9 +37,11 @@ import registre from './consent-partenaires.json';
 export interface RegistreConsentementPartenaires {
   /** Identifiant du couple (texte, destinataires). Format `AAAA-MM-JJ`. */
   version: string;
-  /** Destinataires nommés, dans l'ordre où le texte les cite. */
+  /** Destinataires à qui le lead peut être transmis. */
   partenaires: string[];
-  /** Libellé EXACT de la case à cocher. C'est lui qui fait la preuve. */
+  /** Libellé du bouton d'envoi, dont le clic vaut accord. Archivé avec le texte. */
+  bouton: string;
+  /** Mention EXACTE affichée sous le bouton. C'est elle qui fait la preuve. */
   texte: string;
 }
 

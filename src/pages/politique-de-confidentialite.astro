@@ -21,7 +21,7 @@ import { CONSENT_EXPIRE_JOURS, TRACKING_ACTIF } from '../lib/analytics';
  *     12 mois, cache de géocodage 90 jours ;
  *   - `api/app/services/partner_consent_service.ts` — la SEULE écriture de
  *     coordonnées côté serveur : la preuve de consentement, et uniquement
- *     quand la case de transmission partenaire a été cochée ;
+ *     quand le formulaire d'estimation est envoyé (le bouton vaut accord) ;
  *   - `api/database/migrations/*_create_partner_consents.ts` — colonnes
  *     exactes de cette preuve, et absence de toute donnée sur le bien ;
  *   - `src/data/consent-partenaires.json` — texte et liste nominative des
@@ -86,8 +86,8 @@ const TRAITEMENTS = [
   },
   {
     finalite: 'Vous mettre en relation avec un professionnel partenaire',
-    donnees: `Nom, adresse e-mail, téléphone et caractéristiques du bien, transmis aux seuls partenaires nommés dans la case que vous cochez (${PARTENAIRES_DESTINATAIRES}). Sans cette case cochée, rien n'est transmis.`,
-    base: 'Votre consentement, exprimé par une case dédiée jamais pré-cochée (art. 6.1.a)',
+    donnees: `Nom, adresse e-mail, téléphone et caractéristiques du bien, transmis à nos partenaires (${PARTENAIRES_DESTINATAIRES}) lorsque vous envoyez le formulaire d'estimation.`,
+    base: "Votre consentement, exprimé en cliquant sur le bouton d'envoi du formulaire d'estimation, sous lequel figure la mention d'accord (art. 6.1.a)",
     duree: "Jusqu'au retrait de votre consentement, et au plus 3 ans après le dernier contact.",
   },
   {
@@ -160,11 +160,12 @@ const TRAITEMENTS = [
         <strong>Aucun fichier de prospects n'est constitué sur nos serveurs.</strong> Lorsque vous
         demandez à recevoir votre rapport ou nous écrivez, vos coordonnées traversent notre
         interface, partent par e-mail, et ne sont enregistrées dans aucune base de données ni aucun
-        journal en clair. <strong>Une seule exception, et elle existe pour vous&nbsp;:</strong> si
-        vous cochez la case autorisant la transmission à un partenaire, nous enregistrons cet
-        accord — vos coordonnées, la date, et le texte exact que vous avez lu. C'est ce que la loi
-        nous impose de pouvoir démontrer, et c'est aussi ce qui vous permet de nous opposer un
-        accord que vous n'auriez jamais donné. Laissez la case décochée, et rien n'est écrit.
+        journal en clair. <strong>Une seule exception, et elle existe pour vous&nbsp;:</strong> lorsque
+        vous envoyez le formulaire d'estimation, qui vaut accord de transmission à nos partenaires,
+        nous enregistrons cet accord — vos coordonnées, la date, et le texte exact que vous avez lu
+        (libellé du bouton et mention d'accord). C'est ce que la loi nous impose de pouvoir
+        démontrer, et c'est aussi ce qui vous permet de nous opposer un accord que vous n'auriez
+        jamais donné.
       </li>
       <li>
         <strong>Votre adresse IP n'est jamais conservée en clair.</strong> Seule une empreinte
@@ -360,19 +361,19 @@ const TRAITEMENTS = [
     </div>
     <h3>Transmission à un professionnel partenaire</h3>
     <p>
-      Vos coordonnées ne sont transmises à un professionnel partenaire
-      <strong>que si vous avez coché la case prévue à cet effet</strong>, à la dernière étape du
-      formulaire d'estimation. Cette case n'est jamais pré-cochée, elle est distincte du bouton
-      d'envoi, et la refuser ne change rien&nbsp;: vous obtenez la même estimation et le même
-      rapport.
+      À la dernière étape du formulaire d'estimation, le bouton
+      <strong>«&nbsp;{CONSENT_PARTENAIRES.bouton}&nbsp;»</strong> vaut accord de transmission de
+      vos coordonnées à nos partenaires, comme l'indique la mention affichée juste en dessous.
     </p>
     <p>
-      Elle nomme les destinataires, et l'accord ne vaut que pour eux&nbsp;: à ce jour
-      <strong>{PARTENAIRES_DESTINATAIRES}</strong>. Si nous ajoutons un partenaire à cette liste,
+      L'accord ne vaut que pour les partenaires qui figuraient sur notre liste au moment où vous
+      l'avez donné&nbsp;: à ce jour <strong>{PARTENAIRES_DESTINATAIRES}</strong>. Si nous ajoutons un partenaire à cette liste,
       votre accord précédent ne le couvre pas — il faudra vous le redemander. Le texte exact
       soumis à votre approbation est aujourd'hui le suivant&nbsp;:
     </p>
-    <blockquote class="legal-quote">{CONSENT_PARTENAIRES.texte}</blockquote>
+    <blockquote class="legal-quote">
+      «&nbsp;{CONSENT_PARTENAIRES.bouton}&nbsp;» — {CONSENT_PARTENAIRES.texte}
+    </blockquote>
     <p>
       Le partenaire qui reçoit vos coordonnées devient responsable du traitement pour ses propres
       finalités et applique sa propre politique de confidentialité. Il ne peut pas les
@@ -432,8 +433,8 @@ const TRAITEMENTS = [
       </li>
       <li>
         <strong>Preuve d'un accord de transmission partenaire</strong>&nbsp;: 3 ans. C'est la seule
-        donnée d'identification écrite sur nos serveurs, et elle n'existe que si vous avez coché la
-        case.
+        donnée d'identification écrite sur nos serveurs, et elle n'est écrite qu'à l'envoi du
+        formulaire d'estimation.
       </li>
       <li>
         <strong>Journaux techniques anonymisés</strong>&nbsp;: 12 mois, purge automatisée
