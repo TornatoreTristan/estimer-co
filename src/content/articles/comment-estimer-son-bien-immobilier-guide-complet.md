@@ -24,6 +24,7 @@ faq:
     reponse: "Non. Le prix d'achat reflète le marché au moment de la transaction passée, pas le marché actuel. Entre-temps, les prix du quartier ont pu monter ou baisser, le bien a pu être rénové ou au contraire vieillir, et la réglementation énergétique a pu évoluer. Seule une comparaison avec des ventes récentes et similaires donne une base fiable."
   - question: "L'estimation proposée par RITMODiag est-elle gratuite et sans engagement ?"
     reponse: "Oui, l'estimation en ligne est gratuite et ne vous engage à rien. Elle vous donne une fourchette de prix indicative en quelques minutes, à partir des caractéristiques de votre bien."
+auteur: tristan-tornatore
 statut: publie
 datePublication: 2026-01-10
 dateMiseAJour: 2026-09-16

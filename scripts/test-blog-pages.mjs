@@ -69,6 +69,7 @@ import assert from 'node:assert/strict';
 import { parse as parseYaml } from 'yaml';
 
 import { CATEGORIES, getArticleUrl, getCategoryUrl } from '../src/lib/blog.ts';
+import { AUTEURS, AUTEUR_PAR_DEFAUT } from '../src/lib/auteurs.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -230,14 +231,35 @@ test('JSON-LD Article complet', () => {
   assert.equal(article.headline, pilierSource.data.title);
   assert.ok(article.datePublished);
   assert.ok(article.dateModified);
-  // `auteur` a une valeur par défaut posée par le schéma Zod
-  // (src/content.config.ts), absente de la lecture "brute" du frontmatter
-  // ci-dessus si le champ n'est pas renseigné dans le fichier source.
-  assert.equal(article.author.name, pilierSource.data.auteur ?? 'Équipe RITMODiag');
+  // `auteur` ne porte qu'un identifiant : la fiche vit dans src/lib/auteurs.ts,
+  // et le schéma Zod pose la valeur par défaut si le champ est absent.
+  const auteur = AUTEURS[pilierSource.data.auteur ?? AUTEUR_PAR_DEFAUT];
+  assert.equal(article.author['@type'], 'Person');
+  assert.equal(article.author.name, auteur.nom);
+  assert.equal(article.author.jobTitle, auteur.fonction);
+  assert.equal(article.author.description, auteur.bio);
+  assert.deepEqual(
+    article.author.sameAs,
+    auteur.liens.filter((lien) => lien.type === 'linkedin' || lien.type === 'x').map((lien) => lien.url)
+  );
   assert.equal(article.publisher.name, 'RITMODiag');
   assert.ok(article.publisher.logo.url);
   assert.ok(article.image);
   assert.equal(article.mainEntityOfPage['@id'], pilierUrl);
+});
+
+test("l'encadré auteur est présent et ciblé par le nom de l'en-tête", () => {
+  const auteur = AUTEURS[pilierSource.data.auteur ?? AUTEUR_PAR_DEFAUT];
+  assert.match(pilierHtml, /<aside[^>]*id="auteur"/);
+  assert.ok(pilierHtml.includes(auteur.nom), "nom de l'auteur absent de la page");
+  assert.match(pilierHtml, /href="#auteur"/);
+  for (const lien of auteur.liens) {
+    assert.ok(pilierHtml.includes(`href="${lien.url}"`), `lien ${lien.url} absent de l'encadré`);
+  }
+  if (auteur.photo) {
+    assert.ok(pilierHtml.includes(`src="${auteur.photo}"`), 'photo de l\'auteur absente');
+    assert.ok(existsSync(join(__dirname, '..', 'public', auteur.photo)), `fichier ${auteur.photo} introuvable dans public/`);
+  }
 });
 
 test("JSON-LD BreadcrumbList complet, identique au fil d'ariane", () => {

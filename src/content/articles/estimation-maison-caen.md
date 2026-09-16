@@ -29,6 +29,7 @@ faq:
     reponse: "Oui, c'est utile. Une estimation en ligne permet d'obtenir une première fourchette argumentée avant d'échanger avec une agence ou de préparer la mise en vente. Elle aide à mieux comprendre les avis de valeur que vous recevrez."
   - question: "Combien de temps faut-il pour obtenir une estimation sur estimer.co ?"
     reponse: "L'estimation sur estimer.co est conçue pour être rapide. Vous renseignez les informations essentielles sur votre bien et obtenez un rapport d'estimation pour mieux situer sa valeur sur le marché local."
+auteur: tristan-tornatore
 statut: publie
 datePublication: 2026-09-16
 dateMiseAJour: 2026-09-16

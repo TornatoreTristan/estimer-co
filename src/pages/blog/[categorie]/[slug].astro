@@ -6,8 +6,10 @@ import ArticleHeader from '../../../components/blog/ArticleHeader.astro';
 import RelatedArticles from '../../../components/blog/RelatedArticles.astro';
 import CtaEstimation from '../../../components/blog/CtaEstimation.astro';
 import FaqAccordion from '../../../components/blog/FaqAccordion.astro';
+import AuteurEncart from '../../../components/blog/AuteurEncart.astro';
 import JsonLd from '../../../components/seo/JsonLd.astro';
 import { BLOG_INDEX_URL, getArticleUrl, getCategory, getCategoryUrl, isPublished } from '../../../lib/blog';
+import { getAuteur, getProfilsSociaux } from '../../../lib/auteurs';
 import '../../../styles/blog-charts.css';
 
 // Uniquement les articles publiés (specs/blog-seo.md §3 "Article" : "Given un
@@ -30,6 +32,8 @@ const { data } = entry;
 const category = getCategory(data.categorie)!;
 const { Content } = await render(entry);
 
+const auteur = getAuteur(data.auteur);
+
 const pageTitle = data.metaTitle ?? data.title;
 const pageDescription = data.metaDescription ?? data.extrait;
 
@@ -48,8 +52,18 @@ const articleJsonLd = {
   datePublished: datePublication.toISOString(),
   dateModified: dateMiseAJour.toISOString(),
   author: {
-    '@type': 'Organization',
-    name: data.auteur,
+    '@type': 'Person',
+    name: auteur.nom,
+    jobTitle: auteur.fonction,
+    description: auteur.bio,
+    ...(auteur.photo && { image: new URL(auteur.photo, Astro.site).toString() }),
+    url: new URL(`${Astro.url.pathname}#auteur`, Astro.site).toString(),
+    sameAs: getProfilsSociaux(auteur),
+    worksFor: {
+      '@type': 'Organization',
+      name: 'Estimer.co',
+      url: Astro.site?.toString(),
+    },
   },
   publisher: {
     '@type': 'Organization',
@@ -94,7 +108,7 @@ const articleJsonLd = {
     extrait={data.extrait}
     image={data.image}
     imageAlt={data.imageAlt}
-    auteur={data.auteur}
+    auteur={auteur.nom}
     categorie={data.categorie}
     categoryLabel={category.label}
     datePublication={datePublication}
@@ -105,6 +119,7 @@ const articleJsonLd = {
     <div class="container">
       <div class="article-body__inner">
         <Content />
+        <AuteurEncart auteur={auteur} />
       </div>
     </div>
   </article>
