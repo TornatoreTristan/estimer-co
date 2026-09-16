@@ -1,5 +1,6 @@
 ---
 import ArticleCard from './ArticleCard.astro';
+import type { AuteurId } from '../../lib/auteurs';
 
 interface ArticleListItem {
   title: string;
@@ -10,6 +11,7 @@ interface ArticleListItem {
   categorie: string;
   slug: string;
   datePublication?: Date;
+  auteur?: AuteurId;
 }
 
 interface Props {

@@ -350,8 +350,12 @@ test("l'image d'un article illustre son en-tête, son og:image et ses cartes", (
     assert.ok(articleHtml.includes(`<meta property="og:image" content="https://estimer.co${data.image}"`), 'og:image ne reprend pas l\'image');
     for (const liste of ['blog/index.html', `blog/${data.categorie}/index.html`]) {
       const html = readDist(liste);
-      const carte = html.slice(html.indexOf(`href="${url}"`) - 200, html.indexOf(`href="${url}"`) + 600);
+      // La carte entière : de l'<article> qui précède le lien à sa fermeture.
+      const lien = html.indexOf(`href="${url}"`);
+      const carte = html.slice(html.lastIndexOf('<article', lien), html.indexOf('</article>', lien));
       assert.ok(carte.includes(`src="${data.image}"`), `${liste} : la carte n'affiche pas l'image`);
+      const auteur = AUTEURS[data.auteur ?? AUTEUR_PAR_DEFAUT];
+      assert.ok(carte.includes(auteur.nom), `${liste} : la carte n'affiche pas l'auteur`);
     }
   }
 });

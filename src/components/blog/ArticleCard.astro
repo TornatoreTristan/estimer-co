@@ -5,6 +5,7 @@
  * recomposée à la main ici.
  */
 import { getArticleUrl } from '../../lib/blog';
+import { AUTEUR_PAR_DEFAUT, getAuteur, type AuteurId } from '../../lib/auteurs';
 
 interface Props {
   title: string;
@@ -16,9 +17,22 @@ interface Props {
   categorie: string;
   slug: string;
   datePublication?: Date;
+  auteur?: AuteurId;
 }
 
-const { title, extrait, image, imageAlt, imageCadrage = 50, categorie, slug, datePublication } = Astro.props;
+const {
+  title,
+  extrait,
+  image,
+  imageAlt,
+  imageCadrage = 50,
+  categorie,
+  slug,
+  datePublication,
+  auteur: auteurId = AUTEUR_PAR_DEFAUT,
+} = Astro.props;
+
+const auteur = getAuteur(auteurId);
 
 const href = getArticleUrl(categorie, slug);
 
@@ -59,11 +73,20 @@ const dateIso = datePublication ? datePublication.toISOString().slice(0, 10) : u
     <a href={href}>{title}</a>
   </h3>
   {extrait && <p>{extrait}</p>}
-  {dateLisible && (
-    <time datetime={dateIso} class="article-card__date mono">
-      {dateLisible}
-    </time>
-  )}
+  <div class="article-card__meta mono">
+    {auteur.photo && <img src={auteur.photo} alt="" width="28" height="28" loading="lazy" decoding="async" />}
+    <span>
+      <span class="article-card__auteur">{auteur.nom}</span>
+      {
+        dateLisible && (
+          <>
+            {' · '}
+            <time datetime={dateIso}>{dateLisible}</time>
+          </>
+        )
+      }
+    </span>
+  </div>
 </article>
 
 <style>
@@ -96,10 +119,24 @@ const dateIso = datePublication ? datePublication.toISOString().slice(0, 10) : u
     margin-bottom: 1rem;
   }
 
-  .article-card__date {
+  .article-card__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
     font-size: var(--text-tiny);
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--text-faint);
+  }
+
+  .article-card__meta img {
+    flex: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    object-fit: cover;
+  }
+
+  .article-card__auteur {
+    color: var(--text-soft);
   }
 </style>
