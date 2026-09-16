@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Garde-fou CI — à exécuter avant `astro build` (cf. specs/cms-seo-tracking.md
- * §3 A3/C5/D1-D2, §4 "Gate de publication", §5 slugs réservés, Lot 0 §2 point 4).
+ * §3 A3/C5/D1-D2, §4 "Gate de publication", §5 slugs réservés, Lot 0 §2 point 4,
+ * et specs/blog-seo.md §4 pour la collection `articles`).
  *
  * Ce script ne réimplémente PAS ce que `src/content.config.ts` (Zod) valide
  * déjà : types, patterns, bornes numériques, unions/enums, et la règle
@@ -20,7 +21,7 @@
  *   3. Des invariants transverses qu'un schéma par-entrée ne peut pas
  *      exprimer : unicité de slug entre plusieurs fichiers/collections,
  *      liste de slugs réservés, existence effective d'une référence
- *      (`regionParente`) dans la collection cible.
+ *      (`regionParente`, `articlesLies`) dans la collection cible.
  *
  * Sortie : rapport texte groupé par fichier, code de sortie 1 si au moins une
  * ERREUR (les AVERTISSEMENTS n'affectent jamais le code de sortie).
@@ -36,10 +37,23 @@
  * jamais faire échouer un brouillon connu-incomplet : cette règle est ERREUR
  * bloquante pour `statut: publie`, et AVERTISSEMENT (non bloquant) pour
  * `statut: brouillon`. À confirmer avec le PO — voir rapport de livraison.
+ * `articlesLies` (specs/blog-seo.md §4) suit exactement la même logique.
+ *
+ * ---------------------------------------------------------------------------
+ * Import vs exécution CLI
+ * ---------------------------------------------------------------------------
+ * `scripts/test-blog-content.mjs` importe les fonctions pures ci-dessous
+ * (`countInternalLinks`, `checkArticleGate`, `checkSlugUniqueness`,
+ * `checkArticlesLies`, `RESERVED_PAGE_SLUGS`…) pour les exercer isolément,
+ * sans lire le vrai `src/content/` ni terminer le process de test avec
+ * `process.exit()`. C'est pourquoi la lecture des collections et le rapport
+ * final sont rassemblés dans `main()`, appelée uniquement quand ce fichier est
+ * exécuté directement (même garde que `scripts/build-gtm-container.mjs`).
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 
@@ -47,8 +61,9 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = join(__dirname, '..');
 const CONTENT_DIR = join(ROOT, 'src/content');
 
-// Slugs réservés pour la collection `pages` — cf. specs §5.
-const RESERVED_PAGE_SLUGS = new Set([
+// Slugs réservés pour la collection `pages` — cf. specs §5 et
+// specs/blog-seo.md §2 (`blog` : nouvelle racine de routes `/blog/**`).
+export const RESERVED_PAGE_SLUGS = new Set([
   'estimation',
   'carte',
   'contact',
@@ -58,6 +73,7 @@ const RESERVED_PAGE_SLUGS = new Set([
   'pages',
   'sitemap.xml',
   'index',
+  'blog',
 ]);
 
 const CHIFFRE_FIELDS = ['prixM2', 'prixMaisons', 'prixAppartements', 'evolution12Mois', 'evolution5Ans'];
@@ -65,7 +81,12 @@ const CHIFFRE_FIELDS = ['prixM2', 'prixMaisons', 'prixAppartements', 'evolution1
 /** @typedef {{ level: 'error' | 'warning', file: string, field: string, message: string }} Issue */
 
 /** @type {Issue[]} */
-const issues = [];
+export const issues = [];
+
+/** Vide le rapport d'issues — utilisé entre deux scénarios de test. */
+export function resetIssues() {
+  issues.length = 0;
+}
 
 function addError(file, field, message) {
   issues.push({ level: 'error', file, field, message });
@@ -75,7 +96,7 @@ function addWarning(file, field, message) {
   issues.push({ level: 'warning', file, field, message });
 }
 
-function isPresent(value) {
+export function isPresent(value) {
   if (value === undefined || value === null) return false;
   if (typeof value === 'string') return value.trim().length > 0;
   if (Array.isArray(value)) return value.length > 0;
@@ -90,7 +111,7 @@ function wordCount(text) {
     .filter(Boolean).length;
 }
 
-function bodyCharCount(text) {
+export function bodyCharCount(text) {
   return text.replace(/<!--[\s\S]*?-->/g, '').trim().length;
 }
 
@@ -133,18 +154,16 @@ function readEntries(collection) {
     });
 }
 
-const entriesByCollection = Object.fromEntries(
-  ['regions', 'departements', 'partenaires', 'pages'].map((c) => [c, readEntries(c)])
-);
-
 // -----------------------------------------------------------------------------
 // 1. Unicité des slugs — regions ∪ departements (même préfixe /estimation-immobiliere/)
 // -----------------------------------------------------------------------------
 // Toujours vérifié, quel que soit `statut` : une collision de slug écrase
 // silencieusement une page par l'autre au build, ce n'est jamais acceptable,
-// même en brouillon.
+// même en brouillon. Utilisé tel quel pour `articles` : l'unicité y est
+// globale, toutes catégories confondues (decision §0.3 de specs/blog-seo.md),
+// et une seule collection plate suffit à couvrir cette règle.
 
-function checkSlugUniqueness(entries, label) {
+export function checkSlugUniqueness(entries, label) {
   const bySlug = new Map();
   for (const entry of entries) {
     const slug = entry.data?.slug;
@@ -162,52 +181,35 @@ function checkSlugUniqueness(entries, label) {
   }
 }
 
-checkSlugUniqueness([...entriesByCollection.regions, ...entriesByCollection.departements], 'regions ∪ departements');
-checkSlugUniqueness(entriesByCollection.partenaires, 'partenaires');
-checkSlugUniqueness(entriesByCollection.pages, 'pages');
-
 // -----------------------------------------------------------------------------
-// 2. Slugs réservés — collection `pages`
+// 3bis. articlesLies doit référencer des slugs d'articles existants
 // -----------------------------------------------------------------------------
-// Toujours vérifié, quel que soit `statut` (specs §5 : "à vérifier en CI, pas
-// seulement à documenter" — un brouillon nommé "contact" est déjà dangereux).
+// Même sévérité graduée que regionParente : erreur bloquante pour un article
+// publié, avertissement pour un brouillon (qui peut légitimement pointer vers
+// un article pas encore écrit).
 
-for (const entry of entriesByCollection.pages) {
-  const slug = entry.data?.slug;
-  if (isPresent(slug) && RESERVED_PAGE_SLUGS.has(slug)) {
-    addError(entry.relPath, 'slug', `slug "${slug}" réservé (collision avec une route existante) — voir specs §5.`);
-  }
-}
+export function checkArticlesLies(entries) {
+  const knownArticleSlugs = new Set(entries.map((e) => e.data?.slug).filter(isPresent));
 
-// -----------------------------------------------------------------------------
-// 3. regionParente doit référencer une région existante
-// -----------------------------------------------------------------------------
+  for (const entry of entries) {
+    const articlesLies = Array.isArray(entry.data?.articlesLies) ? entry.data.articlesLies : [];
+    const statut = entry.data?.statut ?? 'brouillon';
 
-const knownRegionSlugs = new Set(entriesByCollection.regions.map((e) => e.data?.slug).filter(isPresent));
-
-for (const entry of entriesByCollection.departements) {
-  const regionParente = entry.data?.regionParente;
-  const statut = entry.data?.statut ?? 'brouillon';
-
-  if (!isPresent(regionParente)) {
-    if (statut === 'publie') {
-      addError(entry.relPath, 'regionParente', 'regionParente manquant (obligatoire pour publication — Gate §4.2).');
-    }
-    continue;
-  }
-
-  if (!knownRegionSlugs.has(regionParente)) {
-    const message = `regionParente="${regionParente}" ne correspond à aucune entrée de src/content/regions/.`;
-    if (statut === 'publie') {
-      addError(entry.relPath, 'regionParente', message);
-    } else {
-      addWarning(entry.relPath, 'regionParente', `${message} (brouillon : non bloquant, voir en-tête de ce script)`);
+    for (const slug of articlesLies) {
+      if (!knownArticleSlugs.has(slug)) {
+        const message = `articlesLies référence "${slug}", introuvable dans src/content/articles/.`;
+        if (statut === 'publie') {
+          addError(entry.relPath, 'articlesLies', message);
+        } else {
+          addWarning(entry.relPath, 'articlesLies', `${message} (brouillon : non bloquant)`);
+        }
+      }
     }
   }
 }
 
 // -----------------------------------------------------------------------------
-// 4. Gates de publication (§4) — uniquement pour statut = publie
+// Gates de publication (§4) — uniquement pour statut = publie
 // -----------------------------------------------------------------------------
 
 function checkZonePrixGate(entry, { isDepartement }) {
@@ -244,99 +246,227 @@ function checkZonePrixGate(entry, { isDepartement }) {
   }
 }
 
-for (const entry of entriesByCollection.regions) {
-  if (entry.data?.statut === 'publie') checkZonePrixGate(entry, { isDepartement: false });
+/**
+ * Compte les liens internes markdown vers `/estimation/` ou `/blog/` dans le
+ * corps de l'article (specs/blog-seo.md §4, dernier paragraphe : avertissement
+ * non bloquant s'il y en a moins de 2).
+ */
+export function countInternalLinks(body) {
+  const matches = body.match(/\]\(\s*(?:https:\/\/estimer\.co)?\/(?:estimation|blog)(?:\/[^)\s]*)?\/?\s*\)/g);
+  return matches ? matches.length : 0;
 }
 
-for (const entry of entriesByCollection.departements) {
-  if (entry.data?.statut === 'publie') checkZonePrixGate(entry, { isDepartement: true });
-}
-
-for (const entry of entriesByCollection.partenaires) {
+/** Gate de publication — collection `articles` (specs/blog-seo.md §4). */
+export function checkArticleGate(entry) {
   const { data, body, relPath } = entry;
-  if (data?.statut !== 'publie') continue;
-
-  if (!isPresent(data.description)) {
-    addError(relPath, 'description', 'manquant (obligatoire pour publication).');
-  }
-  if (!isPresent(data.categorie)) {
-    addError(relPath, 'categorie', 'manquant (obligatoire pour publication).');
-  }
-  if (!isPresent(data.url)) {
-    // Filet de sécurité : `url` est déjà `required` dans le schéma Zod, donc
-    // ce cas ne devrait jamais se produire (le build aurait échoué avant).
-    addError(relPath, 'url', 'manquant (obligatoire pour publication).');
-  }
-
-  const presentationLength = bodyCharCount(body);
-  if (presentationLength === 0) {
-    addError(relPath, 'presentation', 'corps de page vide (obligatoire pour publication).');
-  } else {
-    const words = wordCount(body);
-    if (words < 300) {
-      addWarning(relPath, 'presentation', `${words} mot(s) (≥ 300 mots recommandé, non bloquant).`);
-    }
-  }
-}
-
-for (const entry of entriesByCollection.pages) {
-  const { data, body, relPath } = entry;
-  if (data?.statut !== 'publie') continue;
 
   if (!isPresent(data.metaDescription)) {
     addError(relPath, 'metaDescription', 'manquant (obligatoire pour publication).');
   }
-  if (bodyCharCount(body) === 0) {
-    addError(relPath, 'contenu', 'corps de page vide (obligatoire pour publication).');
+  if (!isPresent(data.extrait)) {
+    addError(relPath, 'extrait', 'manquant (obligatoire pour publication).');
   }
-  if (data.gabarit === 'article') {
-    if (!isPresent(data.datePublication)) {
-      addError(relPath, 'datePublication', 'manquant (obligatoire pour publication d\'un article).');
+
+  const bodyLength = bodyCharCount(body);
+  if (bodyLength === 0) {
+    addError(relPath, 'contenu', "corps de l'article vide (obligatoire pour publication).");
+  } else if (bodyLength < 1200) {
+    addError(relPath, 'contenu', `corps de l'article trop court (${bodyLength} caractères, 1200 minimum requis).`);
+  }
+
+  if (!isPresent(data.datePublication)) {
+    addError(relPath, 'datePublication', 'manquant (obligatoire pour publication).');
+  }
+  if (!isPresent(data.dateMiseAJour)) {
+    addError(relPath, 'dateMiseAJour', 'manquant (obligatoire pour publication).');
+  }
+
+  if (isPresent(data.datePublication) && isPresent(data.dateMiseAJour)) {
+    const datePublication = new Date(data.datePublication);
+    const dateMiseAJour = new Date(data.dateMiseAJour);
+    if (dateMiseAJour.getTime() < datePublication.getTime()) {
+      addError(
+        relPath,
+        'dateMiseAJour',
+        `dateMiseAJour (${data.dateMiseAJour}) antérieure à datePublication (${data.datePublication}).`
+      );
     }
-    if (!isPresent(data.dateMiseAJour)) {
-      addError(relPath, 'dateMiseAJour', 'manquant (obligatoire pour publication d\'un article).');
-    }
+  }
+
+  const internalLinks = countInternalLinks(body);
+  if (internalLinks < 2) {
+    addWarning(
+      relPath,
+      'contenu',
+      `${internalLinks} lien(s) interne(s) vers /estimation/ ou /blog/ détecté(s) dans le corps (2 recommandés, non bloquant).`
+    );
   }
 }
 
 // -----------------------------------------------------------------------------
-// Rapport
+// Orchestration CLI — lit le vrai src/content/, applique toutes les
+// vérifications, imprime le rapport, quitte avec le bon code de sortie.
 // -----------------------------------------------------------------------------
 
-const errors = issues.filter((i) => i.level === 'error');
-const warnings = issues.filter((i) => i.level === 'warning');
+function main() {
+  const entriesByCollection = Object.fromEntries(
+    ['regions', 'departements', 'partenaires', 'pages', 'articles'].map((c) => [c, readEntries(c)])
+  );
 
-const totalEntries = Object.values(entriesByCollection).reduce((sum, e) => sum + e.length, 0);
-const publishedEntries = Object.values(entriesByCollection)
-  .flat()
-  .filter((e) => e.data?.statut === 'publie').length;
+  // 1. Unicité des slugs.
+  checkSlugUniqueness(
+    [...entriesByCollection.regions, ...entriesByCollection.departements],
+    'regions ∪ departements'
+  );
+  checkSlugUniqueness(entriesByCollection.partenaires, 'partenaires');
+  checkSlugUniqueness(entriesByCollection.pages, 'pages');
+  checkSlugUniqueness(entriesByCollection.articles, 'articles');
 
-console.log(`\nValidation du contenu — ${totalEntries} entrées lues (${publishedEntries} publiée(s)).\n`);
-
-if (issues.length === 0) {
-  console.log('Aucun problème détecté.\n');
-} else {
-  const byFile = new Map();
-  for (const issue of issues) {
-    if (!byFile.has(issue.file)) byFile.set(issue.file, []);
-    byFile.get(issue.file).push(issue);
-  }
-  for (const [file, fileIssues] of [...byFile.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    console.log(file);
-    for (const issue of fileIssues) {
-      const tag = issue.level === 'error' ? 'ERREUR ' : 'AVERTIR';
-      console.log(`  [${tag}] ${issue.field} — ${issue.message}`);
+  // 2. Slugs réservés — collection `pages`. Toujours vérifié, quel que soit
+  // `statut` (specs §5 : "à vérifier en CI, pas seulement à documenter" — un
+  // brouillon nommé "contact" est déjà dangereux).
+  for (const entry of entriesByCollection.pages) {
+    const slug = entry.data?.slug;
+    if (isPresent(slug) && RESERVED_PAGE_SLUGS.has(slug)) {
+      addError(entry.relPath, 'slug', `slug "${slug}" réservé (collision avec une route existante) — voir specs §5.`);
     }
   }
-  console.log('');
+
+  // 3. regionParente doit référencer une région existante.
+  const knownRegionSlugs = new Set(entriesByCollection.regions.map((e) => e.data?.slug).filter(isPresent));
+
+  for (const entry of entriesByCollection.departements) {
+    const regionParente = entry.data?.regionParente;
+    const statut = entry.data?.statut ?? 'brouillon';
+
+    if (!isPresent(regionParente)) {
+      if (statut === 'publie') {
+        addError(entry.relPath, 'regionParente', 'regionParente manquant (obligatoire pour publication — Gate §4.2).');
+      }
+      continue;
+    }
+
+    if (!knownRegionSlugs.has(regionParente)) {
+      const message = `regionParente="${regionParente}" ne correspond à aucune entrée de src/content/regions/.`;
+      if (statut === 'publie') {
+        addError(entry.relPath, 'regionParente', message);
+      } else {
+        addWarning(entry.relPath, 'regionParente', `${message} (brouillon : non bloquant, voir en-tête de ce script)`);
+      }
+    }
+  }
+
+  // 3bis. articlesLies doit référencer des slugs d'articles existants.
+  checkArticlesLies(entriesByCollection.articles);
+
+  // 4. Gates de publication.
+  for (const entry of entriesByCollection.regions) {
+    if (entry.data?.statut === 'publie') checkZonePrixGate(entry, { isDepartement: false });
+  }
+
+  for (const entry of entriesByCollection.departements) {
+    if (entry.data?.statut === 'publie') checkZonePrixGate(entry, { isDepartement: true });
+  }
+
+  for (const entry of entriesByCollection.partenaires) {
+    const { data, body, relPath } = entry;
+    if (data?.statut !== 'publie') continue;
+
+    if (!isPresent(data.description)) {
+      addError(relPath, 'description', 'manquant (obligatoire pour publication).');
+    }
+    if (!isPresent(data.categorie)) {
+      addError(relPath, 'categorie', 'manquant (obligatoire pour publication).');
+    }
+    if (!isPresent(data.url)) {
+      // Filet de sécurité : `url` est déjà `required` dans le schéma Zod, donc
+      // ce cas ne devrait jamais se produire (le build aurait échoué avant).
+      addError(relPath, 'url', 'manquant (obligatoire pour publication).');
+    }
+
+    const presentationLength = bodyCharCount(body);
+    if (presentationLength === 0) {
+      addError(relPath, 'presentation', 'corps de page vide (obligatoire pour publication).');
+    } else {
+      const words = wordCount(body);
+      if (words < 300) {
+        addWarning(relPath, 'presentation', `${words} mot(s) (≥ 300 mots recommandé, non bloquant).`);
+      }
+    }
+  }
+
+  for (const entry of entriesByCollection.pages) {
+    const { data, body, relPath } = entry;
+    if (data?.statut !== 'publie') continue;
+
+    if (!isPresent(data.metaDescription)) {
+      addError(relPath, 'metaDescription', 'manquant (obligatoire pour publication).');
+    }
+    if (bodyCharCount(body) === 0) {
+      addError(relPath, 'contenu', 'corps de page vide (obligatoire pour publication).');
+    }
+    if (data.gabarit === 'article') {
+      if (!isPresent(data.datePublication)) {
+        addError(relPath, 'datePublication', "manquant (obligatoire pour publication d'un article).");
+      }
+      if (!isPresent(data.dateMiseAJour)) {
+        addError(relPath, 'dateMiseAJour', "manquant (obligatoire pour publication d'un article).");
+      }
+    }
+  }
+
+  // 4bis. Gate de publication — collection `articles`.
+  for (const entry of entriesByCollection.articles) {
+    if (entry.data?.statut === 'publie') checkArticleGate(entry);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rapport
+  // ---------------------------------------------------------------------------
+
+  const errors = issues.filter((i) => i.level === 'error');
+  const warnings = issues.filter((i) => i.level === 'warning');
+
+  const totalEntries = Object.values(entriesByCollection).reduce((sum, e) => sum + e.length, 0);
+  const publishedEntries = Object.values(entriesByCollection)
+    .flat()
+    .filter((e) => e.data?.statut === 'publie').length;
+
+  console.log(`\nValidation du contenu — ${totalEntries} entrées lues (${publishedEntries} publiée(s)).\n`);
+
+  if (issues.length === 0) {
+    console.log('Aucun problème détecté.\n');
+  } else {
+    const byFile = new Map();
+    for (const issue of issues) {
+      if (!byFile.has(issue.file)) byFile.set(issue.file, []);
+      byFile.get(issue.file).push(issue);
+    }
+    for (const [file, fileIssues] of [...byFile.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      console.log(file);
+      for (const issue of fileIssues) {
+        const tag = issue.level === 'error' ? 'ERREUR ' : 'AVERTIR';
+        console.log(`  [${tag}] ${issue.field} — ${issue.message}`);
+      }
+    }
+    console.log('');
+  }
+
+  console.log(`Résumé : ${errors.length} erreur(s), ${warnings.length} avertissement(s).\n`);
+
+  if (errors.length > 0) {
+    console.error('Validation échouée.');
+    return 1;
+  }
+
+  console.log('Validation réussie (le build peut continuer).');
+  return 0;
 }
 
-console.log(`Résumé : ${errors.length} erreur(s), ${warnings.length} avertissement(s).\n`);
-
-if (errors.length > 0) {
-  console.error('Validation échouée.');
-  process.exit(1);
+// N'exécute `main()` (lecture du vrai src/content/, `console.log`, code de
+// sortie) que si ce fichier est lancé directement — jamais quand il est
+// importé par `scripts/test-blog-content.mjs`. Même garde que
+// `scripts/build-gtm-container.mjs`.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  process.exit(main());
 }
-
-console.log('Validation réussie (le build peut continuer).');
-process.exit(0);

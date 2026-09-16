@@ -1,5 +1,6 @@
 ---
 import { TRACKING_ACTIF } from '../lib/analytics';
+import { CATEGORIES, getCategoryUrl } from '../lib/blog';
 
 const annee = new Date().getFullYear();
 
@@ -20,6 +21,15 @@ const COLONNES = [
       { href: '/carte/', label: 'Prix par département' },
       { href: '/partenaires/', label: 'Réseau de partenaires' },
     ],
+  },
+  {
+    titre: 'Blog',
+    // Les 5 silos, dans l'ordre de `CATEGORIES` (src/lib/blog.ts) : source
+    // unique, cf. specs/blog-seo.md §6 — jamais recopiés en dur ici.
+    liens: CATEGORIES.map((category) => ({
+      href: getCategoryUrl(category.slug),
+      label: category.label,
+    })),
   },
   {
     titre: 'Entreprise',

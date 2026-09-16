@@ -1,0 +1,77 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import CategoryHero from '../../../components/blog/CategoryHero.astro';
+import ArticleList from '../../../components/blog/ArticleList.astro';
+import {
+  CATEGORIES,
+  BLOG_INDEX_URL,
+  getCategory,
+  getCategoryUrl,
+  getPublishedSortedArticles,
+} from '../../../lib/blog';
+
+// Un chemin par silo, y compris ceux qui n'ont encore aucun article publié
+// (specs/blog-seo.md §3 "Silo" : "Given un silo sans article publié, [...]
+// elle est quand même générée").
+export async function getStaticPaths() {
+  return CATEGORIES.map((category) => ({ params: { categorie: category.slug } }));
+}
+
+const { categorie } = Astro.params;
+// `categorie` provient de `getStaticPaths` ci-dessus, donc toujours l'un des
+// 5 slugs de `CATEGORIES` : le `!` est sûr.
+const category = getCategory(categorie)!;
+
+const allArticles = await getCollection('articles');
+const articles = getPublishedSortedArticles(
+  allArticles.filter((entry) => entry.data.categorie === categorie).map((entry) => entry.data)
+);
+---
+
+<BaseLayout title={`${category.label} | Blog Estimer mon bien`} description={category.description}>
+  <div class="container">
+    <Breadcrumb
+      items={[
+        { label: 'Accueil', href: '/' },
+        { label: 'Blog', href: BLOG_INDEX_URL },
+        { label: category.label, href: getCategoryUrl(category.slug) },
+      ]}
+    />
+  </div>
+
+  <CategoryHero title={category.label} description={category.description} />
+
+  <section class="section section--white">
+    <div class="container">
+      {
+        articles.length > 0 ? (
+          <ArticleList articles={articles} />
+        ) : (
+          <div class="empty-state">
+            <p>Bientôt de nouveaux contenus dans cette thématique.</p>
+            <a href="/estimation/" class="btn btn--primary btn--lg">
+              Estimer mon bien
+            </a>
+          </div>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .empty-state {
+    max-width: 32rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 1rem + 3vw, 3rem) 0;
+    text-align: center;
+  }
+
+  .empty-state p {
+    margin-bottom: 1.5rem;
+    color: var(--text-soft);
+    font-size: var(--text-md);
+  }
+</style>

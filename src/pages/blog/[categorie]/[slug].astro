@@ -1,0 +1,198 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import ArticleHeader from '../../../components/blog/ArticleHeader.astro';
+import RelatedArticles from '../../../components/blog/RelatedArticles.astro';
+import CtaEstimation from '../../../components/blog/CtaEstimation.astro';
+import FaqAccordion from '../../../components/blog/FaqAccordion.astro';
+import JsonLd from '../../../components/seo/JsonLd.astro';
+import { BLOG_INDEX_URL, getArticleUrl, getCategory, getCategoryUrl, isPublished } from '../../../lib/blog';
+
+// Uniquement les articles publiés (specs/blog-seo.md §3 "Article" : "Given un
+// article brouillon, [...] aucune page n'est générée"). La route utilise la
+// catégorie DE L'ARTICLE (pas une combinatoire catégorie × slug) : un article
+// n'a donc jamais deux URLs.
+export async function getStaticPaths() {
+  const entries = await getCollection('articles', ({ data }) => isPublished(data));
+  return entries.map((entry) => ({
+    params: { categorie: entry.data.categorie, slug: entry.data.slug },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { data } = entry;
+// `getCategory` ne peut pas renvoyer `undefined` ici : `data.categorie` est
+// validée par l'enum Zod de `src/content.config.ts`, synchronisée avec
+// `CategorieSlug` (src/lib/blog.ts).
+const category = getCategory(data.categorie)!;
+const { Content } = await render(entry);
+
+const pageTitle = data.metaTitle ?? data.title;
+const pageDescription = data.metaDescription ?? data.extrait;
+
+// Toujours définies pour un article publié (Gate de publication,
+// scripts/validate-content.mjs) : le `!` reflète cette garantie, pas une
+// supposition optimiste.
+const datePublication = data.datePublication!;
+const dateMiseAJour = data.dateMiseAJour!;
+
+const articleJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: data.title,
+  description: pageDescription,
+  image: new URL(data.image ?? '/icon-512.png', Astro.site).toString(),
+  datePublished: datePublication.toISOString(),
+  dateModified: dateMiseAJour.toISOString(),
+  author: {
+    '@type': 'Organization',
+    name: data.auteur,
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: 'RITMODiag',
+    logo: {
+      '@type': 'ImageObject',
+      url: new URL('/logos/ritmodiag.svg', Astro.site).toString(),
+    },
+  },
+  mainEntityOfPage: {
+    '@type': 'WebPage',
+    '@id': new URL(Astro.url.pathname, Astro.site).toString(),
+  },
+};
+---
+
+<BaseLayout
+  title={pageTitle}
+  description={pageDescription}
+  type="article"
+  image={data.image}
+  publishedTime={datePublication}
+  modifiedTime={dateMiseAJour}
+>
+  <Fragment slot="head">
+    <JsonLd data={articleJsonLd} />
+  </Fragment>
+
+  <div class="container">
+    <Breadcrumb
+      items={[
+        { label: 'Accueil', href: '/' },
+        { label: 'Blog', href: BLOG_INDEX_URL },
+        { label: category.label, href: getCategoryUrl(category.slug) },
+        { label: data.title, href: getArticleUrl(data.categorie, data.slug) },
+      ]}
+    />
+  </div>
+
+  <ArticleHeader
+    title={data.title}
+    extrait={data.extrait}
+    image={data.image}
+    imageAlt={data.imageAlt}
+    auteur={data.auteur}
+    categorie={data.categorie}
+    categoryLabel={category.label}
+    datePublication={datePublication}
+    dateMiseAJour={dateMiseAJour}
+  />
+
+  <article class="article-body">
+    <div class="container">
+      <div class="article-body__inner">
+        <Content />
+      </div>
+    </div>
+  </article>
+
+  <div class="container">
+    <div class="article-body__inner">
+      <CtaEstimation />
+    </div>
+  </div>
+
+  <FaqAccordion faq={data.faq} />
+
+  <RelatedArticles currentSlug={data.slug} categorie={data.categorie} articlesLies={data.articlesLies} />
+</BaseLayout>
+
+<style>
+  /* Largeur de lecture ~70ch (specs/blog-seo.md §6), volontairement distincte
+     de `.container--narrow` (56rem, calibrée pour les pages légales à deux
+     colonnes) : le corps d'article n'a qu'une colonne, 70ch est la largeur de
+     lecture recommandée quel que soit le rendu final de la police. */
+  .article-body__inner {
+    max-width: 70ch;
+    margin: 0 auto;
+  }
+
+  .article-body {
+    padding: clamp(1.5rem, 1rem + 2vw, 2.5rem) 0 clamp(2rem, 1rem + 3vw, 3rem);
+  }
+
+  .article-body :global(h2) {
+    font-size: var(--h3);
+    margin: 2.5rem 0 1rem;
+  }
+
+  .article-body :global(h2:first-child) {
+    margin-top: 0;
+  }
+
+  .article-body :global(h3) {
+    font-size: var(--text-lg);
+    margin: 2rem 0 0.75rem;
+  }
+
+  .article-body :global(p) {
+    font-size: var(--text-base);
+    line-height: 1.7;
+    color: var(--text-soft);
+    margin-bottom: 1.25rem;
+  }
+
+  .article-body :global(ul),
+  .article-body :global(ol) {
+    margin: 0 0 1.25rem;
+    padding-left: 1.25rem;
+    display: grid;
+    gap: 0.5rem;
+    color: var(--text-soft);
+  }
+
+  .article-body :global(li) {
+    line-height: 1.6;
+  }
+
+  .article-body :global(li)::marker {
+    color: var(--orange-75);
+  }
+
+  .article-body :global(a) {
+    color: var(--text);
+    text-decoration: underline;
+    text-decoration-color: var(--orange-50);
+    text-underline-offset: 0.2em;
+    transition: color 0.2s var(--ease);
+  }
+
+  .article-body :global(a:hover) {
+    color: var(--orange);
+  }
+
+  .article-body :global(strong) {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .article-body :global(blockquote) {
+    margin: 1.5rem 0;
+    padding-left: 1.25rem;
+    border-left: 2px solid var(--orange-25);
+    color: var(--text-soft);
+    font-style: italic;
+  }
+</style>

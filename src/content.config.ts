@@ -76,6 +76,15 @@ const categorieEnum = z.enum([
 
 const gabaritEnum = z.enum(['page-simple', 'article']);
 
+// Doit rester synchronisé avec `CategorieSlug` dans `src/lib/blog.ts` (specs/blog-seo.md §4).
+const articleCategorieEnum = z.enum([
+  'estimation-immobiliere',
+  'prix-immobilier',
+  'vendre',
+  'dpe-travaux',
+  'villes',
+]);
+
 /** Ajoute la règle « imageAlt obligatoire dès que image est renseignée ». */
 function withImageAltRule<T extends z.ZodObject<{ image?: z.ZodTypeAny; imageAlt?: z.ZodTypeAny }>>(
   schema: T
@@ -179,4 +188,44 @@ const pages = defineCollection({
   ),
 });
 
-export const collections = { regions, departements, partenaires, pages };
+// Collection `articles` — blog SEO longue traîne (specs/blog-seo.md §4).
+// Mêmes règles que les autres collections (voir en-tête de fichier) : les
+// champs marqués « pour publier » dans les specs (metaDescription, extrait,
+// datePublication, dateMiseAJour, corps Markdown ≥ 1200 caractères) restent
+// `.optional()` ici pour ne jamais faire échouer un brouillon incomplet ; ils
+// sont rendus obligatoires par la Gate de publication de
+// `scripts/validate-content.mjs`, qui vérifie aussi : l'unicité globale des
+// slugs (§0.3), l'existence des slugs référencés par `articlesLies`, et
+// `dateMiseAJour >= datePublication`.
+const articles = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/articles' }),
+  schema: withImageAltRule(
+    z.object({
+      slug: slugField,
+      categorie: articleCategorieEnum,
+      title: z.string().min(1),
+      metaTitle: z.string().optional(),
+      metaDescription: z.string().min(50).max(160).optional(),
+      extrait: z.string().min(50).max(200).optional(),
+      // `contenu` (corps Markdown, ≥ 1200 caractères pour publier) : non
+      // couvert ici, voir en-tête de fichier.
+      image: z.string().optional(),
+      imageAlt: z.string().optional(),
+      auteur: z.string().default('Équipe RITMODiag'),
+      faq: z.array(faqEntrySchema).max(10).optional(),
+      // Simples chaînes (slugs), pas de reference() : `articlesLies` cible le
+      // champ `slug` d'un autre article, pas l'id de fichier qu'Astro
+      // utiliserait pour résoudre une reference() — l'existence effective est
+      // vérifiée par scripts/validate-content.mjs.
+      articlesLies: z.array(slugField).max(4).optional(),
+      // Usage interne (non affiché) — pas de contrainte de forme.
+      motsClesCibles: z.array(z.string().min(1)).optional(),
+      statut: statutField,
+      datePublication: z.coerce.date().optional(),
+      dateMiseAJour: z.coerce.date().optional(),
+      ordreAffichage: z.number().optional(),
+    })
+  ),
+});
+
+export const collections = { regions, departements, partenaires, pages, articles };
