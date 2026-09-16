@@ -47,6 +47,7 @@
 import { defineCollection, reference } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
+import { AUTEUR_IDS, AUTEUR_PAR_DEFAUT } from './lib/auteurs';
 
 const slugPattern = /^[a-z0-9-]+$/;
 const slugField = z
@@ -211,7 +212,8 @@ const articles = defineCollection({
       // couvert ici, voir en-tête de fichier.
       image: z.string().optional(),
       imageAlt: z.string().optional(),
-      auteur: z.string().default('Équipe RITMODiag'),
+      // Identifiant d'une fiche de src/lib/auteurs.ts (nom, fonction, bio).
+      auteur: z.enum(AUTEUR_IDS).default(AUTEUR_PAR_DEFAUT),
       faq: z.array(faqEntrySchema).max(10).optional(),
       // Simples chaînes (slugs), pas de reference() : `articlesLies` cible le
       // champ `slug` d'un autre article, pas l'id de fichier qu'Astro

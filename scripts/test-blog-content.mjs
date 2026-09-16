@@ -46,6 +46,7 @@ import {
   checkArticlesLies,
   checkArticleGate,
 } from './validate-content.mjs';
+import { AUTEURS, AUTEUR_IDS, AUTEUR_PAR_DEFAUT, getAuteur } from '../src/lib/auteurs.ts';
 
 // -----------------------------------------------------------------------------
 // src/lib/blog.ts — catégories
@@ -337,4 +338,22 @@ test('checkArticleGate : avertissement non bloquant sous 2 liens internes', () =
   assert.equal(issues.filter((i) => i.level === 'error').length, 0, 'ne doit jamais bloquer le build');
   const warning = issues.find((i) => i.field === 'contenu' && i.level === 'warning');
   assert.ok(warning, 'attendu : un avertissement sous 2 liens internes');
+});
+
+// -----------------------------------------------------------------------------
+// src/lib/auteurs.ts
+// -----------------------------------------------------------------------------
+
+test("l'auteur par défaut existe et figure dans l'enum du schéma", () => {
+  assert.ok(AUTEUR_IDS.includes(AUTEUR_PAR_DEFAUT));
+  assert.equal(getAuteur(AUTEUR_PAR_DEFAUT).id, AUTEUR_PAR_DEFAUT);
+});
+
+test('chaque fiche auteur est complète et indexée par son id', () => {
+  for (const [id, auteur] of Object.entries(AUTEURS)) {
+    assert.equal(auteur.id, id);
+    for (const champ of ['nom', 'fonction', 'bio', 'initiales']) {
+      assert.ok(auteur[champ].trim().length > 0, `${id} : ${champ} vide`);
+    }
+  }
 });
