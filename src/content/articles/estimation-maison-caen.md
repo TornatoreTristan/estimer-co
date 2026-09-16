@@ -50,6 +50,41 @@ D'après les données consultées en septembre 2026 :
 - Meilleurs Agents indique un prix moyen autour de **3 238 €/m² tous types de biens confondus**, avec environ **3 744 €/m² pour les maisons** et **3 130 €/m² pour les appartements**.
 - SeLoger affiche des ordres de grandeur proches, avec environ **3 045 €/m² pour les appartements** et **3 769 €/m² pour les maisons**, avec de fortes fourchettes selon les biens.
 
+<figure class="chart" aria-labelledby="chart-prix-caen-titre">
+<figcaption>
+<div class="chart__title" id="chart-prix-caen-titre">Prix moyen au m² à Caen : les maisons au-dessus des appartements</div>
+<div class="chart__subtitle">Deux portails, des ordres de grandeur proches (€/m², septembre 2026)</div>
+</figcaption>
+<div class="chart__legend" aria-hidden="true"><span class="chart__key chart__key--maison">Maisons</span><span class="chart__key chart__key--appartement">Appartements</span></div>
+<div class="bars" aria-hidden="true">
+<div class="bars__group">
+<div class="bars__label">Meilleurs Agents</div>
+<div class="bars__row" title="Meilleurs Agents · Maisons : 3 744 €/m²"><span class="bars__bar bars__bar--maison" style="--value: 93.6%"></span><span class="bars__value">3 744 €</span></div>
+<div class="bars__row" title="Meilleurs Agents · Appartements : 3 130 €/m²"><span class="bars__bar bars__bar--appartement" style="--value: 78.25%"></span><span class="bars__value">3 130 €</span></div>
+</div>
+<div class="bars__group">
+<div class="bars__label">SeLoger</div>
+<div class="bars__row" title="SeLoger · Maisons : 3 769 €/m²"><span class="bars__bar bars__bar--maison" style="--value: 94.225%"></span><span class="bars__value">3 769 €</span></div>
+<div class="bars__row" title="SeLoger · Appartements : 3 045 €/m²"><span class="bars__bar bars__bar--appartement" style="--value: 76.125%"></span><span class="bars__value">3 045 €</span></div>
+</div>
+</div>
+<div class="bars__axis" aria-hidden="true"><span class="bars__tick" style="--at: 0%">0</span><span class="bars__tick" style="--at: 25%">1 000</span><span class="bars__tick" style="--at: 50%">2 000</span><span class="bars__tick" style="--at: 75%">3 000</span><span class="bars__tick" style="--at: 100%">4 000</span></div>
+<div class="chart__source">Sources : Meilleurs Agents et SeLoger, données consultées en septembre 2026. Repères de marché, pas une valeur pour un bien précis.</div>
+<details class="chart__data">
+<summary>Voir les données du graphique</summary>
+<div class="chart__table-wrap">
+<table>
+<caption class="sr-only">Prix moyen au m² à Caen par source et type de bien, septembre 2026</caption>
+<thead><tr><th scope="col">Source</th><th scope="col">Maisons</th><th scope="col">Appartements</th><th scope="col">Tous biens</th></tr></thead>
+<tbody>
+<tr><th scope="row">Meilleurs Agents</th><td>3 744 €/m²</td><td>3 130 €/m²</td><td>3 238 €/m²</td></tr>
+<tr><th scope="row">SeLoger</th><td>3 769 €/m²</td><td>3 045 €/m²</td><td>—</td></tr>
+</tbody>
+</table>
+</div>
+</details>
+</figure>
+
 Ces chiffres doivent être lus comme des **indicateurs de marché**, pas comme une valeur définitive. Deux maisons de même surface peuvent avoir plusieurs dizaines de milliers d'euros d'écart selon leur emplacement exact, leur état, leur terrain, leur performance énergétique ou encore la qualité de leur rénovation. Pour aller plus loin sur la lecture du [prix immobilier au m²](/blog/prix-immobilier/), consultez nos guides dédiés.
 
 ## Pourquoi les prix varient autant à Caen ?
@@ -238,6 +273,19 @@ Imaginons deux maisons de surface proche à Caen.
 La première est bien située, lumineuse, avec un jardin agréable, un bon DPE et peu de travaux à prévoir. Elle peut attirer rapidement des acheteurs et se positionner dans la partie haute de sa fourchette.
 
 La seconde possède la même surface, mais nécessite une rénovation énergétique, présente une distribution moins pratique et se trouve dans un environnement moins recherché. Même avec une surface équivalente, sa valeur peut être inférieure.
+
+<figure class="chart" aria-labelledby="chart-fourchette-titre" aria-describedby="chart-fourchette-desc">
+<figcaption>
+<div class="chart__title" id="chart-fourchette-titre">Même surface, deux positions dans la fourchette</div>
+<div class="chart__subtitle" id="chart-fourchette-desc">Schéma illustratif, sans valeurs chiffrées : la maison A, rénovée et bien classée au DPE, se place dans le haut de la fourchette ; la maison B, avec une rénovation énergétique à prévoir, dans le bas.</div>
+</figcaption>
+<div class="range" aria-hidden="true">
+<div class="range__markers"><span class="range__marker" style="--at: 20%">Maison B</span><span class="range__marker" style="--at: 82%">Maison A</span></div>
+<div class="range__zones"><span class="range__zone range__zone--bas"></span><span class="range__zone range__zone--central"></span><span class="range__zone range__zone--haut"></span></div>
+<div class="range__zone-labels"><span>Prix bas de sécurité</span><span>Valeur centrale</span><span>Prix haut défendable</span></div>
+<div class="range__axis">Valeur estimée →</div>
+</div>
+</figure>
 
 C'est pourquoi une estimation fiable ne se résume jamais à une simple multiplication :
 

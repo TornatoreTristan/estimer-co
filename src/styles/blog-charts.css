@@ -1,0 +1,276 @@
+/*
+ * Graphiques des articles de blog, écrits en HTML dans le Markdown.
+ *
+ * HTML/CSS plutôt que SVG : le texte garde sa taille réelle sur mobile au lieu
+ * de rétrécir avec le viewBox, et la page reste sans JS (le survol passe par
+ * l'attribut `title`). Les couleurs de série sont validées pour la lisibilité
+ * daltonienne sur le fond beige ; l'orange est sous 3:1, d'où les valeurs
+ * écrites en bout de barre et le tableau de données sous chaque graphique.
+ */
+
+.article-body .chart {
+  --chart-maison: #7a3f72;
+  --chart-appartement: var(--orange);
+  --chart-grid: var(--aubergine-6);
+  --chart-axis: var(--aubergine-5);
+  --chart-track: var(--beige-50);
+
+  margin: 2rem 0;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  background: var(--beige-10);
+}
+
+.article-body .chart__title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.article-body .chart__subtitle {
+  margin-top: 0.25rem;
+  font-size: var(--text-sm);
+  color: var(--text-soft);
+}
+
+.article-body .chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 1rem 0 0.75rem;
+  font-size: var(--text-sm);
+  color: var(--text-soft);
+}
+
+.article-body .chart__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.article-body .chart__key::before {
+  content: "";
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--key-color);
+}
+
+.article-body .chart__key--maison {
+  --key-color: var(--chart-maison);
+}
+
+.article-body .chart__key--appartement {
+  --key-color: var(--chart-appartement);
+}
+
+/* --- Barres horizontales groupées ------------------------------------- */
+
+.article-body .bars {
+  display: grid;
+  gap: 1rem;
+}
+
+.article-body .bars__group {
+  display: grid;
+  gap: 2px;
+}
+
+.article-body .bars__label {
+  margin-bottom: 0.25rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.article-body .bars__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Fond quadrillé tous les 1 000 €/m² sur une échelle de 0 à 4 000. */
+  background-image: linear-gradient(to right, var(--chart-grid) 1px, transparent 1px);
+  background-size: 25% 100%;
+  /* La marge droite réserve la place de la valeur en bout de barre. */
+  margin-right: 4.5rem;
+}
+
+.article-body .bars__bar {
+  flex: none;
+  width: var(--value);
+  height: 1.25rem;
+  background: var(--bar-color);
+}
+
+.article-body .bars__bar--maison {
+  --bar-color: var(--chart-maison);
+}
+
+.article-body .bars__bar--appartement {
+  --bar-color: var(--chart-appartement);
+}
+
+.article-body .bars__value {
+  flex: none;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.article-body .bars__axis {
+  position: relative;
+  height: 1.25rem;
+  margin: 0.5rem 4.5rem 0 0;
+  border-top: 1px solid var(--chart-axis);
+  font-size: var(--text-tiny);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+.article-body .bars__tick {
+  position: absolute;
+  top: 0.25rem;
+  left: var(--at);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.article-body .bars__tick:first-child {
+  transform: none;
+}
+
+.article-body .bars__tick:last-child {
+  transform: translateX(-100%);
+}
+
+/* --- Fourchette d'estimation (schéma sans valeurs chiffrées) ---------- */
+
+.article-body .range {
+  margin-top: 1.25rem;
+}
+
+.article-body .range__zones {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2px;
+}
+
+.article-body .range__zone {
+  height: 1.5rem;
+}
+
+.article-body .range__zone--bas {
+  background: var(--orange-25);
+}
+
+.article-body .range__zone--central {
+  background: var(--orange-75);
+}
+
+.article-body .range__zone--haut {
+  background: var(--orange);
+}
+
+.article-body .range__zone-labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2px;
+  margin-top: 0.5rem;
+  font-size: var(--text-tiny);
+  line-height: 1.35;
+  color: var(--text-soft);
+}
+
+.article-body .range__zone-labels > :nth-child(2) {
+  text-align: center;
+}
+
+.article-body .range__zone-labels > :nth-child(3) {
+  text-align: right;
+}
+
+.article-body .range__markers {
+  position: relative;
+  height: 3.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.article-body .range__marker {
+  position: absolute;
+  bottom: 0;
+  left: var(--at);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.article-body .range__marker::after {
+  content: "";
+  width: 2px;
+  height: 1rem;
+  margin-top: 0.25rem;
+  background: var(--aubergine-0);
+}
+
+.article-body .range__axis {
+  margin-top: 0.75rem;
+  font-size: var(--text-tiny);
+  color: var(--text-faint);
+  text-align: right;
+}
+
+/* --- Source et données ------------------------------------------------ */
+
+.article-body .chart__source {
+  margin-top: 1rem;
+  font-size: var(--text-tiny);
+  color: var(--text-faint);
+}
+
+.article-body .chart__data {
+  margin-top: 0.75rem;
+  font-size: var(--text-sm);
+}
+
+.article-body .chart__data summary {
+  cursor: pointer;
+  color: var(--text-soft);
+}
+
+.article-body .chart__data summary:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.article-body .chart__table-wrap {
+  overflow-x: auto;
+  margin-top: 0.75rem;
+}
+
+.article-body .chart__data table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.article-body .chart__data th,
+.article-body .chart__data td {
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.article-body .chart__data td:not(:first-child),
+.article-body .chart__data th:not(:first-child) {
+  text-align: right;
+}
+
+.article-body .chart__data th {
+  font-weight: 600;
+  color: var(--text);
+}
