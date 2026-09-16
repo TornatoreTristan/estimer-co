@@ -9,7 +9,7 @@ import FaqAccordion from '../../../components/blog/FaqAccordion.astro';
 import AuteurEncart from '../../../components/blog/AuteurEncart.astro';
 import JsonLd from '../../../components/seo/JsonLd.astro';
 import { BLOG_INDEX_URL, getArticleUrl, getCategory, getCategoryUrl, isPublished } from '../../../lib/blog';
-import { getAuteur } from '../../../lib/auteurs';
+import { getAuteur, getProfilsSociaux } from '../../../lib/auteurs';
 import '../../../styles/blog-charts.css';
 
 // Uniquement les articles publiés (specs/blog-seo.md §3 "Article" : "Given un
@@ -58,6 +58,7 @@ const articleJsonLd = {
     description: auteur.bio,
     ...(auteur.photo && { image: new URL(auteur.photo, Astro.site).toString() }),
     url: new URL(`${Astro.url.pathname}#auteur`, Astro.site).toString(),
+    sameAs: getProfilsSociaux(auteur),
     worksFor: {
       '@type': 'Organization',
       name: 'Estimer.co',
