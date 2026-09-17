@@ -322,6 +322,15 @@ test('404.html est en noindex et sans canonical', () => {
   assert.doesNotMatch(html, /<link rel="canonical"/);
 });
 
+// Sans `error_page`, nginx sert sa propre page blanche et `404.html` n'est
+// jamais vu : la page n'existe que si l'image Docker la branche.
+test("nginx sert 404.html pour les URL inconnues", () => {
+  const conf = readFileSync(new URL('../nginx.conf', import.meta.url), 'utf8');
+  assert.match(conf, /^\s*error_page\s+404\s+\/404\.html;/m);
+  const dockerfile = readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
+  assert.match(dockerfile, /^COPY nginx\.conf \/etc\/nginx\/conf\.d\/default\.conf$/m);
+});
+
 // -----------------------------------------------------------------------------
 // 8. Lien « Blog » dans le Header.
 // -----------------------------------------------------------------------------
