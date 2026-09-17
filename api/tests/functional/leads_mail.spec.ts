@@ -130,7 +130,7 @@ test.group('POST /v1/leads — envoi transactionnel', (group) => {
     )
     const preuve = rows[0]
 
-    assert.exists(preuve, 'Aucune preuve écrite alors que l\'accord était donné.')
+    assert.exists(preuve, "Aucune preuve écrite alors que l'accord était donné.")
     assert.equal(preuve.email, LEAD_ESTIMATION.email)
     assert.equal(preuve.phone, LEAD_ESTIMATION.phone)
     assert.equal(preuve.consent_version, CURRENT_PARTNER_CONSENT_VERSION)

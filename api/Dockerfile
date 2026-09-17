@@ -38,13 +38,26 @@ FROM node:24-alpine AS production
 
 # `dumb-init` assure la propagation de SIGTERM au processus Node : sans lui,
 # un arrêt Coolify couperait les connexions en cours au lieu de les drainer.
-RUN apk add --no-cache dumb-init
+#
+# `git` est requis par le module d'automatisation IA du blog
+# (specs/blog-automatisation-ia.md §1.3) : l'API clone/fetch/push une copie de
+# travail du dépôt (`BLOG_GIT_WORKDIR`) en ligne de commande, jamais via un
+# binding natif.
+RUN apk add --no-cache dumb-init git
 
 ENV NODE_ENV=production
 ENV PORT=3333
 ENV HOST=0.0.0.0
 
 WORKDIR /app
+
+# Volume persistant pour `BLOG_GIT_WORKDIR` (défaut `/data/blog-repo`, cf.
+# `.env.example`) : la copie de travail Git survit aux redéploiements, pour ne
+# jamais recloner le dépôt entier à chaque démarrage du conteneur.
+# Appartient à `node` (le process tourne sous cet utilisateur, cf. `USER`
+# ci-dessous) : sans ce `chown`, `git clone` échouerait en écriture.
+RUN mkdir -p /data/blog-repo && chown -R node:node /data/blog-repo
+VOLUME ["/data/blog-repo"]
 
 # L'image node fournit déjà un utilisateur non privilégié `node`.
 COPY --chown=node:node --from=deps-prod /app/node_modules ./node_modules

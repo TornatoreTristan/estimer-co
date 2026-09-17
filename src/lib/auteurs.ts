@@ -6,9 +6,31 @@
  * fois, pour rester identiques sur tous les articles (en-tête, encadré
  * « À propos de l'auteur » et JSON-LD `Person`, qui nourrit l'E-E-A-T).
  *
+ * Depuis specs/blog-automatisation-ia.md §1.1, chaque auteur est un fichier
+ * `src/content/auteurs/<id>.json` (l'id est le nom de fichier, sans
+ * extension) : l'agent IA peut en créer un nouveau (via l'API `api/`) sans
+ * toucher au code. Ce module reste un loader synchrone qui lit ce dossier au
+ * chargement — même contrat qu'avant (`AUTEURS`, `AUTEUR_IDS`,
+ * `AUTEUR_PAR_DEFAUT`) pour ne rien changer au rendu ni à
+ * `src/content.config.ts`.
+ *
  * Module pur, sans import Astro : `src/content.config.ts` en tire l'enum du
- * champ `auteur`, et les tests l'importent directement.
+ * champ `auteur`, et les tests l'importent directement. `readdirSync` (plutôt
+ * que `import.meta.glob`, propre à Vite) marche à la fois sous Astro/Vite et
+ * sous `node --test` — Node exécute nativement ce fichier TypeScript sans
+ * transpilation côté projet.
+ *
+ * Résolution du dossier via `process.cwd()`, pas `import.meta.url` : Astro
+ * bundle ce module et déplace les chunks pendant `astro build`
+ * (`.astro/.prerender/chunks/…`), ce qui casserait un chemin relatif au
+ * fichier source (constaté : `ENOENT .astro/.prerender/content/auteurs`).
+ * `astro dev`/`astro build`/`node --test` sont toujours lancés depuis la
+ * racine du projet (voir `package.json`), ce qui rend `process.cwd()` fiable
+ * dans les deux environnements.
  */
+
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 export type TypeLien = 'linkedin' | 'x' | 'site' | 'email';
 
@@ -34,40 +56,67 @@ export interface Auteur {
   liens: readonly LienAuteur[];
 }
 
-export const AUTEURS = {
-  'tristan-tornatore': {
-    id: 'tristan-tornatore',
-    nom: 'Tristan TORNATORE',
-    fonction: "Cofondateur d'Estimer.co",
-    bio:
-      "Passionné par l'immobilier, j'ai acheté mon premier investissement locatif à 25 ans et participé " +
-      'au développement de la franchise RITMODiag pour la réalisation des diagnostics immobiliers dans le ' +
-      "cadre de vente ou location d'appartement. Plus récemment, j'ai également entrepris dans " +
-      "l'optimisation de biens immobiliers dans une entreprise de rénovation et de travaux d'entretien.",
-    photo: '/auteurs/tristan-tornatore.webp',
-    initiales: 'TT',
-    liens: [
-      {
-        type: 'linkedin',
-        url: 'https://www.linkedin.com/in/tristan-digital-freelance/',
-        texte: 'LinkedIn',
-        libelle: 'Profil LinkedIn de Tristan TORNATORE',
-      },
-      { type: 'x', url: 'https://x.com/TristanDev_', texte: 'X', libelle: 'Profil X de Tristan TORNATORE' },
-      { type: 'site', url: 'https://ritmodiag.com', texte: 'ritmodiag.com', libelle: 'ritmodiag.com, site de RITMODiag' },
-      {
-        type: 'email',
-        url: 'mailto:tristan@estimer.co',
-        texte: 'tristan@estimer.co',
-        libelle: 'Écrire à Tristan TORNATORE : tristan@estimer.co',
-      },
-    ],
-  },
-} as const satisfies Record<string, Auteur>;
+/** Forme d'un fichier `src/content/auteurs/<id>.json` : un `Auteur` sans `id` (l'id est le nom de fichier). */
+type FicheAuteurJson = Omit<Auteur, 'id'>;
 
-export type AuteurId = keyof typeof AUTEURS;
+// Racine du projet -> `src/content/auteurs`.
+const AUTEURS_DIR = join(process.cwd(), 'src/content/auteurs');
 
-export const AUTEUR_IDS = Object.keys(AUTEURS) as [AuteurId, ...AuteurId[]];
+/**
+ * Schémas d'URL autorisés pour `liens[].url` — défense en profondeur (revue
+ * QA, majeur 2), même règle que `api/app/validators/blog_auteur.ts`
+ * (`assertLienUrlSchemes`), qui est censée avoir déjà refusé le reste avant
+ * l'écriture du fichier. Ce garde-ci protège contre une fiche qui aurait
+ * contourné cette validation (édition manuelle du JSON, régression future de
+ * l'API…) : `AuteurEncart.astro` rend `lien.url` tel quel en `href` — un
+ * schéma `javascript:` non filtré ici s'exécuterait au clic.
+ */
+const HTTP_URL_PATTERN = /^https?:\/\/.+/i;
+const MAILTO_PATTERN = /^mailto:.+/i;
+
+/** Vrai si `url` a un schéma autorisé pour ce `type` de lien. */
+export function estLienUrlAutorisee(type: TypeLien, url: string): boolean {
+  return (type === 'email' ? MAILTO_PATTERN : HTTP_URL_PATTERN).test(url);
+}
+
+/** Lit tous les fichiers `src/content/auteurs/*.json` et construit la table indexée par id. */
+function chargerAuteurs(): Record<string, Auteur> {
+  const fichiers = readdirSync(AUTEURS_DIR).filter((nom) => nom.endsWith('.json'));
+  const auteurs: Record<string, Auteur> = {};
+
+  for (const fichier of fichiers) {
+    const id = fichier.slice(0, -'.json'.length);
+    const fiche = JSON.parse(readFileSync(join(AUTEURS_DIR, fichier), 'utf8')) as FicheAuteurJson;
+    auteurs[id] = {
+      id,
+      ...fiche,
+      liens: fiche.liens.filter((lien) => estLienUrlAutorisee(lien.type, lien.url)),
+    };
+  }
+
+  return auteurs;
+}
+
+export const AUTEURS: Record<string, Auteur> = chargerAuteurs();
+
+/**
+ * Identifiant d'auteur. Avant le passage en JSON, ce type était une union
+ * littérale (`keyof typeof AUTEURS` sur un objet `as const`) : le contenu du
+ * dossier `src/content/auteurs/` n'étant connu qu'à l'exécution, il ne peut
+ * plus être qu'un `string` — la validation de forme (auteur connu ou non)
+ * reste faite par l'enum Zod ci-dessous et par l'API pour les auteurs créés
+ * par l'IA.
+ */
+export type AuteurId = string;
+
+const idsAuteurs = Object.keys(AUTEURS);
+if (idsAuteurs.length === 0) {
+  throw new Error('Aucun auteur trouvé dans src/content/auteurs/ — au moins un fichier est requis.');
+}
+
+// `z.enum` (src/content.config.ts) exige un tuple non vide : le garde ci-dessus
+// le garantit à l'exécution, d'où ce seul `as` du fichier.
+export const AUTEUR_IDS = idsAuteurs as [AuteurId, ...AuteurId[]];
 
 export const AUTEUR_PAR_DEFAUT: AuteurId = 'tristan-tornatore';
 
@@ -80,5 +129,9 @@ export function getProfilsSociaux(auteur: Auteur): string[] {
 }
 
 export function getAuteur(id: AuteurId): Auteur {
-  return AUTEURS[id];
+  const auteur = AUTEURS[id];
+  if (!auteur) {
+    throw new Error(`Auteur "${id}" introuvable dans src/content/auteurs/.`);
+  }
+  return auteur;
 }

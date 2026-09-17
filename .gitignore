@@ -20,6 +20,12 @@ api/.env
 api/.env.local
 api/.env.*.local
 
+# Serveur MCP du blog (dossier mcp/) — spec §7. Propre package.json/node_modules,
+# déjà couvert par les règles génériques `dist/` et `node_modules/` ci-dessus ;
+# explicité ici pour rester robuste si ces règles génériques sont resserrées.
+mcp/node_modules/
+mcp/dist/
+
 # divers
 .DS_Store
 *.log

@@ -142,3 +142,22 @@ export const throttleEstimationDaily = limiter.define('estimation_daily', (ctx) 
 
   return limiter.allowRequests(requests).every(duration).usingKey(keyFor('estimation_day', ctx))
 })
+
+/**
+ * `/v1/blog/**` (specs/blog-automatisation-ia.md, US A2) : quota PAR CLIENT
+ * (`blog_api_clients.id`), pas par IP — plusieurs agents IA peuvent partager
+ * une même adresse sortante, et un jeton compromis doit pouvoir être quotifié
+ * indépendamment du reste du trafic. `BlogAuthMiddleware` s'exécute TOUJOURS
+ * avant ce limiteur dans `start/routes.ts` : `ctx.blogClient` y est donc déjà
+ * posé. Le repli sur l'IP ne sert qu'à ne jamais planter si l'ordre venait à
+ * changer par erreur.
+ */
+export const throttleBlog = limiter.define('blog', (ctx) => {
+  const { requests, duration } = parseRateLimit(env.get('RATE_LIMIT_BLOG'), {
+    requests: 30,
+    duration: '1 minute',
+  })
+
+  const key = ctx.blogClient ? `blog_client:${ctx.blogClient.id}` : keyFor('blog_ip', ctx)
+  return limiter.allowRequests(requests).every(duration).usingKey(key)
+})

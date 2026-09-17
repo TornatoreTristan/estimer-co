@@ -159,6 +159,115 @@ rien de plus et n'interfère pas avec un import en cours.
 
 ---
 
+## Blog IA — automatisation `/v1/blog/**`
+
+Contrat : [`specs/blog-automatisation-ia.md`](../specs/blog-automatisation-ia.md).
+Un agent IA (via le serveur MCP [`mcp/`](../mcp/README.md), ou tout client HTTP)
+pousse des articles et des auteurs sans jamais publier directement : chaque
+écriture ouvre ou met à jour une **Pull Request** sur `estimer-co`, relue et
+mergée par un humain. Groupe de routes **distinct** de `/v1` (pas de garde
+d'Origin — appel serveur à serveur), authentifié par jeton Bearer dédié.
+
+### Créer un client
+
+```bash
+node ace blog:client:create "agent-redaction-ia" \
+  --scopes=articles:write,publish:request,auteurs:write
+```
+
+Le jeton s'affiche **une seule fois**, en clair, juste après la commande.
+Seule son empreinte SHA-256 est conservée en base (`blog_api_clients.token_hash`) ;
+il est impossible de le récupérer ensuite — en cas de perte, créer un nouveau
+client. Scopes disponibles : `articles:write`, `publish:request`,
+`auteurs:write` (`GET /auteurs`, `GET /categories` et `GET /jobs/:id` ne
+demandent aucun scope, seulement un jeton valide).
+
+### Variables d'environnement
+
+Voir la section « Automatisation IA du blog » de [`.env.example`](.env.example) :
+`GITHUB_BLOG_BOT_TOKEN` (PAT fine-grained, dépôt `estimer-co` seul,
+`contents:write` + `pull_requests:write`), `GITHUB_REPO`, `BLOG_GIT_WORKDIR`
+(volume persistant en production), `BLOG_GIT_AUTHOR_NAME`/`_EMAIL`,
+`RATE_LIMIT_BLOG`. Sans `GITHUB_BLOG_BOT_TOKEN`, le module est simplement
+inutilisable — le reste de l'API démarre normalement.
+
+L'image Docker doit contenir `git` (déjà ajouté au `Dockerfile`, spec §1.3) :
+`validate-content.mjs` tourne réellement sur la copie de travail avant chaque
+commit, jamais dupliqué côté API.
+
+### Flux d'une écriture (article ou auteur)
+
+1. L'appelant envoie `POST /v1/blog/articles` (ou `/auteurs`) avec un en-tête
+   `Idempotency-Key` **obligatoire** (UUID ou toute chaîne stable côté
+   appelant) — un retry avec la même clé rejoue la même réponse, sans
+   doublon ; la même clé avec un payload différent renvoie `422`.
+2. L'API repart de `origin/main`, ou de la branche `blog-ia/<slug>` /
+   `blog-ia/auteur-<id>` si elle existe déjà (mise à jour d'un brouillon).
+3. Elle écrit les fichiers (`.md`, `.webp`, `.json` d'auteur), exécute le vrai
+   `node scripts/validate-content.mjs --json` sur cette copie de travail
+   (aucune règle dupliquée), commit, puis pousse la branche.
+4. Elle ouvre (ou met à jour) une PR via `@octokit/rest` et répond avec son
+   URL. **Aucun merge automatique**, jamais de push direct sur `main` — la CI
+   `site.yml` tourne sur la PR (validation + `astro build`).
+5. `GET /v1/blog/jobs/:id` permet de suivre l'opération (`pending` →
+   `validating` → `pushed` → `pr_open`, puis `pr_merged`/`pr_closed` une fois
+   la PR relue) et affiche le détail d'un éventuel échec de validation
+   (`validationErrors`/`validationWarnings`) ou d'une erreur inattendue
+   (`errorMessage`).
+
+Un article créé ou mis à jour par l'IA reste en `brouillon` — seul
+`POST /v1/blog/articles/:slug/publish` le fait passer en `publie`, et
+uniquement si `validate-content.mjs` l'accepte à publication (sinon `422` avec
+le rapport complet, fichier inchangé).
+
+### Exemples `curl`
+
+```bash
+TOKEN="<jeton affiché par blog:client:create>"
+API="http://localhost:3333"
+
+# Catégories et auteurs disponibles, à consulter avant de créer un article
+curl -s "$API/v1/blog/categories" -H "Authorization: Bearer $TOKEN"
+curl -s "$API/v1/blog/auteurs" -H "Authorization: Bearer $TOKEN"
+
+# Création d'un brouillon
+curl -s -X POST "$API/v1/blog/articles" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+        "categorie": "estimation-immobiliere",
+        "title": "Estimer un appartement à Nantes",
+        "contenu": "## Introduction\n\nLe marché nantais…"
+      }'
+# → 201 { "slug": "...", "statut": "brouillon", "job": { "id": "...", "status": "pr_open" }, "prUrl": "..." }
+
+# Demande de publication (gate de contenu appliquée par le vrai script CI)
+curl -s -X POST "$API/v1/blog/articles/estimer-un-appartement-a-nantes/publish" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Idempotency-Key: $(uuidgen)"
+
+# Suivi de l'opération
+curl -s "$API/v1/blog/jobs/<id>" -H "Authorization: Bearer $TOKEN"
+```
+
+Codes d'erreur à connaître côté appelant : `401`/`403` (jeton absent, invalide
+ou scope manquant), `404` (job d'un autre client, ou slug inconnu), `409`
+(`operation_in_progress` — une opération est déjà en cours sur ce slug ; ou
+`conflict` — id d'auteur déjà pris), `422` (payload invalide, catégorie/auteur
+inconnu, `idempotency_key_reused`, ou rapport de la gate de publication),
+`429` (quota dépassé, `RATE_LIMIT_BLOG`, par client et non par IP).
+
+### Agent IA — serveur MCP
+
+[`mcp/`](../mcp/README.md) expose ces mêmes endpoints comme des outils MCP
+(`create_or_update_article`, `publish_article`, etc.), consommables
+directement par Claude Code / Claude Desktop. C'est un simple client HTTP :
+aucune règle métier n'y est reproduite, tout le comportement décrit ci-dessus
+reste piloté par cette API.
+
+---
+
 ## Points d'architecture à connaître avant de modifier
 
 ### 1. Le piège central de DVF

@@ -11,6 +11,7 @@
 import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
 import {
+  throttleBlog,
   throttleEstimation,
   throttleEstimationDaily,
   throttleGeocode,
@@ -24,6 +25,10 @@ const MetaController = () => import('#controllers/meta_controller')
 const GeocodeController = () => import('#controllers/geocode_controller')
 const EstimationsController = () => import('#controllers/estimations_controller')
 const LeadsController = () => import('#controllers/leads_controller')
+const BlogArticlesController = () => import('#controllers/blog/articles_controller')
+const BlogAuteursController = () => import('#controllers/blog/auteurs_controller')
+const BlogCategoriesController = () => import('#controllers/blog/categories_controller')
+const BlogJobsController = () => import('#controllers/blog/jobs_controller')
 
 /*
  * Sonde Coolify — HORS rate limiting et hors garde d'Origin (§6.1).
@@ -53,7 +58,10 @@ router
      */
     router
       .post('/estimations', [EstimationsController, 'store'])
-      .use([throttleEstimation, throttleEstimationDaily])
+      // 4 Ko : limite PROPRE à cette route, en complément du garde générique
+      // `BodySizeGuardMiddleware` (`start/kernel.ts`, avant le bodyparser).
+      // Voir `app/middleware/max_body_size_middleware.ts` pour le détail.
+      .use([middleware.maxBodySize({ bytes: 4096 }), throttleEstimation, throttleEstimationDaily])
 
     /*
      * Flux transactionnel : coordonnées du prospect + contexte, transmis par
@@ -75,3 +83,59 @@ router
   .prefix('/v1')
   // Garde d'Origin : actif en production uniquement (§2.6, point 3).
   .use([middleware.originGuard(), throttleGlobal])
+
+/*
+ * ══════════════════════════════════════════════════════════════════════════
+ * Automatisation IA du blog — specs/blog-automatisation-ia.md
+ * ══════════════════════════════════════════════════════════════════════════
+ * Groupe SÉPARÉ du groupe `/v1` ci-dessus, et c'est délibéré (spec §4) :
+ * appel serveur à serveur (l'agent IA), jamais depuis un navigateur — donc
+ * PAS d'`originGuard` (qui n'a de sens que pour une requête avec `Origin`).
+ * La sécurité vient d'ailleurs : jeton Bearer par client (`blogAuth`) et
+ * quota dédié PAR CLIENT (`throttleBlog`), jamais par IP.
+ *
+ * `blogAuth` s'exécute AVANT `throttleBlog` sur CHAQUE route, jamais
+ * l'inverse — et l'ordre compte : `throttleBlog` lit `ctx.blogClient.id`,
+ * posé par `blogAuth`, pour que le quota soit par client et non par IP. Un
+ * `.use([...])` au niveau du GROUPE s'exécuterait avant le `.use()` propre à
+ * chaque route ; `throttleBlog` est donc répété route par route, juste après
+ * `blogAuth`, plutôt que placé au niveau du groupe.
+ *
+ * `Idempotency-Key` (obligatoire sur tout `POST`, §4) est vérifié dans
+ * chaque contrôleur juste avant la validation du payload — pas ici : un
+ * en-tête manquant est une erreur de FORME (422), pas une question de
+ * routage.
+ */
+router
+  .group(() => {
+    // B1/B2/B3 — création/mise à jour d'un brouillon.
+    router
+      .post('/articles', [BlogArticlesController, 'store'])
+      .use([middleware.blogAuth({ scopes: ['articles:write'] }), throttleBlog])
+    // §4 : consultation de l'état d'un article (main + PR ouverte éventuelle).
+    router
+      .get('/articles/:slug', [BlogArticlesController, 'show'])
+      .use([middleware.blogAuth({ scopes: ['articles:write'] }), throttleBlog])
+    // F — passage en publié, gate appliquée par le vrai script CI.
+    router
+      .post('/articles/:slug/publish', [BlogArticlesController, 'publish'])
+      .use([middleware.blogAuth({ scopes: ['publish:request'] }), throttleBlog])
+
+    // D1 — lecture ouverte à tout client authentifié, aucun scope requis.
+    router
+      .get('/auteurs', [BlogAuteursController, 'index'])
+      .use([middleware.blogAuth(), throttleBlog])
+    // D2 — création d'un auteur, PR distincte de celle d'un article.
+    router
+      .post('/auteurs', [BlogAuteursController, 'store'])
+      .use([middleware.blogAuth({ scopes: ['auteurs:write'] }), throttleBlog])
+
+    // E1 — source unique : `src/lib/blog.ts` de la copie de travail.
+    router
+      .get('/categories', [BlogCategoriesController, 'index'])
+      .use([middleware.blogAuth(), throttleBlog])
+
+    // G1/G2 — suivi d'une opération, visible uniquement par son client créateur.
+    router.get('/jobs/:id', [BlogJobsController, 'show']).use([middleware.blogAuth(), throttleBlog])
+  })
+  .prefix('/v1/blog')

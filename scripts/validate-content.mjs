@@ -26,6 +26,14 @@
  * Sortie : rapport texte groupé par fichier, code de sortie 1 si au moins une
  * ERREUR (les AVERTISSEMENTS n'affectent jamais le code de sortie).
  *
+ * Flag `--json` (specs/blog-automatisation-ia.md §1.2) : imprime sur stdout
+ * `{ "errors": [...], "warnings": [...] }` (les objets `Issue` ci-dessus,
+ * sans le texte formaté) au lieu du rapport texte, pour être consommé par
+ * l'API (`api/`) qui exécute ce script sur sa copie de travail avant de
+ * commiter. Le mode texte reste le défaut (utilisé tel quel par la CI). Le
+ * code de sortie ne change pas dans les deux modes : 1 si au moins une
+ * ERREUR, 0 sinon.
+ *
  * Décision documentée — `regionParente doit référencer une région existante` :
  * la consigne place cette règle dans la liste des vérifications "toujours
  * actives" (avec l'unicité des slugs et les slugs réservés), en dehors de la
@@ -308,7 +316,7 @@ export function checkArticleGate(entry) {
 // vérifications, imprime le rapport, quitte avec le bon code de sortie.
 // -----------------------------------------------------------------------------
 
-function main() {
+function main({ json = false } = {}) {
   const entriesByCollection = Object.fromEntries(
     ['regions', 'departements', 'partenaires', 'pages', 'articles'].map((c) => [c, readEntries(c)])
   );
@@ -427,6 +435,13 @@ function main() {
   const errors = issues.filter((i) => i.level === 'error');
   const warnings = issues.filter((i) => i.level === 'warning');
 
+  if (json) {
+    // Sortie machine : uniquement les `Issue` (pas le texte formaté ci-dessous,
+    // ni les décomptes), pour que l'API n'ait qu'à lire `errors`/`warnings`.
+    console.log(JSON.stringify({ errors, warnings }));
+    return errors.length > 0 ? 1 : 0;
+  }
+
   const totalEntries = Object.values(entriesByCollection).reduce((sum, e) => sum + e.length, 0);
   const publishedEntries = Object.values(entriesByCollection)
     .flat()
@@ -468,5 +483,6 @@ function main() {
 // importé par `scripts/test-blog-content.mjs`. Même garde que
 // `scripts/build-gtm-container.mjs`.
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  process.exit(main());
+  const json = process.argv.includes('--json');
+  process.exit(main({ json }));
 }

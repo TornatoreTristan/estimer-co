@@ -1,0 +1,30 @@
+{
+  "name": "estimer-blog-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Serveur MCP (stdio) exposant l'automatisation IA du blog estimer.co (specs/blog-automatisation-ia.md §7). Simple client HTTP de l'API — aucune règle métier réimplémentée.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "estimer-blog-mcp": "./dist/src/index.js"
+  },
+  "main": "./dist/src/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "start": "node dist/src/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json && node --test dist/tests/*.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "~5.9.0"
+  }
+}

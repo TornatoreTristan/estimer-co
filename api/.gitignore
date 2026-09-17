@@ -30,3 +30,6 @@ yarn-error.log
 
 # Platform specific
 .DS_Store
+
+# Schéma régénéré par `node ace migration:run` (codegen Lucid) : jamais commité.
+database/schema.ts

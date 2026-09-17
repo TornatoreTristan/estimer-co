@@ -1,0 +1,33 @@
+{
+  "nom": "Tristan TORNATORE",
+  "fonction": "Cofondateur d'Estimer.co",
+  "bio": "Passionné par l'immobilier, j'ai acheté mon premier investissement locatif à 25 ans et participé au développement de la franchise RITMODiag pour la réalisation des diagnostics immobiliers dans le cadre de vente ou location d'appartement. Plus récemment, j'ai également entrepris dans l'optimisation de biens immobiliers dans une entreprise de rénovation et de travaux d'entretien.",
+  "photo": "/auteurs/tristan-tornatore.webp",
+  "initiales": "TT",
+  "liens": [
+    {
+      "type": "linkedin",
+      "url": "https://www.linkedin.com/in/tristan-digital-freelance/",
+      "texte": "LinkedIn",
+      "libelle": "Profil LinkedIn de Tristan TORNATORE"
+    },
+    {
+      "type": "x",
+      "url": "https://x.com/TristanDev_",
+      "texte": "X",
+      "libelle": "Profil X de Tristan TORNATORE"
+    },
+    {
+      "type": "site",
+      "url": "https://ritmodiag.com",
+      "texte": "ritmodiag.com",
+      "libelle": "ritmodiag.com, site de RITMODiag"
+    },
+    {
+      "type": "email",
+      "url": "mailto:tristan@estimer.co",
+      "texte": "tristan@estimer.co",
+      "libelle": "Écrire à Tristan TORNATORE : tristan@estimer.co"
+    }
+  ]
+}

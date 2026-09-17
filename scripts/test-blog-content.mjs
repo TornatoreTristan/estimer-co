@@ -46,7 +46,14 @@ import {
   checkArticlesLies,
   checkArticleGate,
 } from './validate-content.mjs';
-import { AUTEURS, AUTEUR_IDS, AUTEUR_PAR_DEFAUT, getAuteur, getProfilsSociaux } from '../src/lib/auteurs.ts';
+import {
+  AUTEURS,
+  AUTEUR_IDS,
+  AUTEUR_PAR_DEFAUT,
+  estLienUrlAutorisee,
+  getAuteur,
+  getProfilsSociaux,
+} from '../src/lib/auteurs.ts';
 
 // -----------------------------------------------------------------------------
 // src/lib/blog.ts — catégories
@@ -370,4 +377,21 @@ test('les liens auteur sont absolus et leur nom accessible reprend le texte visi
 test('sameAs ne retient que les profils de la personne', () => {
   const profils = getProfilsSociaux(getAuteur('tristan-tornatore'));
   assert.deepEqual(profils, ['https://www.linkedin.com/in/tristan-digital-freelance/', 'https://x.com/TristanDev_']);
+});
+
+// Revue QA, majeur 2 : `AuteurEncart.astro` rend `lien.url` tel quel en
+// `href` — défense en profondeur en cas de fiche qui aurait contourné la
+// validation API (`api/app/validators/blog_auteur.ts`, assertLienUrlSchemes).
+test('estLienUrlAutorisee rejette les schémas dangereux (ex. javascript:)', () => {
+  assert.equal(estLienUrlAutorisee('site', 'javascript:alert(1)'), false);
+  assert.equal(estLienUrlAutorisee('linkedin', 'javascript:alert(1)'), false);
+  assert.equal(estLienUrlAutorisee('email', 'javascript:alert(1)'), false);
+  assert.equal(estLienUrlAutorisee('site', 'data:text/html,<script>alert(1)</script>'), false);
+});
+
+test('estLienUrlAutorisee accepte http(s) pour les liens web, mailto: pour email', () => {
+  assert.equal(estLienUrlAutorisee('site', 'https://exemple.fr'), true);
+  assert.equal(estLienUrlAutorisee('linkedin', 'http://exemple.fr'), true);
+  assert.equal(estLienUrlAutorisee('email', 'mailto:contact@exemple.fr'), true);
+  assert.equal(estLienUrlAutorisee('email', 'contact@exemple.fr'), false);
 });

@@ -86,12 +86,23 @@ if (discordSettings.enabled) {
  *
  * `client_ip_middleware` est placé en tête : l'IP résolue doit être
  * disponible pour tout ce qui suit (rate limiting, journalisation).
+ *
+ * `body_size_guard_middleware` est placé APRÈS ces middlewares légers (aucun
+ * d'eux ne lit le corps de la requête) mais AVANT `router.use([...])`
+ * ci-dessous, où vit `bodyparser_middleware` — c'est cet ordre précis qui lui
+ * permet de rejeter un corps trop volumineux (413), envoyé sans
+ * `Content-Length` (411), ou une requête `/v1/blog/**` sans jeton Bearer au
+ * bon format (401), AVANT qu'un seul octet du corps ne soit lu. Voir
+ * `app/lib/body_size_guard.ts` pour le détail (spec revue QA, critique C1) :
+ * l'ancien `MaxBodySizeMiddleware`, middleware NOMMÉ posé route par route,
+ * s'exécutait après `bodyparser_middleware` et ne protégeait donc rien.
  */
 server.use([
   () => import('#middleware/container_bindings_middleware'),
   () => import('#middleware/client_ip_middleware'),
   () => import('#middleware/force_json_response_middleware'),
   () => import('@adonisjs/cors/cors_middleware'),
+  () => import('#middleware/body_size_guard_middleware'),
 ])
 
 /**
@@ -105,4 +116,6 @@ router.use([() => import('@adonisjs/core/bodyparser_middleware')])
  */
 export const middleware = router.named({
   originGuard: () => import('#middleware/origin_guard_middleware'),
+  blogAuth: () => import('#middleware/blog_auth_middleware'),
+  maxBodySize: () => import('#middleware/max_body_size_middleware'),
 })

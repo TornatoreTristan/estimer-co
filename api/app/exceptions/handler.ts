@@ -2,6 +2,7 @@ import app from '@adonisjs/core/services/app'
 import { type HttpContext, ExceptionHandler } from '@adonisjs/core/http'
 import { errors as vineErrors } from '@vinejs/vine'
 import { errors as limiterErrors } from '@adonisjs/limiter'
+import { BlogHttpError } from '#exceptions/blog_errors'
 
 /**
  * Gestionnaire d'erreurs HTTP — spec §6.1.
@@ -33,6 +34,16 @@ export default class HttpExceptionHandler extends ExceptionHandler {
         message: `Trop de requêtes, réessayez dans ${retryAfter} secondes.`,
         retryAfter,
       })
+    }
+
+    /*
+     * Erreurs applicatives du module blog (specs/blog-automatisation-ia.md) :
+     * chaque instance porte déjà son statut ET son corps exact — on les rend
+     * tels quels, avant le cas générique `isHttpError` ci-dessous qui ne
+     * connaît que `.status`.
+     */
+    if (error instanceof BlogHttpError) {
+      return ctx.response.status(error.status).send(error.body)
     }
 
     /*

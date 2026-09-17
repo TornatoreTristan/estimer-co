@@ -21,14 +21,27 @@ const bodyParserConfig = defineConfig({
    */
   json: {
     /**
-     * §2.6, point 2 : « payload borné — bodyParser limité à 4 Ko sur
-     * /v1/* ». Le seul corps JSON accepté par cette API est celui de
-     * `POST /v1/estimations` (§6.1) : une quinzaine de champs scalaires, soit
-     * quelques centaines d'octets. 4 Ko laisse une marge confortable tout en
-     * rendant sans objet toute tentative d'épuisement mémoire par corps
-     * volumineux sur un endpoint public et non authentifié.
+     * §2.6, point 2 : « payload borné ». Cette limite est GLOBALE (le
+     * bodyparser ne se configure pas par route) — elle doit donc couvrir le
+     * plus gros corps JSON légitime de toute l'API : `POST /v1/blog/articles`
+     * peut porter une image en base64 (specs/blog-automatisation-ia.md, C1-C4 :
+     * jusqu'à 10 Mo DÉCODÉS, donc ~13,3 Mo encodés, plus le frontmatter). Elle
+     * remplace l'ancienne limite de 4 Ko, redevenue insuffisante avec ce
+     * module.
+     *
+     * Cette limite de 15 Mo n'est PAS la seule protection en dehors du blog :
+     * `BodySizeGuardMiddleware` (`app/middleware/body_size_guard_middleware.ts`,
+     * enregistré dans `server.use([...])`, donc AVANT le bodyparser) rejette
+     * déjà, sans lire un octet, tout corps déclaré au-delà de
+     * `DEFAULT_MAX_BODY_BYTES` sur toute route hors `/v1/blog/**` — 15 Mo
+     * n'est donc atteignable, en pratique, que sur le blog (authentifié) ou
+     * par un client qui ment sur son `Content-Length` (borné dans tous les
+     * cas par CETTE limite globale — voir le commentaire de tête de
+     * `app/lib/body_size_guard.ts`). `/v1/estimations` garde en plus sa
+     * propre limite de 4 Ko, appliquée par `MaxBodySizeMiddleware`
+     * (`start/routes.ts`).
      */
-    limit: '4kb',
+    limit: '15mb',
     convertEmptyStringsToNull: true,
     types: [
       'application/json',

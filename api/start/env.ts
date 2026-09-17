@@ -179,4 +179,34 @@ export default await Env.create(new URL('../', import.meta.url), {
   GOOGLE_MAPS_API_KEY: Env.schema.string.optional(),
   /** Délai maximal du téléchargement de la vignette, en ms (défaut 4000). */
   STATIC_MAP_TIMEOUT: Env.schema.number.optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Automatisation IA du blog (specs/blog-automatisation-ia.md §5)
+  |--------------------------------------------------------------------------
+  |
+  | Toutes optionnelles ici, et c'est délibéré : un déploiement existant qui
+  | ignore ce module démarre sans y toucher. C'est le module blog lui-même qui
+  | échoue bruyamment (erreur explicite) si on l'appelle sans configuration —
+  | jamais le démarrage de tout le service pour une fonctionnalité annexe.
+  |
+  */
+  // PAT fine-grained GitHub, dépôt estimer-co seul, contents:write + pull_requests:write.
+  // JAMAIS journalisé, jamais écrit dans .git/config (voir BlogGitService).
+  GITHUB_BLOG_BOT_TOKEN: Env.schema.string.optional(),
+  // "propriétaire/dépôt", ex. TornatoreTristan/estimer-co.
+  GITHUB_REPO: Env.schema.string.optional(),
+  // Copie de travail persistante du dépôt Git (spec §1.3) : un volume dédié
+  // en production, un dossier temporaire par test.
+  BLOG_GIT_WORKDIR: Env.schema.string.optional(),
+  BLOG_GIT_AUTHOR_NAME: Env.schema.string.optional(),
+  BLOG_GIT_AUTHOR_EMAIL: Env.schema.string.optional(),
+  // Point de bascule pour les tests : une URL de remote Git QUELCONQUE (ex.
+  // un dépôt local "bare" dans un dossier temporaire), en lieu et place de
+  // `https://github.com/<GITHUB_REPO>.git`. Ne sert jamais en production.
+  BLOG_GIT_REMOTE_URL: Env.schema.string.optional(),
+  // Point de bascule pour les tests : base d'API GitHub, pour rediriger
+  // Octokit vers un serveur HTTP local au lieu de `https://api.github.com`.
+  GITHUB_API_BASE_URL: Env.schema.string.optional(),
+  RATE_LIMIT_BLOG: Env.schema.string.optional(),
 })

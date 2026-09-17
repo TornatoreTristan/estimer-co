@@ -78,7 +78,7 @@ test.group('Registre de consentement', () => {
     assert.isNotEmpty(entree!.partenaires)
   })
 
-  test("la preuve archivée reprend le bouton qui vaut accord, puis la mention", ({ assert }) => {
+  test('la preuve archivée reprend le bouton qui vaut accord, puis la mention', ({ assert }) => {
     // Le clic sur le bouton est le geste d'accord, et c'est son libellé qui
     // dit « être rappelé » : la preuve doit le contenir.
     const entree = resolvePartnerConsent(CURRENT_PARTNER_CONSENT_VERSION)!
