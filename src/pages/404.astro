@@ -1,12 +1,45 @@
 ---
+import { getCollection } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
+import ArticleList from '../components/blog/ArticleList.astro';
+import { getPublishedSortedArticles } from '../lib/blog';
 
 /**
  * `src/pages/404.astro` est un nom spécial pour Astro : il est toujours écrit
- * en `dist/404.html`, quel que soit `build.format` (astro.config.mjs), pour
- * que GitHub Pages puisse le servir comme page d'erreur du site (specs
- * §3 "404" : une catégorie ou un slug inconnu doit y renvoyer).
+ * en `dist/404.html`, quel que soit `build.format` (astro.config.mjs). C'est
+ * `nginx.conf` (`error_page 404`) qui le sert pour toute URL inconnue — sans
+ * cette directive nginx afficherait sa propre page blanche (specs §3 "404" :
+ * une catégorie ou un slug inconnu doit y renvoyer).
+ *
+ * La page est servie telle quelle sur n'importe quelle profondeur d'URL :
+ * tous les liens et ressources y sont donc absolus.
  */
+
+const destinations = [
+  {
+    href: '/estimation/',
+    titre: 'Estimer mon bien',
+    texte: 'Trois minutes, gratuit, rapport complet immédiat.',
+  },
+  {
+    href: '/carte/',
+    titre: "Prix de l'immobilier",
+    texte: 'Le prix au m² de votre région et de votre département.',
+  },
+  {
+    href: '/blog/',
+    titre: 'Le blog',
+    texte: 'Guides pratiques sur l’estimation, la vente et le marché.',
+  },
+  {
+    href: '/contact/',
+    titre: 'Nous contacter',
+    texte: 'Un lien cassé à nous signaler ? Une vraie personne vous lit.',
+  },
+];
+
+const allArticles = await getCollection('articles');
+const derniersArticles = getPublishedSortedArticles(allArticles.map((entry) => entry.data)).slice(0, 3);
 ---
 
 <BaseLayout
@@ -16,32 +49,283 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 >
   <section class="not-found">
     <div class="container">
-      <span class="eyebrow">Erreur 404</span>
-      <h1>Cette page n'existe pas</h1>
-      <p class="lead">
-        Le lien que vous avez suivi est peut-être ancien, ou l'adresse comporte une erreur.
-      </p>
-      <div class="btn-row btn-row--center">
-        <a href="/" class="btn btn--primary btn--lg">Retour à l'accueil</a>
-        <a href="/estimation/" class="btn btn--outline btn--lg">Estimer mon bien</a>
-        <a href="/blog/" class="btn btn--outline btn--lg">Explorer le blog</a>
+      <div class="not-found__grid">
+        <div class="not-found__copy">
+          <span class="eyebrow">Erreur 404</span>
+          <h1>Ce bien n'est pas au cadastre.</h1>
+          <p class="lead">
+            La page que vous cherchez a déménagé, ou l'adresse comporte une erreur. Pas
+            d'inquiétude : tout le reste du site est bien là.
+          </p>
+          <div class="btn-row">
+            <a href="/" class="btn btn--primary btn--lg">Retour à l'accueil</a>
+            <a href="/estimation/" class="btn btn--outline btn--lg">Estimer mon bien</a>
+          </div>
+        </div>
+
+        {/* Une fiche d'estimation « ratée » : le langage visuel du rapport,
+            appliqué à l'adresse demandée. */}
+        <div class="not-found__sheet" aria-hidden="true">
+          <div class="sheet">
+          <div class="sheet__head">
+            <span>Fiche d'estimation</span>
+            <span>N° 404</span>
+          </div>
+          <svg class="sheet__house" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 140H190" stroke="currentColor" stroke-width="1" />
+            <path d="M40 70 100 20l60 50" stroke="#ff6e34" stroke-width="6" stroke-linecap="square" fill="none" />
+            <path d="M52 64v76h96V64" stroke="currentColor" stroke-width="6" stroke-dasharray="14 10" fill="none" />
+            <rect x="88" y="100" width="24" height="40" fill="currentColor" />
+            <text x="100" y="86" text-anchor="middle">?</text>
+          </svg>
+          <dl class="sheet__rows">
+            <div>
+              <dt>Adresse</dt>
+              <dd class="sheet__path" id="notFoundPath">introuvable</dd>
+            </div>
+            <div>
+              <dt>Surface</dt>
+              <dd>0 m²</dd>
+            </div>
+            <div>
+              <dt>Valeur estimée</dt>
+              <dd class="sheet__value">404</dd>
+            </div>
+          </dl>
+          </div>
+        </div>
       </div>
     </div>
   </section>
+
+  <section class="section section--white">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Par où reprendre</span>
+        <h2>Les pages les plus utiles</h2>
+      </div>
+      <div class="grid grid--4">
+        {
+          destinations.map((destination) => (
+            <a href={destination.href} class="card card--hover destination">
+              <h3>{destination.titre}</h3>
+              <p>{destination.texte}</p>
+              <span class="link-arrow">Y aller</span>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  {
+    derniersArticles.length > 0 && (
+      <section class="section section--beige">
+        <div class="container">
+          <div class="section-head">
+            <span class="eyebrow">Derniers articles</span>
+            <h2>À lire en attendant</h2>
+          </div>
+          <ArticleList articles={derniersArticles} />
+        </div>
+      </section>
+    )
+  }
 </BaseLayout>
+
+{/* Page statique partagée par toutes les URL inconnues : seul le navigateur
+    connaît l'adresse demandée. `textContent`, jamais `innerHTML` — le chemin
+    vient de l'URL, donc du visiteur ou d'un lien tiers. */}
+<script is:inline>
+  (function () {
+    var el = document.getElementById('notFoundPath');
+    if (!el) return;
+    var path = window.location.pathname;
+    try {
+      path = decodeURI(path);
+    } catch (e) {
+      // URL mal encodée : on l'affiche brute.
+    }
+    if (path && path !== '/404.html') el.textContent = path;
+  })();
+</script>
 
 <style>
   .not-found {
-    padding: clamp(4rem, 2rem + 8vw, 8rem) 0;
-    text-align: center;
+    padding: var(--section) 0;
+    background: var(--beige-25);
+    border-bottom: 1px solid var(--beige-75);
+    overflow: hidden;
+  }
+
+  .not-found__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    gap: clamp(2.5rem, 1rem + 5vw, 5rem);
+    align-items: center;
   }
 
   .not-found h1 {
-    margin: 0.5rem 0 1rem;
+    margin-bottom: 1.25rem;
   }
 
   .not-found .lead {
     max-width: 34rem;
-    margin: 0 auto 2rem;
+    margin-bottom: 2rem;
+  }
+
+  /* ---- Fiche */
+
+  .not-found__sheet {
+    position: relative;
+    transform: rotate(1.5deg);
+    animation: sheet-in 0.7s var(--ease) both;
+  }
+
+  /* Le filet décalé tient lieu d'ombre, sans en être une. Il vit sur le
+     conteneur et la fiche passe devant : un `z-index: -1` sous la fiche
+     elle-même resterait peint par-dessus son fond (contexte d'empilement
+     créé par le `transform`). */
+  .not-found__sheet::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--aubergine-5);
+    transform: translate(10px, 10px);
+  }
+
+  .sheet {
+    position: relative;
+    background: var(--white);
+    border: 1px solid var(--border);
+    padding: clamp(1.25rem, 0.75rem + 1.5vw, 2rem);
+  }
+
+  .sheet__head {
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 0.875rem;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: var(--text-tiny);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--aubergine-3);
+  }
+
+  .sheet__house {
+    width: min(100%, 16rem);
+    margin: 1.5rem auto 1rem;
+    color: var(--black);
+  }
+
+  .sheet__house text {
+    font-family: var(--font-mono);
+    font-size: 1.75rem;
+    font-weight: 500;
+    fill: var(--orange);
+  }
+
+  .sheet__house path:first-of-type + path {
+    transform-origin: 100px 45px;
+    animation: roof-wobble 4s var(--ease) infinite;
+  }
+
+  .sheet__rows div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-top: 1px dashed var(--border-strong);
+  }
+
+  .sheet__rows dt {
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+    flex-shrink: 0;
+  }
+
+  .sheet__rows dd {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    text-align: right;
+    min-width: 0;
+  }
+
+  .sheet__path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--error);
+    text-decoration: line-through;
+  }
+
+  .sheet__value {
+    font-size: clamp(2.5rem, 1.5rem + 3vw, 3.75rem) !important;
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    color: var(--orange);
+  }
+
+  /* ---- Destinations */
+
+  .destination {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .destination p {
+    margin-bottom: 1.5rem;
+  }
+
+  .destination .link-arrow {
+    margin-top: auto;
+    align-self: flex-start;
+  }
+
+  .destination:hover .link-arrow {
+    color: var(--orange);
+    border-color: var(--orange);
+  }
+
+  @keyframes sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(1.5rem) rotate(4deg);
+    }
+  }
+
+  @keyframes roof-wobble {
+    0%,
+    70%,
+    100% {
+      transform: rotate(0);
+    }
+    78% {
+      transform: rotate(-4deg);
+    }
+    88% {
+      transform: rotate(2deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .not-found__sheet,
+    .sheet__house path {
+      animation: none !important;
+    }
+  }
+
+  @media (max-width: 860px) {
+    .not-found__grid {
+      grid-template-columns: 1fr;
+    }
+
+    .not-found__sheet {
+      max-width: 26rem;
+      margin-right: 10px;
+    }
   }
 </style>
