@@ -5,6 +5,9 @@ title: "Succession : comment estimer le prix d'une maison au juste prix ?"
 metaTitle: "Succession : comment estimer le prix d'une maison ?"
 metaDescription: "Maison en succession : pourquoi l'estimation immobilière est essentielle, quand faire appel au notaire et comment éviter les erreurs de valeur."
 extrait: "Valeur vénale, rôle du notaire, indivision et partage : comment déterminer le prix d'une maison dans une succession sans la sous-évaluer ni la surévaluer."
+image: /images/blog/succession-estimation-prix-maison.webp
+imageAlt: "Une professionnelle en tailleur noir, dossier à la main, désigne un mur à un couple lors de la visite d'un logement vide en travaux"
+imageCadrage: 40
 motsClesCibles:
   - succession
   - estimation maison succession
