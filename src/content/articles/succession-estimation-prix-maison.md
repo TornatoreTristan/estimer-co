@@ -63,9 +63,9 @@ On parle souvent de **valeur vénale** : c'est la valeur de marché du bien, com
 
 Les droits de succession sont calculés à partir de la valeur transmise, après application des règles propres à la situation familiale et au lien de parenté. L'estimation de la maison peut donc influencer le montant à payer.
 
-Selon Service-public.fr, la déclaration de succession doit être adressée aux services fiscaux afin de permettre le calcul des droits. En France métropolitaine, le dépôt intervient en principe dans les **6 mois suivant le décès** ; en cas de décès à l'étranger, le délai indiqué est de **12 mois**. Les droits sont en principe réglés au moment du dépôt de la déclaration.
+Selon Service-public.fr, la déclaration de succession doit être adressée aux services fiscaux afin de permettre le calcul des droits. En France métropolitaine, le dépôt intervient en principe dans les **6 mois suivant le décès** ; en cas de décès à l'étranger, le délai indiqué est de **12 mois**. Des délais spécifiques s'appliquent dans les départements et régions d'outre-mer. Les droits sont en principe réglés au moment du dépôt de la déclaration.
 
-Certains héritiers peuvent être dispensés de déclaration, dans des cas limités. Service-public.fr indique par exemple que les enfants, petits-enfants ou parents peuvent l'être lorsque l'actif brut successoral est inférieur à 50 000 €, sous réserve notamment de n'avoir reçu que des dons manuels ou donations déclarés ou enregistrés. Ces règles doivent être vérifiées selon la situation réelle du dossier.
+Certains héritiers peuvent être dispensés de déclaration, dans des cas limités. Service-public.fr indique par exemple que l'enfant, le petit-enfant, le parent du défunt, l'époux ou le partenaire de Pacs peuvent l'être lorsque l'actif brut successoral est inférieur à 50 000 €, sous réserve de n'avoir bénéficié que de dons manuels ou de donations déclarés ou enregistrés. Un second cas de dispense existe pour les autres bénéficiaires, lorsque l'actif brut successoral est inférieur à 3 000 €. Ces règles doivent être vérifiées selon la situation réelle du dossier.
 
 ### Éviter les tensions entre héritiers
 
@@ -228,9 +228,9 @@ En cas de désaccord, il est préférable d'éviter les estimations « à l'intu
 
 Les frais liés à une succession ne se limitent pas à l'estimation. Ils peuvent comprendre des émoluments réglementés, des débours, des droits et taxes, ainsi que la TVA.
 
-Service-public.fr indique que les tarifs des notaires en matière de succession combinent des tarifs réglementés et des frais non réglementés. Certains actes ont des montants fixes, par exemple l'acte de notoriété à 56,60 € HT ou l'inventaire à 75,46 € HT selon les éléments publiés par Service-public.fr. D'autres émoluments sont proportionnels à l'actif successoral brut ou à la valeur du bien.
+Service-public.fr indique que les tarifs des notaires en matière de succession combinent des tarifs réglementés et des frais non réglementés. Certains actes ont des montants fixes, par exemple l'acte de notoriété à 56,60 € HT ou l'inventaire à 75,46 € HT selon les éléments publiés par Service-public.fr. D'autres émoluments sont proportionnels à l'actif successoral brut ou à la valeur du bien. Ces montants s'entendent hors taxes et valent pour la France métropolitaine : les départements et régions d'outre-mer appliquent des barèmes distincts.
 
-Pour la déclaration de succession, Service-public.fr mentionne notamment un barème proportionnel par tranches depuis janvier 2021 :
+Pour la déclaration de succession, Service-public.fr mentionne notamment un barème proportionnel par tranches depuis le 1er janvier 2021, en métropole :
 
 - de 0 à 6 500 € : 1,548 % HT ;
 - de 6 500 € à 17 000 € : 0,851 % HT ;
