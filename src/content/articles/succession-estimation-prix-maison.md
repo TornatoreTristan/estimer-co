@@ -36,7 +36,7 @@ faq:
 articlesLies:
   - comment-estimer-son-bien-immobilier-guide-complet
   - estimation-maison-caen
-statut: brouillon
+statut: publie
 datePublication: 2026-09-18
 dateMiseAJour: 2026-09-18
 ---
